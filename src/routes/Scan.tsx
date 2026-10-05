@@ -52,7 +52,7 @@ export function ScanPage() {
       <button
         type="button"
         onClick={() => setCamera(true)}
-        className="grad-cyan flex min-h-[150px] w-full flex-col items-center justify-center gap-3 rounded-[14px] text-cyan-ink shadow-[0_12px_32px_rgb(45_174_196/0.3)] active:brightness-110"
+        className="vw-press grad-cyan flex min-h-[150px] w-full flex-col items-center justify-center gap-3 rounded-[14px] text-cyan-ink shadow-[0_12px_32px_rgb(45_174_196/0.3)] active:brightness-110"
       >
         <ScanLine className="size-12" strokeWidth={2} />
         <span className="text-[17px] font-semibold lowercase">open camera</span>

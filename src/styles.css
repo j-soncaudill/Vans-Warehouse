@@ -176,11 +176,109 @@ body::before {
   }
 }
 
+/* ------------------------------------------------------------------ motion
+   Short, quiet, and only where something happens: screens settle in, lists
+   cascade, taps answer with a small press, live things pulse. */
+:root {
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes vw-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes vw-fade {
+  from { opacity: 0; }
+}
+@keyframes vw-sheet {
+  from { opacity: 0; transform: translateY(28px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes vw-drop {
+  from { opacity: 0; transform: translateY(-12px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes vw-pop {
+  0% { opacity: 0; transform: scale(0.5); }
+  60% { opacity: 1; transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+@keyframes vw-tap {
+  0% { transform: scale(0.86); }
+  100% { transform: scale(1); }
+}
+@keyframes vw-lift {
+  0% { transform: translateY(0); }
+  40% { transform: translateY(-4px); }
+  100% { transform: translateY(0); }
+}
+@keyframes vw-grow-x {
+  from { transform: scaleX(0); opacity: 0; }
+  to { transform: scaleX(1); opacity: 1; }
+}
+@keyframes vw-ping {
+  0% { transform: scale(1); opacity: 0.6; }
+  80%, 100% { transform: scale(3.4); opacity: 0; }
+}
+@keyframes vw-flash {
+  0% { background-color: rgb(45 174 196 / 0.18); }
+  100% { background-color: rgb(45 174 196 / 0); }
+}
+@keyframes vw-sweep {
+  0%, 100% { top: 6%; }
+  50% { top: 94%; }
+}
+@keyframes vw-shake {
+  10%, 90% { transform: translateX(-2px); }
+  20%, 80% { transform: translateX(4px); }
+  30%, 50%, 70% { transform: translateX(-7px); }
+  40%, 60% { transform: translateX(7px); }
+}
+@keyframes vw-flow {
+  from { background-position: 0% 50%; }
+  to { background-position: 200% 50%; }
+}
+
+.vw-page { animation: vw-rise 0.34s var(--ease-out) backwards; }
+.vw-fade { animation: vw-fade 0.2s ease-out both; }
+.vw-sheet { animation: vw-sheet 0.36s var(--ease-out) backwards; }
+.vw-drop { animation: vw-drop 0.32s var(--ease-spring) backwards; }
+.vw-pop { animation: vw-pop 0.5s var(--ease-spring) backwards; }
+.vw-tap { animation: vw-tap 0.28s var(--ease-spring); }
+.vw-lift { animation: vw-lift 0.42s var(--ease-spring); }
+.vw-grow-x { animation: vw-grow-x 0.3s var(--ease-out) both; }
+.vw-shake { animation: vw-shake 0.42s ease-in-out; }
+/* List rows cascade in; --i is the row index (capped so long lists stay quick). */
+.vw-row {
+  animation: vw-rise 0.38s var(--ease-out) backwards;
+  animation-delay: calc(min(var(--i, 0), 12) * 32ms);
+}
+/* A row that arrived over realtime from another phone glows once. */
+.vw-new { animation: vw-rise 0.38s var(--ease-out) backwards, vw-flash 1.6s ease-out 0.2s backwards; }
+.vw-ping { animation: vw-ping 2.4s cubic-bezier(0, 0, 0.2, 1) infinite; }
+.vw-sweep { animation: vw-sweep 2.6s ease-in-out infinite; }
+/* The brand rule above the tabs drifts slowly, cyan into red. */
+.brand-rule.vw-flow {
+  background: linear-gradient(90deg, rgb(45 174 196 / 0), var(--color-cyan), var(--color-brandred), rgb(197 44 46 / 0), var(--color-cyan), var(--color-brandred), rgb(45 174 196 / 0));
+  background-size: 200% 100%;
+  animation: vw-flow 9s linear infinite;
+}
+/* Every button and tappable row answers a press. */
+.vw-press {
+  transition: transform 0.18s var(--ease-out), filter 0.18s ease-out, background-color 0.18s ease-out, border-color 0.18s ease-out, color 0.18s ease-out, opacity 0.18s ease-out, box-shadow 0.18s ease-out;
+}
+.vw-press:active:not(:disabled),
+.vw-press[data-pressed]:not(:disabled) { transform: scale(0.97); filter: brightness(1.12); }
+/* No double-tap zoom delay on phones, so taps answer at once. */
+a, button, input, select, textarea, label, [role="radio"] { touch-action: manipulation; }
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 }

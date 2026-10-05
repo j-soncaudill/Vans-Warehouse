@@ -23,13 +23,15 @@ function LiveDot({ status }: { status: LiveStatus }) {
   const text = s === "live" ? "live" : s === "connecting" ? "connecting" : "offline";
   return (
     <span className={cx("flex items-center gap-1.5 text-[12px]", s === "offline" ? "text-danger" : s === "live" ? "text-cyan" : "text-dim")} aria-live="polite">
-      <span
-        aria-hidden
-        className={cx(
-          "size-1.5 rounded-full",
-          s === "live" ? "bg-cyan shadow-[0_0_8px_var(--color-cyan)]" : s === "connecting" ? "border border-cyan" : "bg-danger",
-        )}
-      />
+      <span aria-hidden className="relative flex size-1.5">
+        {s === "live" ? <span className="vw-ping absolute inset-0 rounded-full bg-cyan" /> : null}
+        <span
+          className={cx(
+            "relative size-1.5 rounded-full",
+            s === "live" ? "bg-cyan shadow-[0_0_8px_var(--color-cyan)]" : s === "connecting" ? "animate-pulse border border-cyan" : "bg-danger",
+          )}
+        />
+      </span>
       {text}
     </span>
   );
@@ -76,19 +78,23 @@ export function Shell({ children }: { children: ReactNode }) {
           to="/more"
           aria-label="Backup and restore"
           className={cx(
-            "inline-flex size-11 items-center justify-center rounded-[var(--radius-box)] border bg-panel active:bg-raised",
+            "vw-press inline-flex size-11 items-center justify-center rounded-[var(--radius-box)] border bg-panel active:bg-raised",
             path === "/more" ? "border-cyan text-cyan" : "border-line text-ink",
           )}
         >
           <DatabaseBackup className="size-5" strokeWidth={1.9} />
         </Link>
       </header>
-      <main className="flex-1 px-4 pt-3 pb-[calc(104px+env(safe-area-inset-bottom))]">{children}</main>
+      <main className="flex-1 px-4 pt-3 pb-[calc(104px+env(safe-area-inset-bottom))]">
+        <div key={path} className="vw-page">
+          {children}
+        </div>
+      </main>
       <nav
         aria-label="Main"
         className="fixed inset-x-0 bottom-0 z-30 bg-[linear-gradient(180deg,rgb(18_9_11/0)_0%,rgb(12_8_10/0.92)_30%)] px-2 pb-[max(env(safe-area-inset-bottom),14px)]"
       >
-        <div aria-hidden className="brand-rule mx-auto mb-1 max-w-2xl opacity-80" />
+        <div aria-hidden className="brand-rule vw-flow mx-auto mb-1 max-w-2xl opacity-80" />
         <div className="mx-auto grid max-w-2xl grid-cols-4">
           {TABS.map(({ to, label, icon: Icon }) => {
             const on = to === "/" ? path === "/" : path.startsWith(to);
@@ -98,11 +104,12 @@ export function Shell({ children }: { children: ReactNode }) {
                 to={to}
                 aria-current={on ? "page" : undefined}
                 className={cx(
-                  "relative flex min-h-[60px] flex-col items-center justify-center gap-1 text-[11px] whitespace-nowrap active:bg-panel",
-                  on ? "text-cyan [text-shadow:0_0_10px_rgb(45_174_196/0.6)]" : "text-dim",
+                  "vw-press relative flex min-h-[60px] flex-col items-center justify-center gap-1 rounded-[12px] text-[11px] whitespace-nowrap",
+                  on ? "text-cyan [text-shadow:0_0_10px_rgb(45_174_196/0.6)]" : "text-dim active:text-ink",
                 )}
               >
-                <Icon className="size-[22px]" strokeWidth={on ? 2.1 : 1.8} />
+                {on ? <span aria-hidden className="vw-grow-x absolute top-0 h-[2px] w-6 rounded-full bg-cyan shadow-[0_0_8px_var(--color-cyan)]" /> : null}
+                <Icon className={cx("size-[22px]", on && "vw-lift")} strokeWidth={on ? 2.1 : 1.8} />
                 {label}
               </Link>
             );

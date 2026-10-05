@@ -25,6 +25,31 @@ import "@fontsource/geist-mono/latin-600.css";
 import "@/styles.css";
 import { IS_DEMO } from "@/lib/supabase";
 
+// Press feedback that works the same on every phone: whatever .vw-press
+// element is under the finger gets data-pressed until the finger lifts, or
+// until the touch turns into a scroll (pointercancel). The touchstart listener
+// also lets iPhone browsers apply :active styles at all.
+document.addEventListener("touchstart", () => undefined, { passive: true });
+let pressed: Element | null = null;
+const release = () => {
+  pressed?.removeAttribute("data-pressed");
+  pressed = null;
+};
+document.addEventListener(
+  "pointerdown",
+  (e) => {
+    release();
+    const el = (e.target as Element | null)?.closest?.(".vw-press");
+    if (!el || (el as HTMLButtonElement).disabled) return;
+    pressed = el;
+    el.setAttribute("data-pressed", "");
+  },
+  { passive: true },
+);
+for (const type of ["pointerup", "pointercancel", "dragstart"]) document.addEventListener(type, release, { passive: true });
+window.addEventListener("scroll", release, { passive: true, capture: true });
+window.addEventListener("blur", release);
+
 const rootRoute = createRootRoute({
   component: () => (
     <>

@@ -82,12 +82,12 @@ export function PackageForm({
                 onClick={() => onChange({ colorTag: on ? "" : tag })}
                 style={{ background: COLOR_HEX[tag] }}
                 className={cx(
-                  "flex h-11 items-center justify-center rounded-[6px]",
+                  "vw-press flex h-11 items-center justify-center rounded-[6px]",
                   tag === "Black" && "border border-[#2a4a52]",
                   on && "shadow-[0_0_0_2px_#05080a,0_0_0_4px_var(--color-cyan)]",
                 )}
               >
-                {on ? <Check aria-hidden className={cx("size-5", tag === "White" || tag === "Yellow" ? "text-black" : "text-white")} strokeWidth={3.5} /> : null}
+                {on ? <Check aria-hidden className={cx("vw-tap size-5", tag === "White" || tag === "Yellow" ? "text-black" : "text-white")} strokeWidth={3.5} /> : null}
               </button>
             );
           })}

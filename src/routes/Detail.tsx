@@ -120,7 +120,7 @@ function Entry({ pkg }: { pkg: Pkg }) {
   return (
     <article className="flex flex-col gap-5">
       <div className="-mt-1 flex items-center gap-2">
-        <button type="button" onClick={back} className="-ml-2 inline-flex min-h-11 items-center gap-1.5 px-2 text-[14px] text-cyan lowercase active:opacity-70">
+        <button type="button" onClick={back} className="vw-press -ml-2 inline-flex min-h-11 items-center gap-1.5 px-2 text-[14px] text-cyan lowercase active:opacity-70">
           <ArrowLeft className="size-[18px]" /> Back
         </button>
         <span className="flex-1" />

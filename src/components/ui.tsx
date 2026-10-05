@@ -1,4 +1,5 @@
 import { useEffect, useState, useSyncExternalStore, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 export function cx(...parts: Array<string | false | null | undefined>) {
@@ -16,7 +17,7 @@ const VARIANTS: Record<Variant, string> = {
 
 export function btn(variant: Variant = "plain", big = false) {
   return cx(
-    "inline-flex w-full items-center justify-center gap-2.5 rounded-[12px] px-5 font-mono lowercase select-none disabled:opacity-45",
+    "vw-press inline-flex w-full items-center justify-center gap-2.5 rounded-[12px] px-5 font-mono lowercase select-none disabled:opacity-45",
     big ? "min-h-14 text-[16px]" : "min-h-[50px] text-[15px]",
     VARIANTS[variant],
   );
@@ -54,7 +55,7 @@ export function IconButton({
       title={label}
       {...rest}
       className={cx(
-        "inline-flex size-11 shrink-0 items-center justify-center rounded-[var(--radius-box)] border border-line bg-panel text-ink active:bg-raised disabled:opacity-45",
+        "vw-press inline-flex size-11 shrink-0 items-center justify-center rounded-[var(--radius-box)] border border-line bg-panel text-ink active:bg-raised disabled:opacity-45",
         className,
       )}
     >
@@ -103,11 +104,11 @@ export function YesNoBlank({
             aria-label={v ? text : "Not answered"}
             onClick={() => onChange(on ? "" : v)}
             className={cx(
-              "min-h-12 border-l border-line font-mono text-[14px] lowercase first:border-l-0",
+              "vw-press min-h-12 border-l border-line font-mono text-[14px] lowercase first:border-l-0 active:scale-100!",
               on ? (v ? "grad-cyan font-semibold text-cyan-ink" : "bg-raised text-ink") : "bg-panel text-dim active:bg-raised",
             )}
           >
-            {text}
+            <span className={cx("inline-block", on && "vw-tap")}>{text}</span>
           </button>
         );
       })}
@@ -141,12 +142,13 @@ export function Overlay({
       document.body.style.overflow = prev;
     };
   }, [onClose]);
-  return (
+  // Rendered on <body> so an animating page (a transform) can't trap it.
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
       className={cx(
-        "fixed inset-0 z-50 flex flex-col",
+        "vw-fade fixed inset-0 z-50 flex flex-col",
         dark ? "bg-black" : "bg-[linear-gradient(160deg,#0b262c_0%,#07141a_30%,#0a0a0c_55%,#160a0c_78%,#2a0c0f_100%)]",
       )}
     >
@@ -156,14 +158,15 @@ export function Overlay({
           type="button"
           onClick={onClose}
           aria-label={closeLabel}
-          className="inline-flex h-11 items-center gap-2 rounded-[var(--radius-box)] border border-ink/40 bg-black/60 px-4 text-[14px] lowercase active:bg-raised"
+          className="vw-press inline-flex h-11 items-center gap-2 rounded-[var(--radius-box)] border border-ink/40 bg-black/60 px-4 text-[14px] lowercase active:bg-raised"
         >
           <X className="size-4" strokeWidth={2.5} />
           {closeLabel}
         </button>
       </div>
-      <div className="relative flex min-h-0 flex-1 flex-col">{children}</div>
-    </div>
+      <div className={cx("relative flex min-h-0 flex-1 flex-col", !dark && "vw-sheet")}>{children}</div>
+    </div>,
+    document.body,
   );
 }
 
@@ -231,7 +234,7 @@ export function Toaster() {
         <div
           key={t.id}
           className={cx(
-            "pointer-events-auto w-full max-w-lg rounded-[var(--radius-box)] border px-4 py-3 text-[14px] shadow-[0_12px_30px_rgb(0_0_0/0.5)]",
+            "vw-drop pointer-events-auto w-full max-w-lg rounded-[var(--radius-box)] border px-4 py-3 text-[14px] shadow-[0_12px_30px_rgb(0_0_0/0.5)]",
             t.tone === "error" ? "border-danger/60 bg-[#1c0c0d] text-ink" : "border-cyan/60 bg-panel text-ink",
           )}
         >

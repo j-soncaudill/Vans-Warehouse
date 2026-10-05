@@ -109,7 +109,7 @@ export function ReceivePage({ code: incoming }: { code?: string }) {
     return (
       <>
         <div className="mb-4 flex items-center gap-3">
-          <CheckCircle2 className="size-8 shrink-0 text-cyan" strokeWidth={2} />
+          <CheckCircle2 className="vw-pop size-8 shrink-0 text-cyan" strokeWidth={2} />
           <div>
             <h1 className="m-0 text-[26px] leading-tight font-semibold tracking-[-0.03em]"><span className="grad-title">On the floor</span></h1>
             <p className="mt-1 text-[15px] text-dim">
@@ -152,7 +152,7 @@ export function ReceivePage({ code: incoming }: { code?: string }) {
                 aria-checked={mode === m}
                 onClick={() => setMode(m)}
                 className={cx(
-                  "min-h-12 rounded-[var(--radius-box)] border px-2 text-[13px] leading-tight",
+                  "vw-press min-h-12 rounded-[var(--radius-box)] border px-2 text-[13px] leading-tight",
                   mode === m ? "border-cyan bg-cyan/10 text-cyan" : "border-line bg-panel text-dim active:bg-raised",
                 )}
               >

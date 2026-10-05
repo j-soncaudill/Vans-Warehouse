@@ -214,12 +214,12 @@ export function Scanner({
         <div id={REGION_ID} className="absolute inset-0" />
         {cam === "live" ? (
           <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <div className="relative h-[34%] w-[80%] max-w-[520px]">
+            <div className="vw-pop relative h-[34%] w-[80%] max-w-[520px]">
               <span className="absolute top-0 left-0 size-7 border-t-2 border-l-2 border-cyan" />
               <span className="absolute top-0 right-0 size-7 border-t-2 border-r-2 border-cyan" />
               <span className="absolute bottom-0 left-0 size-7 border-b-2 border-l-2 border-cyan" />
               <span className="absolute right-0 bottom-0 size-7 border-r-2 border-b-2 border-cyan" />
-              <span className="absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2 bg-[linear-gradient(90deg,transparent,var(--color-cyan),transparent)] shadow-[0_0_14px_var(--color-cyan)]" />
+              <span className="vw-sweep absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2 bg-[linear-gradient(90deg,transparent,var(--color-cyan),transparent)] shadow-[0_0_14px_var(--color-cyan)]" />
             </div>
           </div>
         ) : null}

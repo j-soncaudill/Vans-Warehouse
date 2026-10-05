@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Lock } from "lucide-react";
 import { Brand } from "@/components/Shell";
-import { Button } from "@/components/ui";
+import { Button, cx } from "@/components/ui";
 import { isUnlocked, unlock } from "@/lib/pin";
 import { IS_DEMO, probeSchema, type SchemaState } from "@/lib/supabase";
 import schemaSql from "../../supabase/schema.sql?raw";
@@ -46,6 +46,7 @@ export function Gate({ children }: { children: ReactNode }) {
   const [schema, setSchema] = useState<SchemaState | "checking">("checking");
   const [unlocked, setUnlocked] = useState<boolean | null>(null);
   const [pin, setPin] = useState("");
+  const [shake, setShake] = useState(false);
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -121,6 +122,7 @@ export function Gate({ children }: { children: ReactNode }) {
     else {
       setMsg("Wrong PIN.");
       setPin("");
+      setShake(true);
     }
   }
 
@@ -139,7 +141,8 @@ export function Gate({ children }: { children: ReactNode }) {
           type="password"
           autoComplete="off"
           autoFocus
-          className="field code h-16 text-center text-[28px] tracking-[0.4em] text-cyan"
+          className={cx("field code h-16 text-center text-[28px] tracking-[0.4em] text-cyan", shake && "vw-shake border-danger!")}
+          onAnimationEnd={() => setShake(false)}
           value={pin}
           onChange={(e) => {
             setPin(e.target.value);

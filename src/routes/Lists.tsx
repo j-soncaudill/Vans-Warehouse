@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState, type CSSProperties } from "react";
 import { Link } from "@tanstack/react-router";
 import { PackagePlus, X } from "lucide-react";
 import { PackageCard } from "@/components/Package";
@@ -25,6 +25,15 @@ function PackageList({ status }: { status: PkgStatus }) {
   const shown = useMemo(() => all.filter((p) => matches(p, q.trim().toLowerCase()) && (!color || p.colorTag === color)), [all, q, color]);
   const usedColors = COLOR_TAGS.filter((t) => all.some((p) => p.colorTag === t));
   const floor = status === "on_floor";
+  // Rows present on first load cascade in; rows that show up later (another
+  // phone, over realtime) glow once so the change is noticed.
+  const seen = useRef<Set<number> | null>(null);
+  if (data && !seen.current) seen.current = new Set(data.map((p) => p.id));
+  const isNew = (id: number) => {
+    if (!seen.current || seen.current.has(id)) return false;
+    seen.current.add(id);
+    return true;
+  };
 
   return (
     <>
@@ -43,7 +52,7 @@ function PackageList({ status }: { status: PkgStatus }) {
               onChange={(e) => setQ(e.target.value)}
             />
             {q ? (
-              <button type="button" aria-label="Clear search" onClick={() => setQ("")} className="absolute top-0 right-0 flex size-12 items-center justify-center text-dim">
+              <button type="button" aria-label="Clear search" onClick={() => setQ("")} className="vw-press absolute top-0 right-0 flex size-12 items-center justify-center text-dim">
                 <X className="size-[18px]" />
               </button>
             ) : null}
@@ -59,7 +68,7 @@ function PackageList({ status }: { status: PkgStatus }) {
                     aria-pressed={on}
                     onClick={() => setColor(on ? "" : t)}
                     className={cx(
-                      "flex min-h-10 shrink-0 items-center gap-2 rounded-[8px] border px-3 text-[13px] lowercase",
+                      "vw-press flex min-h-10 shrink-0 items-center gap-2 rounded-[8px] border px-3 text-[13px] lowercase",
                       on ? "border-cyan bg-cyan/10 text-cyan" : "border-line bg-panel text-dim",
                     )}
                   >
@@ -102,8 +111,8 @@ function PackageList({ status }: { status: PkgStatus }) {
         <p className="py-8 text-center text-[15px] text-dim">No match.</p>
       ) : (
         <ul className="flex flex-col border-t border-hair">
-          {shown.map((p) => (
-            <li key={p.id}>
+          {shown.map((p, i) => (
+            <li key={p.id} className={isNew(p.id) ? "vw-new" : "vw-row"} style={{ "--i": i } as CSSProperties}>
               <PackageCard pkg={p} />
             </li>
           ))}

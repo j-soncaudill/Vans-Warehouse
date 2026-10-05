@@ -29,7 +29,7 @@ export function Thumb({ pkg, size = 56 }: { pkg: Pkg; size?: number }) {
         style={style}
         onClick={() => setOpen(true)}
         aria-label={`Open photo of ${pkg.jobName}`}
-        className="shrink-0 overflow-hidden rounded-[8px] border border-[#1b3a42] bg-raised active:opacity-80"
+        className="shrink-0 overflow-hidden rounded-[8px] transition-opacity duration-150 border border-[#1b3a42] bg-raised active:opacity-80"
       >
         <img src={thumb} alt="" loading="lazy" decoding="async" onError={() => setBroken(true)} className="aspect-square h-full w-full object-cover object-center" />
       </button>
@@ -64,7 +64,7 @@ export function PackageCard({ pkg }: { pkg: Pkg }) {
   return (
     <div className="flex items-center gap-3.5 border-b border-hair py-3">
       <Thumb pkg={pkg} />
-      <Link to="/p/$code" params={{ code: pkg.code }} className="flex min-w-0 flex-1 items-center gap-2 active:opacity-70">
+      <Link to="/p/$code" params={{ code: pkg.code }} className="group flex min-w-0 flex-1 items-center gap-2 transition-opacity duration-150 active:opacity-70">
         <span className="flex min-w-0 flex-1 flex-col gap-[3px]">
           <span className="flex items-baseline justify-between gap-2">
             <span className="truncate font-sans text-[17px] font-semibold text-white">{pkg.jobName}</span>
@@ -77,7 +77,7 @@ export function PackageCard({ pkg }: { pkg: Pkg }) {
           </span>
           {line.some(Boolean) ? <span className="truncate text-[12px] text-dim">{line.filter(Boolean).join(" · ")}</span> : null}
         </span>
-        <ChevronRight className="size-4 shrink-0 text-faint" />
+        <ChevronRight className="size-4 shrink-0 text-faint transition-transform duration-200 group-active:translate-x-1" />
       </Link>
     </div>
   );
