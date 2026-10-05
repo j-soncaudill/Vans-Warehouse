@@ -1,0 +1,381 @@
+// End-to-end smoke test of the built dist/ against an in-memory fake of
+// Supabase REST + Storage. No real project is touched.
+//   npm run build && npm run smoke
+import { spawn } from "node:child_process";
+import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import JSZip from "jszip";
+import { chromium } from "playwright";
+import { loadEnv } from "vite";
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const shots = path.join(root, "test-results");
+mkdirSync(shots, { recursive: true });
+const env = loadEnv("production", root, "");
+const PIN = env.VITE_SHOP_PIN;
+const PORT = 4321;
+
+// ------------------------------------------------------------ fake supabase
+let nextId = 1;
+const rows = [];
+const files = new Map(); // "bucket/path" -> { body, type }
+
+function filterRows(url) {
+  let out = rows;
+  for (const [k, v] of url.searchParams) {
+    if (["select", "order", "limit", "on_conflict", "columns"].includes(k)) continue;
+    const m = /^eq\.(.*)$/.exec(v);
+    if (m) out = out.filter((r) => String(r[k]) === decodeURIComponent(m[1]));
+  }
+  return out;
+}
+
+async function rest(route, req, url) {
+  const table = url.pathname.split("/").pop();
+  const single = (req.headers()["accept"] ?? "").includes("vnd.pgrst.object");
+  const reply = (data, status = 200) => {
+    if (single) {
+      if (data.length !== 1) return route.fulfill({ status: 406, contentType: "application/json", body: JSON.stringify({ code: "PGRST116", message: "no rows" }) });
+      return route.fulfill({ status, contentType: "application/json", body: JSON.stringify(data[0]) });
+    }
+    return route.fulfill({ status, contentType: "application/json", body: JSON.stringify(data) });
+  };
+  if (table === "settings") return reply([]);
+  const method = req.method();
+  const now = () => new Date().toISOString();
+  if (method === "GET" || method === "HEAD") {
+    let out = [...filterRows(url)];
+    if ((url.searchParams.get("order") ?? "").includes("desc")) out.sort((a, b) => (b.received_at > a.received_at ? 1 : -1));
+    return reply(out);
+  }
+  if (method === "POST") {
+    const body = JSON.parse(req.postData() ?? "{}");
+    const list = Array.isArray(body) ? body : [body];
+    const made = [];
+    for (const item of list) {
+      const existing = rows.find((r) => r.code === item.code);
+      if (existing && !url.searchParams.get("on_conflict")) {
+        return route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ code: "23505", message: "duplicate key" }) });
+      }
+      if (existing) {
+        Object.assign(existing, item, { updated_at: now() });
+        made.push(existing);
+      } else {
+        const row = {
+          id: nextId++, po_number: null, vendor: null, delivered_by: null, received_by: null, pm: null,
+          packing_slip_received: null, quantities: null, damaged: null, color_tag: null, notes: null,
+          status: "on_floor", received_at: now(), checked_out_to: null, checked_out_at: null,
+          barcode_path: null, photo_path: null, thumb_path: null, created_at: now(), updated_at: now(), ...item,
+        };
+        rows.push(row);
+        made.push(row);
+      }
+    }
+    return reply(made, 201);
+  }
+  if (method === "PATCH") {
+    const body = JSON.parse(req.postData() ?? "{}");
+    const hit = filterRows(url);
+    for (const r of hit) Object.assign(r, body, { updated_at: now() });
+    return reply(hit);
+  }
+  if (method === "DELETE") {
+    const hit = filterRows(url);
+    for (const r of hit) rows.splice(rows.indexOf(r), 1);
+    return reply(hit);
+  }
+  return route.fulfill({ status: 405 });
+}
+
+async function storage(route, req, url) {
+  const p = decodeURIComponent(url.pathname.replace(/^.*\/storage\/v1\//, ""));
+  const method = req.method();
+  const json = (data, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(data) });
+  let m;
+  if ((m = /^object\/list\/([^/]+)$/.exec(p)) && method === "POST") {
+    const { prefix = "" } = JSON.parse(req.postData() ?? "{}");
+    const bucket = m[1];
+    const names = [...files.keys()]
+      .filter((k) => k.startsWith(`${bucket}/`))
+      .map((k) => k.slice(bucket.length + 1))
+      .filter((k) => (prefix ? k.startsWith(`${prefix}/`) : true))
+      .map((k) => (prefix ? k.slice(prefix.length + 1) : k));
+    return json(names.map((name) => ({ name, id: name, metadata: {} })));
+  }
+  if ((m = /^object\/([^/]+)$/.exec(p)) && method === "DELETE") {
+    const { prefixes = [] } = JSON.parse(req.postData() ?? "{}");
+    for (const k of prefixes) files.delete(`${m[1]}/${k}`);
+    return json(prefixes.map((name) => ({ name })));
+  }
+  if ((m = /^object\/(?:public\/|authenticated\/)?(.+)$/.exec(p))) {
+    const key = m[1];
+    if (method === "POST" || method === "PUT") {
+      files.set(key, { body: req.postDataBuffer(), type: req.headers()["content-type"] ?? "application/octet-stream" });
+      return json({ Key: key, Id: key });
+    }
+    if (method === "GET") {
+      const f = files.get(key);
+      if (!f) return json({ statusCode: "404", error: "not_found", message: "Object not found" }, 400);
+      let body = f.body;
+      // supabase-js uploads Blobs as multipart form data; unwrap the part.
+      if (/multipart\/form-data/.test(f.type)) {
+        const s = body.toString("latin1");
+        const start = s.indexOf("\r\n\r\n", s.indexOf("Content-Type")) + 4;
+        const end = s.lastIndexOf("\r\n--");
+        body = Buffer.from(s.slice(start, end), "latin1");
+      }
+      return route.fulfill({ status: 200, body, contentType: key.endsWith(".png") ? "image/png" : "image/jpeg" });
+    }
+  }
+  return json({ message: `unhandled ${method} ${p}` }, 400);
+}
+
+// ------------------------------------------------------------ run
+const server = spawn(process.execPath, [path.join(root, "node_modules/vite/bin/vite.js"), "preview", "--port", String(PORT), "--strictPort"], { cwd: root, stdio: "pipe" });
+await new Promise((resolve) => {
+  server.stdout.on("data", (d) => String(d).includes(String(PORT)) && resolve());
+  setTimeout(resolve, 5000);
+});
+
+const browser = await chromium.launch({
+  executablePath: process.env.CHROMIUM_PATH ?? "/opt/pw-browsers/chromium",
+  args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"],
+});
+const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, permissions: ["camera"], acceptDownloads: true });
+const page = await ctx.newPage();
+const errors = [];
+page.on("pageerror", (e) => errors.push(String(e)));
+await ctx.route(/\/rest\/v1\//, (route, req) => rest(route, req, new URL(req.url())));
+await ctx.route(/\/storage\/v1\//, (route, req) => storage(route, req, new URL(req.url())));
+const sockets = [];
+/** Simulates another phone writing a row: Postgres change pushed over realtime. */
+function pushChange(type, record) {
+  for (const { ws, topic } of sockets) {
+    ws.send(JSON.stringify([null, null, topic, "postgres_changes", {
+      ids: [1],
+      data: { type, schema: "public", table: "packages", commit_timestamp: new Date().toISOString(), record, old_record: {}, columns: [], errors: null },
+    }]));
+  }
+}
+await ctx.routeWebSocket(/\/realtime\/v1\//, (ws) => {
+  // Phoenix serializer v2: [join_ref, ref, topic, event, payload]
+  ws.onMessage((msg) => {
+    const [joinRef, ref, topic, event, payload] = JSON.parse(String(msg));
+    if (event === "phx_join") {
+      const changes = (payload?.config?.postgres_changes ?? []).map((c, i) => ({ ...c, id: i + 1 }));
+      ws.send(JSON.stringify([joinRef, ref, topic, "phx_reply", { status: "ok", response: { postgres_changes: changes } }]));
+      if (changes.length) sockets.push({ ws, topic });
+    } else if (event === "heartbeat" || event === "access_token") {
+      ws.send(JSON.stringify([null, ref, topic, "phx_reply", { status: "ok", response: {} }]));
+    }
+  });
+});
+
+const step = async (name, fn) => {
+  process.stdout.write(`• ${name} … `);
+  await fn();
+  console.log("ok");
+};
+const shot = (name) => page.screenshot({ path: path.join(shots, `${name}.png`) });
+const expect = async (locator, what) => {
+  await locator.first().waitFor({ state: "visible", timeout: 8000 }).catch(() => {
+    throw new Error(`not visible: ${what}`);
+  });
+};
+
+let mintedCode = "";
+try {
+  await step("PIN gate rejects wrong PIN, accepts right one", async () => {
+    await page.goto(`http://localhost:${PORT}/`);
+    await expect(page.getByText("Shop PIN"), "pin screen");
+    await shot("01-pin");
+    await page.fill("#pin", "000");
+    await page.getByRole("button", { name: "Unlock" }).click();
+    await expect(page.getByText("Wrong PIN."), "wrong pin");
+    await page.fill("#pin", PIN);
+    await page.getByRole("button", { name: "Unlock" }).click();
+    await expect(page.getByText("Floor is empty"), "empty floor");
+    await expect(page.getByText("Live", { exact: true }), "realtime live");
+    await shot("02-floor-empty");
+  });
+
+  await step("Receive with new VW- code, all fields, in-app photo", async () => {
+    await page.getByRole("link", { name: "Receive" }).last().click();
+    await page.fill("#f-job", "Maple St Remodel");
+    await page.fill("#f-po", "PO-4471");
+    await page.fill("#f-vendor", "Ferguson");
+    await page.fill("#f-delivered", "UPS");
+    await page.fill("#f-received", "Dana");
+    await page.fill("#f-pm", "Rick");
+    await page.fill("#f-qty", "2 cartons, 14 pcs");
+    await page.locator("#f-slip").getByRole("radio", { name: "Yes", exact: true }).click();
+    await page.locator("#f-damage").getByRole("radio", { name: "No", exact: true }).click();
+    await page.getByRole("radio", { name: "Blue" }).click();
+    await page.fill("#f-notes", "Keep dry");
+    await shot("03-receive-form");
+    await page.getByRole("button", { name: "Open camera" }).click();
+    await page.getByRole("button", { name: "Take photo", exact: true }).waitFor();
+    await page.waitForFunction(() => document.querySelector("video")?.readyState >= 2);
+    await shot("04-photo-camera");
+    await page.getByRole("button", { name: "Take photo", exact: true }).click();
+    await page.getByRole("button", { name: "Use photo", exact: true }).click();
+    await expect(page.getByRole("img", { name: "Box photo" }), "photo preview");
+    await page.getByRole("button", { name: "Receive to floor" }).click();
+    await expect(page.getByText("On the floor"), "receive done");
+    mintedCode = rows[0].code;
+    if (!/^VW-[A-Z0-9]{6}$/.test(mintedCode)) throw new Error(`bad code ${mintedCode}`);
+    const r = rows[0];
+    if (!r.photo_path || !r.thumb_path || !r.barcode_path) throw new Error(`files missing ${JSON.stringify(r)}`);
+    if (r.packing_slip_received !== true || r.damaged !== false || r.color_tag !== "Blue") throw new Error("fields wrong");
+    if (!files.has(`package-photos/${r.photo_path}`) || !files.has(`barcodes/${r.barcode_path}`)) throw new Error("storage missing");
+    await page.waitForTimeout(400);
+    await shot("05-received-sticker");
+  });
+
+  await step("Floor list shows thumbnail; thumbnail opens full photo", async () => {
+    await page.getByRole("link", { name: "On floor" }).last().click();
+    await expect(page.getByText("Maple St Remodel"), "row");
+    await page.waitForTimeout(300);
+    await shot("06-floor-list");
+    await page.getByRole("button", { name: "Open photo of Maple St Remodel" }).click();
+    await expect(page.getByRole("dialog").getByRole("img"), "full photo");
+    const src = await page.getByRole("dialog").getByRole("img").getAttribute("src");
+    if (!src.includes(rows[0].photo_path)) throw new Error("viewer did not load full photo");
+    await shot("07-photo-viewer");
+    await page.getByRole("button", { name: "Close" }).click();
+  });
+
+  await step("Entry: check out asks who, return puts it back", async () => {
+    await page.getByRole("link", { name: /Maple St Remodel/ }).click();
+    await expect(page.getByRole("button", { name: "Check out" }), "detail");
+    await shot("08-entry");
+    await page.getByRole("button", { name: "Check out" }).click();
+    await page.fill("#taken-by", "Truck 3");
+    await shot("09-checkout");
+    await page.getByRole("dialog").getByRole("button", { name: "Check out" }).click();
+    await expect(page.getByText(/Checked out · Truck 3/), "checked out banner");
+    if (await page.getByRole("button", { name: /Retake photo/ }).count()) throw new Error("retake allowed after checkout");
+    await page.getByRole("link", { name: "Checked out" }).click();
+    await expect(page.getByText("Taken by Truck 3"), "out list");
+    await shot("10-out-list");
+    await page.getByRole("link", { name: /Maple St Remodel/ }).click();
+    await page.getByRole("button", { name: "Return to floor" }).click();
+    await expect(page.getByText("On the floor", { exact: true }), "returned");
+  });
+
+  await step("Edit details and retake photo while on floor", async () => {
+    const oldPhoto = rows[0].photo_path;
+    await page.getByRole("button", { name: "Edit details" }).click();
+    await page.fill("#f-job", "Maple St Remodel – Phase 2");
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await expect(page.getByRole("heading", { name: "Maple St Remodel – Phase 2" }), "edited");
+    await page.getByRole("button", { name: "Retake photo" }).click();
+    await page.waitForFunction(() => document.querySelector("video")?.readyState >= 2);
+    await page.getByRole("button", { name: "Take photo", exact: true }).click();
+    await page.getByRole("button", { name: "Use photo", exact: true }).click();
+    await expect(page.getByText("Photo saved."), "retake saved");
+    if (rows[0].photo_path === oldPhoto) throw new Error("photo path unchanged");
+    if (files.has(`package-photos/${oldPhoto}`)) throw new Error("old photo not cleaned up");
+  });
+
+  await step("Scan page: typed unknown code goes to Receive with that code", async () => {
+    await page.getByRole("link", { name: "Scan" }).click();
+    await page.getByRole("button", { name: "Open camera" }).click();
+    await page.waitForTimeout(1500);
+    await shot("11-scanner");
+    await page.getByRole("button", { name: "Type code" }).click();
+    await page.fill("#scan-typed", "ab-778899");
+    await page.getByRole("button", { name: "Go" }).click();
+    await expect(page.getByRole("radio", { name: "Code on the box" }), "receive existing");
+    if ((await page.inputValue("#existing-code")) !== "AB-778899") throw new Error("code not carried over");
+    await page.fill("#f-job", "Oak Ave");
+    await page.getByRole("button", { name: "Receive to floor" }).click();
+    await expect(page.getByText("On the floor"), "received existing");
+    if (!rows.find((r) => r.code === "AB-778899")) throw new Error("existing code not saved");
+  });
+
+  await step("Wedge scanner burst on the floor opens the entry", async () => {
+    await page.getByRole("link", { name: "On floor" }).last().click();
+    await expect(page.getByText("Oak Ave"), "list");
+    await page.locator("body").click({ position: { x: 5, y: 300 } });
+    await page.keyboard.type(mintedCode, { delay: 10 });
+    await page.keyboard.press("Enter");
+    await page.waitForURL(`**/p/${mintedCode}`);
+  });
+
+  await step("Realtime: a box received on another phone appears without reload", async () => {
+    await page.getByRole("link", { name: "On floor" }).last().click();
+    await expect(page.getByText("Oak Ave"), "list");
+    const t = new Date().toISOString();
+    const row = {
+      id: nextId++, code: "VW-OTHER1", job_name: "From another phone", po_number: null, vendor: null, delivered_by: null,
+      received_by: null, pm: null, packing_slip_received: null, quantities: null, damaged: true, color_tag: "Red", notes: null,
+      status: "on_floor", received_at: t, checked_out_to: null, checked_out_at: null, barcode_path: null, photo_path: null,
+      thumb_path: null, created_at: t, updated_at: t,
+    };
+    rows.push(row);
+    pushChange("INSERT", row);
+    await expect(page.getByText("From another phone"), "realtime row");
+    await shot("13-floor-realtime");
+    rows.splice(rows.indexOf(row), 1);
+    pushChange("DELETE", row);
+    await page.getByText("From another phone").waitFor({ state: "detached", timeout: 8000 });
+  });
+
+  let backup;
+  await step("Export backup includes records, stickers, photos", async () => {
+    await page.getByRole("link", { name: "Backup, restore, lock" }).click();
+    const dl = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Export backup" }).click();
+    const d = await dl;
+    backup = path.join(shots, d.suggestedFilename());
+    await d.saveAs(backup);
+    const zip = await JSZip.loadAsync(await import("node:fs").then((fs) => fs.readFileSync(backup)));
+    const names = Object.keys(zip.files);
+    for (const n of ["packages.json", "packages.csv", `stickers/${mintedCode}.png`, `photos/${mintedCode}.jpg`, "stickers/AB-778899.png"]) {
+      if (!names.includes(n)) throw new Error(`backup missing ${n}: ${names.join(", ")}`);
+    }
+    await shot("12-more");
+  });
+
+  await step("Remove deletes the row and its files", async () => {
+    await page.goto(`http://localhost:${PORT}/p/${mintedCode}`);
+    await page.getByRole("button", { name: "Remove" }).click();
+    await page.getByRole("button", { name: "Remove for good" }).click();
+    await page.waitForURL(`http://localhost:${PORT}/`);
+    if (rows.find((r) => r.code === mintedCode)) throw new Error("row still there");
+    const left = [...files.keys()].filter((k) => k.includes(mintedCode));
+    if (left.length) throw new Error(`files left: ${left}`);
+  });
+
+  await step("Restore brings it back with photo and thumbnail", async () => {
+    await page.getByRole("link", { name: "Backup, restore, lock" }).click();
+    const chooser = page.waitForEvent("filechooser");
+    await page.getByRole("button", { name: "Choose backup zip" }).click();
+    await (await chooser).setFiles(backup);
+    await page.getByRole("button", { name: "Restore", exact: true }).click();
+    await expect(page.getByText(/Restored 2 packages/), "restored toast");
+    const r = rows.find((x) => x.code === mintedCode);
+    if (!r || !r.photo_path || !r.thumb_path || !r.barcode_path) throw new Error("restore incomplete");
+    if (r.job_name !== "Maple St Remodel – Phase 2" || r.color_tag !== "Blue") throw new Error("restore fields wrong");
+  });
+
+  await step("Lock returns to the PIN screen", async () => {
+    await page.getByRole("button", { name: "Lock with PIN" }).click();
+    await expect(page.getByText("Shop PIN"), "locked");
+  });
+
+  if (errors.length) throw new Error(`page errors:\n${errors.join("\n")}`);
+  console.log(`\nAll smoke steps passed. Screenshots in ${path.relative(root, shots)}/`);
+} catch (err) {
+  await shot("zz-failure").catch(() => undefined);
+  console.error(`\nFAILED: ${err.message}`);
+  if (errors.length) console.error(errors.join("\n"));
+  process.exitCode = 1;
+} finally {
+  await browser.close();
+  server.kill();
+}
+writeFileSync(path.join(shots, ".gitkeep"), "");
+process.exit(process.exitCode ?? 0);
