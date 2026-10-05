@@ -114,16 +114,10 @@ body::before {
     background: linear-gradient(90deg, var(--color-cyan) 0%, var(--color-cyan-deep) 100%);
   }
   .grad-title {
-    background: linear-gradient(90deg, #ffffff 0%, var(--color-cyan) 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    color: #ffffff;
   }
   .grad-code {
-    background: linear-gradient(90deg, var(--color-cyan) 0%, #9be7f3 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    color: var(--color-cyan);
   }
   .brand-rule {
     height: 1px;
