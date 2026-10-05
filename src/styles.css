@@ -40,14 +40,6 @@
     line-height: 1.45;
     overscroll-behavior-y: none;
   }
-  /* Brand wash: dark cyan top-left to dark red bottom-right, fixed behind everything. */
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    background: linear-gradient(160deg, #0b262c 0%, #07141a 30%, #0a0a0c 55%, #160a0c 78%, #2a0c0f 100%);
-  }
   input,
   textarea,
   select,
@@ -72,6 +64,33 @@
     background: var(--color-cyan);
     color: var(--color-cyan-ink);
   }
+}
+
+/*
+ * Page ground, kept outside @layer on purpose: unlayered rules beat layered
+ * ones, so a host page's own reset (e.g. the claude.ai preview) cannot paint
+ * over the dark background.
+ */
+html {
+  color-scheme: dark !important;
+  background: #05080a !important;
+}
+body {
+  margin: 0;
+  background: transparent !important;
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  line-height: 1.45;
+}
+/* Brand wash: dark cyan top-left to dark red bottom-right, fixed behind everything. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(160deg, #0b262c 0%, #07141a 30%, #0a0a0c 55%, #160a0c 78%, #2a0c0f 100%);
 }
 
 @layer components {
