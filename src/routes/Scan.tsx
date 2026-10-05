@@ -60,7 +60,7 @@ export function ScanPage() {
 
       <form onSubmit={submit} className="mt-7 flex flex-col gap-2.5">
         <label htmlFor="scan-code" className="label">
-          // or type / wedge-scan the code
+          or type / wedge-scan the code
         </label>
         <input
           ref={inputRef}

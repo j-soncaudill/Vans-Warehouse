@@ -211,7 +211,7 @@ export function Scanner({
         {typing ? (
           <form onSubmit={submitTyped} className="mx-auto flex max-w-lg flex-col gap-2">
             <label htmlFor="scan-typed" className="label">
-              // or type the code
+              or type the code
             </label>
             <div className="flex gap-2">
               <input
