@@ -191,7 +191,7 @@ export async function replacePhoto(code: string, photo: CapturedPhoto): Promise<
 
 export async function checkOut(code: string, takenBy: string): Promise<Pkg> {
   const who = takenBy.trim().slice(0, 80);
-  if (!who) throw new Error("Who took it?");
+  if (!who) throw new Error("Enter who it was checked out by.");
   const pkg = await update(code, { status: "checked_out", checked_out_to: who, checked_out_at: new Date().toISOString() }, "on_floor");
   if (!pkg) throw new Error("Already checked out, or removed.");
   return pkg;

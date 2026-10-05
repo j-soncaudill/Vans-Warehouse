@@ -292,7 +292,7 @@ function CheckoutSheet({
           {pkg.jobName} · <span className="code text-cyan">{pkg.code}</span>
         </p>
         <label htmlFor="taken-by" className="font-sans text-[28px] leading-tight font-bold tracking-[-0.02em]">
-          Who took it?
+          Checked out by:
         </label>
         <input
           id="taken-by"
