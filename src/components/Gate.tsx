@@ -127,13 +127,9 @@ export function Gate({ children }: { children: ReactNode }) {
   return (
     <Screen>
       <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
-        <span className="text-[12px] text-faint">
-          ~/warehouse <span className="text-cyan">$</span> unlock
-        </span>
         <h1 className="m-0 flex items-center gap-3 text-[30px] font-semibold tracking-[-0.03em]">
           <Lock className="size-6 text-cyan" strokeWidth={2.2} />
           <span className="grad-title">Shop PIN</span>
-          <span className="-ml-2 text-cyan">_</span>
         </h1>
         <label htmlFor="pin" className="sr-only">
           Shop PIN

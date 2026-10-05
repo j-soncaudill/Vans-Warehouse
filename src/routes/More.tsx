@@ -29,7 +29,7 @@ async function systemCheck(): Promise<Check[]> {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="flex flex-col gap-3 border-b border-hair pb-6">
-      <h2 className="m-0 text-[12px] font-normal text-faint">// {title.toLowerCase()}</h2>
+      <h2 className="m-0 text-[12px] font-normal text-faint">{title.toLowerCase()}</h2>
       {children}
     </section>
   );
@@ -74,7 +74,7 @@ export function MorePage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageTitle cmd="backup --help">Backup & setup</PageTitle>
+      <PageTitle>Backup & setup</PageTitle>
 
       <Section title="Export backup">
         <p className="text-[15px] text-dim">One zip with every record (JSON + CSV), every sticker, and every photo.</p>

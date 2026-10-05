@@ -113,19 +113,13 @@ export function Shell({ children }: { children: ReactNode }) {
   );
 }
 
-/** "~/warehouse $ <cmd>" prompt over a gradient title with a cursor. */
-export function PageTitle({ children, count, cmd, aside }: { children: ReactNode; count?: number; cmd?: string; aside?: ReactNode }) {
+/** Page title with the item count on the right. */
+export function PageTitle({ children, count, aside }: { children: ReactNode; count?: number; aside?: ReactNode }) {
   return (
     <div className="mb-4 flex flex-col gap-1.5 pt-2">
-      {cmd ? (
-        <span className="text-[12px] text-faint">
-          ~/warehouse <span className="text-cyan">$</span> {cmd}
-        </span>
-      ) : null}
       <div className="flex items-baseline justify-between gap-3">
         <h1 className="m-0 text-[30px] leading-tight font-semibold tracking-[-0.03em]">
           <span className="grad-title">{children}</span>
-          <span className="text-cyan">_</span>
         </h1>
         {typeof count === "number" ? <span className="text-[13px] text-faint tabular-nums">{String(count).padStart(2, "0")} {count === 1 ? "item" : "items"}</span> : aside}
       </div>

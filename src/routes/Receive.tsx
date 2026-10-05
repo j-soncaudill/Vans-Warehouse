@@ -111,13 +111,13 @@ export function ReceivePage({ code: incoming }: { code?: string }) {
         <div className="mb-4 flex items-center gap-3">
           <CheckCircle2 className="size-8 shrink-0 text-cyan" strokeWidth={2} />
           <div>
-            <h1 className="m-0 text-[26px] leading-tight font-semibold tracking-[-0.03em]"><span className="grad-title">On the floor</span><span className="text-cyan">_</span></h1>
+            <h1 className="m-0 text-[26px] leading-tight font-semibold tracking-[-0.03em]"><span className="grad-title">On the floor</span></h1>
             <p className="mt-1 text-[15px] text-dim">
               {pkg.jobName} · <span className="code text-cyan">{pkg.code}</span>
             </p>
           </div>
         </div>
-        <p className="mb-3 text-[13px] text-faint">// put this sticker on the box</p>
+        <p className="mb-3 text-[13px] text-faint">put this sticker on the box</p>
         <StickerPreview info={pkg} />
         <div className="mt-4 flex flex-col gap-3">
           <StickerButtons info={pkg} primary />
@@ -134,10 +134,10 @@ export function ReceivePage({ code: incoming }: { code?: string }) {
 
   return (
     <>
-      <PageTitle cmd="receive">New delivery</PageTitle>
+      <PageTitle>New delivery</PageTitle>
       <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-6">
         <section aria-label="Barcode" className="flex flex-col gap-2.5">
-          <span className="section-label">// barcode</span>
+          <span className="section-label">barcode</span>
           <div role="radiogroup" className="grid grid-cols-2 gap-2">
             {(
               [
@@ -203,7 +203,7 @@ export function ReceivePage({ code: incoming }: { code?: string }) {
         </div>
 
         <section aria-label="Box photo" className="flex flex-col gap-2.5">
-          <span className="section-label">// box photo</span>
+          <span className="section-label">box photo</span>
           {preview ? (
             <div className="flex items-center gap-3">
               <img src={preview} alt="Box photo" className="size-24 rounded-[8px] border border-line object-cover" />

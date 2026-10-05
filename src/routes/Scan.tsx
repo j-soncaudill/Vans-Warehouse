@@ -48,7 +48,7 @@ export function ScanPage() {
 
   return (
     <>
-      <PageTitle cmd="scan">Scan</PageTitle>
+      <PageTitle>Scan</PageTitle>
       <button
         type="button"
         onClick={() => setCamera(true)}

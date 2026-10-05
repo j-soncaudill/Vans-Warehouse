@@ -121,7 +121,7 @@ function Entry({ pkg }: { pkg: Pkg }) {
         className="flex flex-col gap-6"
       >
         <div className="flex items-center justify-between">
-          <h1 className="m-0 text-[28px] font-semibold tracking-[-0.03em]"><span className="grad-title">Edit</span><span className="text-cyan">_</span></h1>
+          <h1 className="m-0 text-[28px] font-semibold tracking-[-0.03em]"><span className="grad-title">Edit</span></h1>
           <span className="code text-[15px] text-cyan">{pkg.code}</span>
         </div>
         <PackageForm values={form} onChange={(p) => setForm((f) => ({ ...f, ...p }))} />
@@ -202,7 +202,7 @@ function Entry({ pkg }: { pkg: Pkg }) {
       </dl>
 
       <section aria-label="Sticker" className="flex flex-col gap-3">
-        <span className="section-label">// sticker</span>
+        <span className="section-label">sticker</span>
         <StickerPreview info={pkg} />
         <StickerButtons info={pkg} />
       </section>

@@ -201,7 +201,7 @@ export function Scanner({
         ) : null}
         <div className="absolute inset-x-0 bottom-0 px-4 pb-4 text-center">
           {cam === "starting" ? <p className="text-[13px] text-cyan">starting camera…</p> : null}
-          {cam === "live" ? <p className="inline-block rounded-md bg-black/75 px-2.5 py-1 text-[12px] text-cyan">scanning · code128 · qr · ean · upc</p> : null}
+          {cam === "live" ? <p className="inline-block rounded-md bg-black/75 px-2.5 py-1 text-[12px] text-cyan">point at a barcode or QR code</p> : null}
           {cam === "failed" ? <p className="mx-auto max-w-md rounded-md bg-black/80 px-3 py-2 text-[14px] text-ink">{camError}</p> : null}
         </div>
       </div>

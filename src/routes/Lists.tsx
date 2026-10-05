@@ -28,7 +28,7 @@ function PackageList({ status }: { status: PkgStatus }) {
 
   return (
     <>
-      <PageTitle cmd={floor ? "ls --on-floor" : "ls --checked-out"} count={data ? all.length : undefined}>{floor ? "On floor" : "Checked out"}</PageTitle>
+      <PageTitle count={data ? all.length : undefined}>{floor ? "On floor" : "Checked out"}</PageTitle>
 
       {all.length > 0 ? (
         <div className="mb-4 flex flex-col gap-3">
