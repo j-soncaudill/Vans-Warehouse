@@ -1,4 +1,3 @@
-import JsBarcode from "jsbarcode";
 import QRCode from "qrcode";
 import { BARCODES_BUCKET, sb } from "@/lib/supabase";
 
@@ -9,13 +8,21 @@ export function stickerPath(code: string) {
   return `${code}.png`;
 }
 
-/** 4×3 label at 203 dpi-ish (800×600). Job name, Code 128, QR, footer. */
+/**
+ * 4×3 label (800×600). Job name across the top, a large QR code on the left
+ * (about 74% of the height, so a phone reads it from arm's length), and the
+ * code, received date and shop name on the right. No 1D barcode.
+ */
 export type StickerInfo = { code: string; jobName: string; receivedAt?: string | null };
+
+const SANS = "'Geist Sans', -apple-system, 'Segoe UI', Arial, sans-serif";
+const MONO = "'Geist Mono', ui-monospace, Menlo, Consolas, monospace";
 
 export async function renderSticker({ code, jobName, receivedAt }: StickerInfo): Promise<Blob> {
   await document.fonts?.ready.catch(() => undefined);
   const W = 800;
   const H = 600;
+  const PAD = 36;
   const c = document.createElement("canvas");
   c.width = W;
   c.height = H;
@@ -27,41 +34,36 @@ export async function renderSticker({ code, jobName, receivedAt }: StickerInfo):
   ctx.fillStyle = INK;
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
-  ctx.font = "700 54px 'Archivo Narrow', 'Arial Narrow', Arial, sans-serif";
-  ctx.fillText(jobName.slice(0, 40), 36, 84, W - 72);
-  ctx.fillRect(36, 104, W - 72, 4);
+  ctx.font = `700 46px ${SANS}`;
+  ctx.fillText(jobName.slice(0, 48), PAD, 76, W - PAD * 2);
+  ctx.fillRect(PAD, 96, W - PAD * 2, 4);
 
-  const bar = document.createElement("canvas");
-  JsBarcode(bar, code, {
-    format: "CODE128",
-    displayValue: false,
-    height: 150,
-    width: 3,
-    margin: 0,
-    background: PAPER,
-    lineColor: INK,
-  });
-  const barW = Math.min(W - 72 - 220, bar.width);
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(bar, 36, 140, barW, 150);
-
+  // High error correction so a scuffed or creased label still scans.
+  const QR = 444;
   const qr = document.createElement("canvas");
   await QRCode.toCanvas(qr, code, {
-    width: 200,
-    margin: 0,
+    width: QR,
+    margin: 2,
     color: { dark: INK, light: PAPER },
-    errorCorrectionLevel: "M",
+    errorCorrectionLevel: "Q",
   });
-  ctx.drawImage(qr, W - 36 - 200, 128, 200, 200);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(qr, PAD - 12, 120, QR, QR);
 
-  ctx.font = "700 64px 'JetBrains Mono', ui-monospace, Menlo, monospace";
-  ctx.fillText(code, 36, 400, W - 72);
+  const colX = PAD + QR + 8;
+  const colW = W - PAD - colX;
+  ctx.font = `700 40px ${MONO}`;
+  ctx.fillText(code, colX, 190, colW);
 
-  ctx.font = "600 26px Archivo, Arial, sans-serif";
+  ctx.font = `500 22px ${SANS}`;
+  ctx.fillText("Received", colX, 262, colW);
+  ctx.font = `700 28px ${SANS}`;
   const day = receivedAt ? new Date(receivedAt) : new Date();
-  ctx.fillText(`Received ${day.toLocaleDateString()}`, 36, 470);
+  ctx.fillText(day.toLocaleDateString(), colX, 298, colW);
+
   ctx.textAlign = "right";
-  ctx.fillText("VAN'S WAREHOUSE", W - 36, 560);
+  ctx.font = `700 22px ${SANS}`;
+  ctx.fillText("VAN'S WAREHOUSE", W - PAD, H - 40);
 
   return new Promise((resolve, reject) =>
     c.toBlob((b) => (b ? resolve(b) : reject(new Error("Could not save the sticker."))), "image/png"),

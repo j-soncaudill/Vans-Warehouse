@@ -18,7 +18,6 @@
     "@supabase/supabase-js": "^2.117.2",
     "@tanstack/react-router": "^1.170.41",
     "html5-qrcode": "^2.3.8",
-    "jsbarcode": "^3.12.3",
     "jszip": "^3.10.2",
     "lucide-react": "^1.52.0",
     "qrcode": "^1.5.4",
