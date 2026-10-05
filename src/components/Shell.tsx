@@ -1,6 +1,6 @@
 import { useCallback, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { ArrowRight, LayoutGrid, Menu, Plus, ScanLine } from "lucide-react";
+import { ArrowRight, DatabaseBackup, LayoutGrid, Plus, ScanLine } from "lucide-react";
 import { cx, errorText, toast, useOnline } from "@/components/ui";
 import logo from "@/assets/vans-logo.png";
 import { useWedgeScanner } from "@/lib/hid";
@@ -74,13 +74,13 @@ export function Shell({ children }: { children: ReactNode }) {
         <LiveDot status={status} />
         <Link
           to="/more"
-          aria-label="Backup, restore, lock"
+          aria-label="Backup and restore"
           className={cx(
             "inline-flex size-11 items-center justify-center rounded-[var(--radius-box)] border bg-panel active:bg-raised",
             path === "/more" ? "border-cyan text-cyan" : "border-line text-ink",
           )}
         >
-          <Menu className="size-[18px]" />
+          <DatabaseBackup className="size-5" strokeWidth={1.9} />
         </Link>
       </header>
       <main className="flex-1 px-4 pt-3 pb-[calc(104px+env(safe-area-inset-bottom))]">{children}</main>

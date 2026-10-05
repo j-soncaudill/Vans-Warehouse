@@ -325,7 +325,7 @@ try {
 
   let backup;
   await step("Export backup includes records, stickers, photos", async () => {
-    await page.getByRole("link", { name: "Backup, restore, lock" }).click();
+    await page.getByRole("link", { name: "Backup and restore" }).click();
     const dl = page.waitForEvent("download");
     await page.getByRole("button", { name: "Export backup" }).click();
     const d = await dl;
@@ -350,7 +350,7 @@ try {
   });
 
   await step("Restore brings it back with photo and thumbnail", async () => {
-    await page.getByRole("link", { name: "Backup, restore, lock" }).click();
+    await page.getByRole("link", { name: "Backup and restore" }).click();
     const chooser = page.waitForEvent("filechooser");
     await page.getByRole("button", { name: "Choose backup zip" }).click();
     await (await chooser).setFiles(backup);
