@@ -13,26 +13,6 @@ import { checkOut, editPackage, getPackage, removePackage, replacePhoto, returnT
 import { photoUrl, type CapturedPhoto } from "@/lib/photo";
 import { stamp } from "@/lib/time";
 
-const RECENT_KEY = "vw.recentTakers";
-
-function recentTakers(): string[] {
-  try {
-    const v = JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]") as unknown;
-    return Array.isArray(v) ? v.filter((s): s is string => typeof s === "string").slice(0, 6) : [];
-  } catch {
-    return [];
-  }
-}
-
-function rememberTaker(name: string) {
-  try {
-    const list = [name, ...recentTakers().filter((n) => n.toLowerCase() !== name.toLowerCase())].slice(0, 6);
-    localStorage.setItem(RECENT_KEY, JSON.stringify(list));
-  } catch {
-    /* ignore */
-  }
-}
-
 function Row({ label, value }: { label: string; value: ReactNode }) {
   if (value == null || value === "") return null;
   return (
@@ -226,7 +206,6 @@ function Entry({ pkg }: { pkg: Pkg }) {
           onConfirm={(who) =>
             void act(() => checkOut(pkg.code, who), `Checked out to ${who}.`).then((ok) => {
               if (ok) {
-                rememberTaker(who);
                 setCheckout(false);
               }
             })
@@ -278,7 +257,6 @@ function CheckoutSheet({
   onConfirm: (who: string) => void;
 }) {
   const [who, setWho] = useState("");
-  const recent = recentTakers();
   return (
     <Overlay title="Check out" onClose={onCancel} closeLabel="Cancel">
       <form
@@ -301,24 +279,10 @@ function CheckoutSheet({
           maxLength={80}
           autoComplete="off"
           className="field h-14 text-[17px]"
-          placeholder="Name, crew, or truck"
+          placeholder="Sign your name"
           value={who}
           onChange={(e) => setWho(e.target.value)}
         />
-        {recent.length ? (
-          <div className="flex flex-wrap gap-2">
-            {recent.map((n) => (
-              <button
-                key={n}
-                type="button"
-                onClick={() => setWho(n)}
-                className="min-h-12 rounded-[var(--radius-box)] border border-line bg-panel px-4 text-[15px] font-semibold active:bg-raised"
-              >
-                {n}
-              </button>
-            ))}
-          </div>
-        ) : null}
         <span className="flex-1" />
         <Button big variant="primary" type="submit" disabled={busy || !who.trim()}>
           {busy ? "Saving…" : "Check out"}
