@@ -140,10 +140,9 @@ export function PhotoCamera({
               aria-label="Take photo"
               disabled={state !== "live" || busy}
               onClick={() => void take()}
-              className="grad-cyan flex min-h-[76px] w-full items-center justify-center gap-3 rounded-[14px] text-cyan-ink shadow-[0_12px_32px_rgb(45_174_196/0.3)] active:brightness-110 disabled:opacity-40"
+              className="mx-auto flex size-[72px] items-center justify-center text-cyan drop-shadow-[0_0_10px_rgb(45_174_196/0.6)] active:brightness-125 disabled:opacity-40"
             >
-              <Camera className="size-8" strokeWidth={2} />
-              <span className="text-[17px] font-semibold lowercase">take photo</span>
+              <Camera className="size-11" strokeWidth={1.8} />
             </button>
           )}
         </div>
