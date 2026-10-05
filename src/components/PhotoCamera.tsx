@@ -113,12 +113,13 @@ export function PhotoCamera({
           className={shot ? "hidden" : "absolute inset-0 h-full w-full object-cover"}
         />
         {preview ? <img src={preview} alt="Photo to save" className="absolute inset-0 h-full w-full object-contain" /> : null}
-        {!shot && state === "starting" ? <p className="absolute inset-x-0 bottom-4 text-center text-[18px] font-semibold">Starting camera…</p> : null}
+        {!shot && state === "starting" ? <p className="absolute inset-x-0 bottom-4 text-center text-[13px] text-cyan">starting camera…</p> : null}
         {!shot && state === "failed" ? (
-          <p className="absolute inset-x-4 bottom-4 mx-auto max-w-md rounded-md bg-black/80 px-3 py-2 text-center text-[18px]">{error}</p>
+          <p className="absolute inset-x-4 bottom-4 mx-auto max-w-md rounded-md bg-black/80 px-3 py-2 text-center text-[14px]">{error}</p>
         ) : null}
       </div>
-      <div className="bg-bg px-4 pt-3 pb-[max(env(safe-area-inset-bottom),12px)]">
+      <div className="bg-[linear-gradient(110deg,#0b262c_0%,#0a0a0c_50%,#2a0c0f_100%)] px-4 pt-0 pb-[max(env(safe-area-inset-bottom),14px)]">
+        <div aria-hidden className="brand-rule mb-3" />
         <div className="mx-auto flex max-w-lg flex-col gap-2">
           {shot ? (
             <>
@@ -126,12 +127,12 @@ export function PhotoCamera({
                 {saving ? "Saving photo…" : "Use photo"}
               </Button>
               <Button disabled={saving} onClick={() => setShot(null)}>
-                <RotateCcw className="size-6" /> Retake
+                <RotateCcw className="size-[18px]" /> Retake
               </Button>
             </>
           ) : state === "failed" ? (
             <Button big variant="primary" disabled={busy} onClick={() => fileRef.current?.click()}>
-              <ImageUp className="size-7" /> {busy ? "Shrinking…" : "Use phone camera"}
+              <ImageUp className="size-5" /> {busy ? "Shrinking…" : "Use phone camera"}
             </Button>
           ) : (
             <button
@@ -139,9 +140,9 @@ export function PhotoCamera({
               aria-label="Take photo"
               disabled={state !== "live" || busy}
               onClick={() => void take()}
-              className="mx-auto flex size-[84px] items-center justify-center rounded-full border-[5px] border-ink bg-amber text-amber-ink disabled:opacity-40"
+              className="grad-cyan mx-auto flex size-[76px] items-center justify-center rounded-full border-4 border-ink/90 text-cyan-ink shadow-[0_0_24px_rgb(45_174_196/0.4)] disabled:opacity-40"
             >
-              <Camera className="size-9" strokeWidth={2.5} />
+              <Camera className="size-8" strokeWidth={2.2} />
             </button>
           )}
         </div>

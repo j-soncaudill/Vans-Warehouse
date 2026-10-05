@@ -1,19 +1,24 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg: #151618;
-  --color-panel: #1e2023;
-  --color-raised: #282b2f;
-  --color-line: #3b3f45;
-  --color-ink: #f4f4f2;
-  --color-dim: #a9aeb5;
-  --color-amber: #ffb000;
-  --color-amber-ink: #1b1300;
-  --color-danger: #ff6b5e;
+  /* Terminal: near-black, logo cyan as the one action color, logo red as a hint. */
+  --color-bg: #05080a;
+  --color-panel: #071014;
+  --color-raised: #0d1a1e;
+  --color-line: #16323a;
+  --color-hair: #10262c;
+  --color-ink: #e6f6f9;
+  --color-label: #9fb6bc;
+  --color-dim: #7c979e;
+  --color-faint: #5f7d84;
+  --color-cyan: #2daec4;
+  --color-cyan-deep: #1f7a9a;
+  --color-cyan-ink: #021014;
+  --color-brandred: #c52c2e;
+  --color-danger: #ff6b6d;
 
-  --font-sans: "Archivo", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-cond: "Archivo Narrow", "Arial Narrow", "Roboto Condensed", ui-sans-serif, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-sans: "Geist Sans", -apple-system, "SF Pro Text", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
   --radius-box: 10px;
 }
@@ -30,10 +35,18 @@
     min-height: 100dvh;
     background: var(--color-bg);
     color: var(--color-ink);
-    font-family: var(--font-sans);
-    font-size: 17px;
-    line-height: 1.4;
+    font-family: var(--font-mono);
+    font-size: 15px;
+    line-height: 1.45;
     overscroll-behavior-y: none;
+  }
+  /* Brand wash: dark cyan top-left to dark red bottom-right, fixed behind everything. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(160deg, #0b262c 0%, #07141a 30%, #0a0a0c 55%, #160a0c 78%, #2a0c0f 100%);
   }
   input,
   textarea,
@@ -46,33 +59,56 @@
   input,
   textarea,
   select {
-    font-size: 18px;
+    font-size: 16px;
   }
   button:not(:disabled) {
     cursor: pointer;
   }
   :focus-visible {
-    outline: 3px solid var(--color-amber);
+    outline: 2px solid var(--color-cyan);
     outline-offset: 2px;
   }
   ::selection {
-    background: var(--color-amber);
-    color: var(--color-amber-ink);
+    background: var(--color-cyan);
+    color: var(--color-cyan-ink);
   }
 }
 
 @layer components {
   .field {
-    @apply block w-full min-h-14 rounded-[var(--radius-box)] border-2 border-line bg-panel px-4 py-3 text-ink placeholder:text-dim/70;
+    @apply block w-full min-h-12 rounded-[var(--radius-box)] border border-line bg-panel px-3.5 py-3 text-ink placeholder:text-faint;
   }
   .field:focus {
-    @apply border-amber outline-none;
+    @apply border-cyan outline-none;
+    box-shadow: 0 0 0 3px rgb(45 174 196 / 0.14);
   }
   .label {
-    @apply mb-2 block font-cond text-[15px] font-semibold tracking-[0.06em] text-dim uppercase;
+    @apply mb-1.5 block text-[12px] text-label lowercase;
+  }
+  .section-label {
+    @apply text-[12px] text-faint;
   }
   .code {
-    @apply font-mono font-bold tracking-[0.04em];
+    @apply font-mono font-medium tracking-[0.02em];
+  }
+  .grad-cyan {
+    background: linear-gradient(90deg, var(--color-cyan) 0%, var(--color-cyan-deep) 100%);
+  }
+  .grad-title {
+    background: linear-gradient(90deg, #ffffff 0%, var(--color-cyan) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .grad-code {
+    background: linear-gradient(90deg, var(--color-cyan) 0%, #9be7f3 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .brand-rule {
+    height: 1px;
+    background: linear-gradient(90deg, rgb(45 174 196 / 0) 0%, var(--color-cyan) 30%, var(--color-brandred) 75%, rgb(197 44 46 / 0) 100%);
   }
 }
 

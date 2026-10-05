@@ -196,12 +196,12 @@ try {
     await page.fill("#pin", PIN);
     await page.getByRole("button", { name: "Unlock" }).click();
     await expect(page.getByText("Floor is empty"), "empty floor");
-    await expect(page.getByText("Live", { exact: true }), "realtime live");
+    await expect(page.getByText("live", { exact: true }), "realtime live");
     await shot("02-floor-empty");
   });
 
   await step("Receive with new VW- code, all fields, in-app photo", async () => {
-    await page.getByRole("link", { name: "Receive" }).last().click();
+    await page.getByRole("link", { name: "receive", exact: true }).click();
     await page.fill("#f-job", "Maple St Remodel");
     await page.fill("#f-po", "PO-4471");
     await page.fill("#f-vendor", "Ferguson");
@@ -234,7 +234,7 @@ try {
   });
 
   await step("Floor list shows thumbnail; thumbnail opens full photo", async () => {
-    await page.getByRole("link", { name: "On floor" }).last().click();
+    await page.getByRole("link", { name: "floor", exact: true }).click();
     await expect(page.getByText("Maple St Remodel"), "row");
     await page.waitForTimeout(300);
     await shot("06-floor-list");
@@ -256,8 +256,8 @@ try {
     await page.getByRole("dialog").getByRole("button", { name: "Check out" }).click();
     await expect(page.getByText(/Checked out · Truck 3/), "checked out banner");
     if (await page.getByRole("button", { name: /Retake photo/ }).count()) throw new Error("retake allowed after checkout");
-    await page.getByRole("link", { name: "Checked out" }).click();
-    await expect(page.getByText("Taken by Truck 3"), "out list");
+    await page.getByRole("link", { name: "out", exact: true }).click();
+    await expect(page.getByText("taken by Truck 3"), "out list");
     await shot("10-out-list");
     await page.getByRole("link", { name: /Maple St Remodel/ }).click();
     await page.getByRole("button", { name: "Return to floor" }).click();
@@ -280,7 +280,7 @@ try {
   });
 
   await step("Scan page: typed unknown code goes to Receive with that code", async () => {
-    await page.getByRole("link", { name: "Scan" }).click();
+    await page.getByRole("link", { name: "scan", exact: true }).click();
     await page.getByRole("button", { name: "Open camera" }).click();
     await page.waitForTimeout(1500);
     await shot("11-scanner");
@@ -296,7 +296,7 @@ try {
   });
 
   await step("Wedge scanner burst on the floor opens the entry", async () => {
-    await page.getByRole("link", { name: "On floor" }).last().click();
+    await page.getByRole("link", { name: "floor", exact: true }).click();
     await expect(page.getByText("Oak Ave"), "list");
     await page.locator("body").click({ position: { x: 5, y: 300 } });
     await page.keyboard.type(mintedCode, { delay: 10 });
@@ -305,7 +305,7 @@ try {
   });
 
   await step("Realtime: a box received on another phone appears without reload", async () => {
-    await page.getByRole("link", { name: "On floor" }).last().click();
+    await page.getByRole("link", { name: "floor", exact: true }).click();
     await expect(page.getByText("Oak Ave"), "list");
     const t = new Date().toISOString();
     const row = {

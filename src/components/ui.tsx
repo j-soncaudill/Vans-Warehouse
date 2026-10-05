@@ -8,16 +8,16 @@ export function cx(...parts: Array<string | false | null | undefined>) {
 type Variant = "primary" | "plain" | "ghost" | "danger";
 
 const VARIANTS: Record<Variant, string> = {
-  primary: "bg-amber text-amber-ink active:bg-[#e09b00]",
-  plain: "bg-raised text-ink border-2 border-line active:bg-line",
-  ghost: "bg-transparent text-ink active:bg-raised",
-  danger: "bg-transparent text-danger border-2 border-danger/70 active:bg-danger/15",
+  primary: "grad-cyan text-cyan-ink font-semibold shadow-[0_10px_28px_rgb(45_174_196/0.28)] active:brightness-110",
+  plain: "bg-panel text-ink border border-line active:bg-raised",
+  ghost: "bg-transparent text-cyan active:bg-panel",
+  danger: "bg-[linear-gradient(90deg,rgb(197_44_46/0.16),rgb(197_44_46/0.04))] text-danger border border-danger/45 active:bg-danger/15",
 };
 
 export function btn(variant: Variant = "plain", big = false) {
   return cx(
-    "inline-flex w-full items-center justify-center gap-3 rounded-[var(--radius-box)] px-5 font-cond font-bold tracking-[0.03em] uppercase select-none disabled:opacity-45",
-    big ? "min-h-[68px] text-[22px]" : "min-h-14 text-[18px]",
+    "inline-flex w-full items-center justify-center gap-2.5 rounded-[12px] px-5 font-mono lowercase select-none disabled:opacity-45",
+    big ? "min-h-14 text-[16px]" : "min-h-[50px] text-[15px]",
     VARIANTS[variant],
   );
 }
@@ -54,7 +54,7 @@ export function IconButton({
       title={label}
       {...rest}
       className={cx(
-        "inline-flex size-14 shrink-0 items-center justify-center rounded-[var(--radius-box)] text-ink active:bg-raised disabled:opacity-45",
+        "inline-flex size-11 shrink-0 items-center justify-center rounded-[var(--radius-box)] border border-line bg-panel text-ink active:bg-raised disabled:opacity-45",
         className,
       )}
     >
@@ -68,7 +68,7 @@ export function Field({ label, htmlFor, hint, children }: { label: string; htmlF
     <div>
       <label className="label" htmlFor={htmlFor}>
         {label}
-        {hint ? <span className="ml-2 normal-case tracking-normal text-dim/80">{hint}</span> : null}
+        {hint === "required" ? <span className="ml-1 text-cyan">*</span> : null}
       </label>
       {children}
     </div>
@@ -91,7 +91,7 @@ export function YesNoBlank({
     ["", "—"],
   ];
   return (
-    <div id={id} role="radiogroup" className="grid grid-cols-3 gap-2">
+    <div id={id} role="radiogroup" className="grid grid-cols-3 overflow-hidden rounded-[var(--radius-box)] border border-line">
       {opts.map(([v, text]) => {
         const on = value === v;
         return (
@@ -103,8 +103,8 @@ export function YesNoBlank({
             aria-label={v ? text : "Not answered"}
             onClick={() => onChange(on ? "" : v)}
             className={cx(
-              "min-h-14 rounded-[var(--radius-box)] border-2 font-cond text-[19px] font-bold uppercase",
-              on ? "border-amber bg-amber text-amber-ink" : "border-line bg-panel text-ink active:bg-raised",
+              "min-h-12 border-l border-line font-mono text-[14px] lowercase first:border-l-0",
+              on ? (v ? "grad-cyan font-semibold text-cyan-ink" : "bg-raised text-ink") : "bg-panel text-dim active:bg-raised",
             )}
           >
             {text}
@@ -142,16 +142,23 @@ export function Overlay({
     };
   }, [onClose]);
   return (
-    <div role="dialog" aria-modal="true" className={cx("fixed inset-0 z-50 flex flex-col", dark ? "bg-black" : "bg-bg")}>
-      <div className="relative z-10 flex items-center gap-2 px-2 pt-[max(env(safe-area-inset-top),8px)] pb-2">
-        <div className="min-w-0 flex-1 truncate px-2 font-cond text-[22px] font-bold tracking-[0.02em] uppercase">{title}</div>
+    <div
+      role="dialog"
+      aria-modal="true"
+      className={cx(
+        "fixed inset-0 z-50 flex flex-col",
+        dark ? "bg-black" : "bg-[linear-gradient(160deg,#0b262c_0%,#07141a_30%,#0a0a0c_55%,#160a0c_78%,#2a0c0f_100%)]",
+      )}
+    >
+      <div className="relative z-10 flex items-center gap-2 px-3 pt-[max(env(safe-area-inset-top),10px)] pb-2">
+        <div className="min-w-0 flex-1 truncate px-1 text-[13px] text-faint lowercase">{title}</div>
         <button
           type="button"
           onClick={onClose}
           aria-label={closeLabel}
-          className="inline-flex h-14 items-center gap-2 rounded-[var(--radius-box)] border-2 border-ink/80 bg-black/70 px-4 font-cond text-[18px] font-bold uppercase active:bg-raised"
+          className="inline-flex h-11 items-center gap-2 rounded-[var(--radius-box)] border border-ink/40 bg-black/60 px-4 text-[14px] lowercase active:bg-raised"
         >
-          <X className="size-6" strokeWidth={3} />
+          <X className="size-4" strokeWidth={2.5} />
           {closeLabel}
         </button>
       </div>
@@ -180,8 +187,8 @@ export function Confirm({
   return (
     <Overlay onClose={onCancel} closeLabel="Cancel">
       <div className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-end gap-4 px-4 pb-[max(env(safe-area-inset-bottom),16px)]">
-        <h2 className="font-cond text-[30px] leading-tight font-bold">{title}</h2>
-        <div className="text-[18px] text-dim">{body}</div>
+        <h2 className="font-sans text-[28px] leading-tight font-bold tracking-[-0.02em]">{title}</h2>
+        <div className="text-[15px] text-dim">{body}</div>
         <Button big variant={danger ? "danger" : "primary"} disabled={busy} onClick={onConfirm}>
           {busy ? "Working…" : confirmLabel}
         </Button>
@@ -219,13 +226,13 @@ export function Toaster() {
     () => toasts,
   );
   return (
-    <div aria-live="polite" className="pointer-events-none fixed inset-x-0 top-0 z-[60] flex flex-col items-center gap-2 px-4 pt-[calc(env(safe-area-inset-top)+80px)]">
+    <div aria-live="polite" className="pointer-events-none fixed inset-x-0 top-0 z-[60] flex flex-col items-center gap-2 px-4 pt-[calc(env(safe-area-inset-top)+64px)]">
       {list.map((t) => (
         <div
           key={t.id}
           className={cx(
-            "pointer-events-auto w-full max-w-lg rounded-[var(--radius-box)] border-2 px-4 py-3 text-[17px] font-semibold shadow-lg",
-            t.tone === "error" ? "border-danger bg-[#2a1614] text-ink" : "border-amber bg-panel text-ink",
+            "pointer-events-auto w-full max-w-lg rounded-[var(--radius-box)] border px-4 py-3 text-[14px] shadow-[0_12px_30px_rgb(0_0_0/0.5)]",
+            t.tone === "error" ? "border-danger/60 bg-[#1c0c0d] text-ink" : "border-cyan/60 bg-panel text-ink",
           )}
         >
           {t.text}

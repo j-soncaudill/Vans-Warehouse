@@ -36,32 +36,32 @@ function rememberTaker(name: string) {
 function Row({ label, value }: { label: string; value: ReactNode }) {
   if (value == null || value === "") return null;
   return (
-    <div className="border-b-2 border-line py-3 last:border-b-0">
-      <dt className="label mb-1!">{label}</dt>
-      <dd className="text-[19px] break-words whitespace-pre-wrap">{value}</dd>
+    <div className="grid grid-cols-[124px_minmax(0,1fr)] gap-3 border-b border-hair py-2.5">
+      <dt className="text-[13px] text-dim lowercase">{label}</dt>
+      <dd className="text-[14px] break-words whitespace-pre-wrap">{value}</dd>
     </div>
   );
 }
 
-const yn = (v: boolean | null) => (v == null ? "—" : v ? "Yes" : "No");
+const yn = (v: boolean | null) => (v == null ? "—" : v ? "yes" : "no");
 
 export function DetailPage({ code: rawCode }: { code: string }) {
   const code = normalizeCode(rawCode);
   const { data: pkg, error, loading, reload } = useLiveQuery(`pkg:${code}`, () => getPackage(code));
 
-  if (loading && pkg === undefined) return <p className="py-10 text-center text-[18px] text-dim">Loading…</p>;
+  if (loading && pkg === undefined) return <p className="py-10 text-center text-[15px] text-dim">Loading…</p>;
   if (error && !pkg)
     return (
       <div className="flex flex-col gap-3">
-        <p className="text-[18px]">{error}</p>
+        <p className="text-[15px]">{error}</p>
         <Button onClick={reload}>Try again</Button>
       </div>
     );
   if (!pkg)
     return (
       <div className="flex flex-col gap-4">
-        <h1 className="font-cond text-[30px] font-bold uppercase">Not in the warehouse</h1>
-        <p className="text-[18px] text-dim">
+        <h1 className="font-sans text-[28px] font-bold tracking-[-0.02em]">Not in the warehouse</h1>
+        <p className="text-[15px] text-dim">
           <span className="code text-ink">{code}</span> is not on the list. It may have been removed.
         </p>
         <Link to="/receive" search={{ code }} className={btn("primary", true)}>
@@ -121,8 +121,8 @@ function Entry({ pkg }: { pkg: Pkg }) {
         className="flex flex-col gap-6"
       >
         <div className="flex items-center justify-between">
-          <h1 className="font-cond text-[30px] font-bold uppercase">Edit</h1>
-          <span className="code text-[18px] text-amber">{pkg.code}</span>
+          <h1 className="m-0 text-[28px] font-semibold tracking-[-0.03em]"><span className="grad-title">Edit</span><span className="text-cyan">_</span></h1>
+          <span className="code text-[15px] text-cyan">{pkg.code}</span>
         </div>
         <PackageForm values={form} onChange={(p) => setForm((f) => ({ ...f, ...p }))} />
         <div className="flex flex-col gap-2">
@@ -140,25 +140,26 @@ function Entry({ pkg }: { pkg: Pkg }) {
   return (
     <article className="flex flex-col gap-5">
       <div className="-mt-1 flex items-center gap-2">
-        <button type="button" onClick={back} className="-ml-3 inline-flex min-h-14 items-center gap-2 px-3 font-cond text-[18px] font-bold uppercase text-dim active:text-ink">
-          <ArrowLeft className="size-6" /> Back
+        <button type="button" onClick={back} className="-ml-2 inline-flex min-h-11 items-center gap-1.5 px-2 text-[14px] text-cyan lowercase active:opacity-70">
+          <ArrowLeft className="size-[18px]" /> Back
         </button>
         <span className="flex-1" />
-        <span className="code text-[18px] text-amber">{pkg.code}</span>
+        <span className="text-[12px] text-faint">recv {stamp(pkg.receivedAt)}</span>
       </div>
 
       <div
         className={
           onFloor
-            ? "rounded-[var(--radius-box)] border-2 border-amber px-4 py-2 font-cond text-[20px] font-bold tracking-[0.04em] text-amber uppercase"
-            : "rounded-[var(--radius-box)] bg-raised px-4 py-2 font-cond text-[20px] font-bold tracking-[0.04em] uppercase"
+            ? "self-start rounded-[6px] border border-cyan bg-cyan/10 px-2 py-0.5 text-[12px] text-cyan uppercase"
+            : "self-start rounded-[6px] border border-line bg-raised px-2 py-0.5 text-[12px] text-ink"
         }
       >
         {onFloor ? "On the floor" : `Checked out · ${pkg.checkedOutTo ?? "?"} · ${stamp(pkg.checkedOutAt)}`}
       </div>
 
       <div>
-        <h1 className="font-cond text-[40px] leading-[1.05] font-bold break-words">{pkg.jobName}</h1>
+        <h1 className="m-0 font-sans text-[32px] leading-[1.1] font-bold tracking-[-0.02em] break-words text-white">{pkg.jobName}</h1>
+        <span className="grad-code mt-1 block text-[19px] font-semibold tracking-[0.02em]">{pkg.code}</span>
         <div className="mt-2 flex flex-wrap items-center gap-4">
           <ColorChip tag={pkg.colorTag} large />
           {pkg.damaged ? <DamageChip /> : null}
@@ -166,13 +167,13 @@ function Entry({ pkg }: { pkg: Pkg }) {
       </div>
 
       {full && !imgBroken ? (
-        <button type="button" onClick={() => setViewer(true)} aria-label="Open full photo" className="block overflow-hidden rounded-[var(--radius-box)] bg-black">
+        <button type="button" onClick={() => setViewer(true)} aria-label="Open full photo" className="block overflow-hidden rounded-[12px] border border-line bg-black">
           <img src={full} alt={`Photo of ${pkg.jobName}`} onError={() => setImgBroken(true)} className="mx-auto max-h-[60vh] w-full object-contain" />
         </button>
       ) : null}
       {onFloor ? (
         <Button onClick={() => setCamera(true)} disabled={busy}>
-          <Camera className="size-6" /> {full ? "Retake photo" : "Add photo"}
+          <Camera className="size-[18px]" /> {full ? "Retake photo" : "Add photo"}
         </Button>
       ) : null}
 
@@ -182,11 +183,11 @@ function Entry({ pkg }: { pkg: Pkg }) {
         </Button>
       ) : (
         <Button big variant="primary" disabled={busy} onClick={() => void act(() => returnToFloor(pkg.code), "Back on the floor.")}>
-          <Undo2 className="size-7" /> Return to floor
+          <Undo2 className="size-5" /> Return to floor
         </Button>
       )}
 
-      <dl className="rounded-[var(--radius-box)] border-2 border-line bg-panel px-4">
+      <dl className="m-0 border-t border-hair">
         <Row label="Received" value={stamp(pkg.receivedAt)} />
         <Row label="PO number" value={pkg.poNumber && <span className="code">{pkg.poNumber}</span>} />
         <Row label="Vendor" value={pkg.vendor} />
@@ -201,7 +202,7 @@ function Entry({ pkg }: { pkg: Pkg }) {
       </dl>
 
       <section aria-label="Sticker" className="flex flex-col gap-3">
-        <span className="label mb-0!">Sticker</span>
+        <span className="section-label">// sticker</span>
         <StickerPreview info={pkg} />
         <StickerButtons info={pkg} />
       </section>
@@ -287,10 +288,10 @@ function CheckoutSheet({
         }}
         className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-4 overflow-y-auto px-4 pt-4 pb-[max(env(safe-area-inset-bottom),16px)]"
       >
-        <p className="text-[18px] text-dim">
-          {pkg.jobName} · <span className="code text-amber">{pkg.code}</span>
+        <p className="text-[15px] text-dim">
+          {pkg.jobName} · <span className="code text-cyan">{pkg.code}</span>
         </p>
-        <label htmlFor="taken-by" className="font-cond text-[30px] leading-tight font-bold">
+        <label htmlFor="taken-by" className="font-sans text-[28px] leading-tight font-bold tracking-[-0.02em]">
           Who took it?
         </label>
         <input
@@ -299,7 +300,7 @@ function CheckoutSheet({
           required
           maxLength={80}
           autoComplete="off"
-          className="field h-16 text-[22px]"
+          className="field h-14 text-[17px]"
           placeholder="Name, crew, or truck"
           value={who}
           onChange={(e) => setWho(e.target.value)}
@@ -311,7 +312,7 @@ function CheckoutSheet({
                 key={n}
                 type="button"
                 onClick={() => setWho(n)}
-                className="min-h-12 rounded-[var(--radius-box)] border-2 border-line bg-panel px-4 text-[17px] font-semibold active:bg-raised"
+                className="min-h-12 rounded-[var(--radius-box)] border border-line bg-panel px-4 text-[15px] font-semibold active:bg-raised"
               >
                 {n}
               </button>

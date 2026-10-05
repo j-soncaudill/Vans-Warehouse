@@ -23,7 +23,7 @@ export function StickerPreview({ info }: { info: StickerInfo }) {
     };
   }, [info.code, info.jobName, info.receivedAt]);
   return (
-    <div className="overflow-hidden rounded-[var(--radius-box)] border-2 border-line bg-white">
+    <div className="overflow-hidden rounded-[12px] border border-line bg-white">
       {url ? (
         <img src={url} alt={`Sticker ${info.code}`} className="block aspect-[4/3] w-full" />
       ) : (
@@ -36,7 +36,7 @@ export function StickerPreview({ info }: { info: StickerInfo }) {
 export function StickerButtons({ info, primary }: { info: StickerInfo; primary?: boolean }) {
   const [busy, setBusy] = useState<"" | "save" | "print">("");
   if (IS_DEMO) {
-    return <p className="rounded-[var(--radius-box)] border-2 border-dashed border-line px-4 py-3 text-[17px] text-dim">Save and Print work on the live site. This preview blocks downloads and printing.</p>;
+    return <p className="rounded-[var(--radius-box)] border border-dashed border-line px-4 py-3 text-[13px] text-dim">Save and Print work on the live site. This preview blocks downloads and printing.</p>;
   }
   async function run(kind: "save" | "print") {
     setBusy(kind);
@@ -55,10 +55,10 @@ export function StickerButtons({ info, primary }: { info: StickerInfo; primary?:
   return (
     <div className="grid grid-cols-2 gap-2">
       <Button big={primary} variant={primary ? "primary" : "plain"} disabled={!!busy} onClick={() => void run("save")}>
-        <Download className="size-6" /> {busy === "save" ? "…" : "Save"}
+        <Download className="size-[18px]" /> {busy === "save" ? "…" : "Save"}
       </Button>
       <Button big={primary} variant={primary ? "primary" : "plain"} disabled={!!busy} onClick={() => void run("print")}>
-        <Printer className="size-6" /> {busy === "print" ? "…" : "Print"}
+        <Printer className="size-[18px]" /> {busy === "print" ? "…" : "Print"}
       </Button>
     </div>
   );

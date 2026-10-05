@@ -190,29 +190,34 @@ export function Scanner({
         <div id={REGION_ID} className="absolute inset-0" />
         {cam === "live" ? (
           <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <div className="relative h-[34%] w-[86%] max-w-[560px] rounded-[14px] border-4 border-amber">
-              <div className="absolute inset-x-4 top-1/2 h-[3px] -translate-y-1/2 bg-amber/80" />
+            <div className="relative h-[34%] w-[80%] max-w-[520px]">
+              <span className="absolute top-0 left-0 size-7 border-t-2 border-l-2 border-cyan" />
+              <span className="absolute top-0 right-0 size-7 border-t-2 border-r-2 border-cyan" />
+              <span className="absolute bottom-0 left-0 size-7 border-b-2 border-l-2 border-cyan" />
+              <span className="absolute right-0 bottom-0 size-7 border-r-2 border-b-2 border-cyan" />
+              <span className="absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2 bg-[linear-gradient(90deg,transparent,var(--color-cyan),transparent)] shadow-[0_0_14px_var(--color-cyan)]" />
             </div>
           </div>
         ) : null}
         <div className="absolute inset-x-0 bottom-0 px-4 pb-4 text-center">
-          {cam === "starting" ? <p className="text-[18px] font-semibold text-ink">Starting camera…</p> : null}
-          {cam === "live" ? <p className="inline-block rounded-md bg-black/70 px-3 py-1.5 text-[18px] font-semibold">Fill the box with the barcode</p> : null}
-          {cam === "failed" ? <p className="mx-auto max-w-md rounded-md bg-black/80 px-3 py-2 text-[18px] text-ink">{camError}</p> : null}
+          {cam === "starting" ? <p className="text-[13px] text-cyan">starting camera…</p> : null}
+          {cam === "live" ? <p className="inline-block rounded-md bg-black/75 px-2.5 py-1 text-[12px] text-cyan">scanning · code128 · qr · ean · upc</p> : null}
+          {cam === "failed" ? <p className="mx-auto max-w-md rounded-md bg-black/80 px-3 py-2 text-[14px] text-ink">{camError}</p> : null}
         </div>
       </div>
 
-      <div className="bg-bg px-4 pt-3 pb-[max(env(safe-area-inset-bottom),12px)]">
+      <div className="bg-[linear-gradient(110deg,#0b262c_0%,#0a0a0c_50%,#2a0c0f_100%)] px-4 pt-0 pb-[max(env(safe-area-inset-bottom),14px)]">
+        <div aria-hidden className="brand-rule mb-3" />
         {typing ? (
           <form onSubmit={submitTyped} className="mx-auto flex max-w-lg flex-col gap-2">
             <label htmlFor="scan-typed" className="label">
-              Type the code
+              // or type the code
             </label>
             <div className="flex gap-2">
               <input
                 ref={inputRef}
                 id="scan-typed"
-                className="field code min-w-0 flex-1 text-[22px] uppercase"
+                className="field code min-w-0 flex-1 text-[17px] text-cyan uppercase"
                 autoComplete="off"
                 autoCapitalize="characters"
                 autoCorrect="off"
@@ -229,21 +234,21 @@ export function Scanner({
                 Go
               </Button>
             </div>
-            {typedError ? <p className="text-[16px] text-danger">{typedError}</p> : null}
+            {typedError ? <p className="text-[13px] text-danger">{typedError}</p> : null}
             {cam === "failed" ? (
               <Button onClick={() => fileRef.current?.click()} disabled={reading}>
-                <ImageUp className="size-6" /> {reading ? "Reading…" : "Photo of the barcode"}
+                <ImageUp className="size-[18px]" /> {reading ? "Reading…" : "Photo of the barcode"}
               </Button>
             ) : null}
           </form>
         ) : (
           <div className={cx("mx-auto grid max-w-lg gap-2", torch !== null ? "grid-cols-2" : "grid-cols-1")}>
             <Button onClick={() => setTyping(true)}>
-              <Keyboard className="size-6" /> Type code
+              <Keyboard className="size-[18px]" /> Type code
             </Button>
             {torch !== null ? (
               <Button variant={torch ? "primary" : "plain"} onClick={() => void toggleTorch()} aria-pressed={torch}>
-                <Flashlight className="size-6" /> {torch ? "Light on" : "Light"}
+                <Flashlight className="size-[18px]" /> {torch ? "Light on" : "Light"}
               </Button>
             ) : null}
           </div>

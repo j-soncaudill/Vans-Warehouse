@@ -61,7 +61,7 @@ export function Gate({ children }: { children: ReactNode }) {
   if (schema === "checking" || (schema === "ready" && unlocked === null)) {
     return (
       <Screen>
-        <p className="text-[20px] text-dim">Connecting…</p>
+        <p className="text-[14px] text-dim">Connecting…</p>
       </Screen>
     );
   }
@@ -69,8 +69,8 @@ export function Gate({ children }: { children: ReactNode }) {
   if (schema === "unconfigured") {
     return (
       <Screen>
-        <h1 className="font-cond text-[32px] font-bold uppercase">Not connected</h1>
-        <p className="mt-3 text-[18px] text-dim">
+        <h1 className="font-sans text-[28px] font-bold tracking-[-0.02em]">Not connected</h1>
+        <p className="mt-3 text-[14px] text-dim">
           This build has no Supabase settings. Set <span className="code text-ink">VITE_SUPABASE_URL</span> and{" "}
           <span className="code text-ink">VITE_SUPABASE_ANON_KEY</span>, rebuild, and upload again.
         </p>
@@ -81,8 +81,8 @@ export function Gate({ children }: { children: ReactNode }) {
   if (schema === "offline") {
     return (
       <Screen>
-        <h1 className="font-cond text-[32px] font-bold uppercase">Can't reach the database</h1>
-        <p className="mt-3 mb-6 text-[18px] text-dim">Check the Wi-Fi or signal, then try again.</p>
+        <h1 className="font-sans text-[28px] font-bold tracking-[-0.02em]">Can't reach the database</h1>
+        <p className="mt-3 mb-6 text-[14px] text-dim">Check the Wi-Fi or signal, then try again.</p>
         <Button big variant="primary" onClick={check}>
           Try again
         </Button>
@@ -93,8 +93,8 @@ export function Gate({ children }: { children: ReactNode }) {
   if (schema === "missing" || schema === "outdated") {
     return (
       <Screen>
-        <h1 className="font-cond text-[32px] font-bold uppercase">Database setup needed</h1>
-        <p className="mt-3 mb-6 text-[18px] text-dim">
+        <h1 className="font-sans text-[28px] font-bold tracking-[-0.02em]">Database setup needed</h1>
+        <p className="mt-3 mb-6 text-[14px] text-dim">
           {schema === "outdated" ? "The packages table is from an older version. " : ""}
           In Supabase, open SQL Editor, paste the setup SQL, and press Run. It replaces the packages and settings tables.
         </p>
@@ -127,8 +127,13 @@ export function Gate({ children }: { children: ReactNode }) {
   return (
     <Screen>
       <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
-        <h1 className="flex items-center gap-3 font-cond text-[32px] font-bold uppercase">
-          <Lock className="size-8 text-amber" strokeWidth={2.5} /> Shop PIN
+        <span className="text-[12px] text-faint">
+          ~/warehouse <span className="text-cyan">$</span> unlock
+        </span>
+        <h1 className="m-0 flex items-center gap-3 text-[30px] font-semibold tracking-[-0.03em]">
+          <Lock className="size-6 text-cyan" strokeWidth={2.2} />
+          <span className="grad-title">Shop PIN</span>
+          <span className="-ml-2 text-cyan">_</span>
         </h1>
         <label htmlFor="pin" className="sr-only">
           Shop PIN
@@ -138,15 +143,15 @@ export function Gate({ children }: { children: ReactNode }) {
           type="password"
           autoComplete="off"
           autoFocus
-          className="field code h-20 text-center text-[34px] tracking-[0.4em]"
+          className="field code h-16 text-center text-[28px] tracking-[0.4em] text-cyan"
           value={pin}
           onChange={(e) => {
             setPin(e.target.value);
             setMsg("");
           }}
         />
-        {IS_DEMO ? <p className="text-[18px] text-dim">Demo PIN: <span className="code text-amber">0000</span></p> : null}
-        {msg ? <p className="text-[18px] font-semibold text-danger">{msg}</p> : null}
+        {IS_DEMO ? <p className="text-[13px] text-dim">demo pin: <span className="text-cyan">0000</span></p> : null}
+        {msg ? <p className="text-[13px] text-danger">{msg}</p> : null}
         <Button big variant="primary" type="submit" disabled={busy || !pin.trim()}>
           {busy ? "Checking…" : "Unlock"}
         </Button>

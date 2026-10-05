@@ -48,24 +48,24 @@ export function ScanPage() {
 
   return (
     <>
-      <PageTitle>Scan</PageTitle>
+      <PageTitle cmd="scan">Scan</PageTitle>
       <button
         type="button"
         onClick={() => setCamera(true)}
-        className="flex min-h-[180px] w-full flex-col items-center justify-center gap-3 rounded-[var(--radius-box)] bg-amber text-amber-ink active:bg-[#e09b00]"
+        className="grad-cyan flex min-h-[150px] w-full flex-col items-center justify-center gap-3 rounded-[14px] text-cyan-ink shadow-[0_12px_32px_rgb(45_174_196/0.3)] active:brightness-110"
       >
-        <ScanLine className="size-16" strokeWidth={2.25} />
-        <span className="font-cond text-[30px] font-bold uppercase">Open camera</span>
+        <ScanLine className="size-12" strokeWidth={2} />
+        <span className="text-[17px] font-semibold lowercase">open camera</span>
       </button>
 
-      <form onSubmit={submit} className="mt-8 flex flex-col gap-3">
+      <form onSubmit={submit} className="mt-7 flex flex-col gap-2.5">
         <label htmlFor="scan-code" className="label">
-          Or type / wedge-scan the code
+          // or type / wedge-scan the code
         </label>
         <input
           ref={inputRef}
           id="scan-code"
-          className="field code h-16 text-[24px] uppercase"
+          className="field code h-14 text-[18px] text-cyan uppercase"
           autoComplete="off"
           autoCapitalize="characters"
           autoCorrect="off"

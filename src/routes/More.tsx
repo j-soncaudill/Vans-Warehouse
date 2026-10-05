@@ -28,8 +28,8 @@ async function systemCheck(): Promise<Check[]> {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="flex flex-col gap-3 border-b-2 border-line pb-7">
-      <h2 className="font-cond text-[24px] font-bold uppercase">{title}</h2>
+    <section className="flex flex-col gap-3 border-b border-hair pb-6">
+      <h2 className="m-0 text-[12px] font-normal text-faint">// {title.toLowerCase()}</h2>
       {children}
     </section>
   );
@@ -73,19 +73,19 @@ export function MorePage() {
   }
 
   return (
-    <div className="flex flex-col gap-7">
-      <PageTitle>Backup & setup</PageTitle>
+    <div className="flex flex-col gap-6">
+      <PageTitle cmd="backup --help">Backup & setup</PageTitle>
 
       <Section title="Export backup">
-        <p className="text-[18px] text-dim">One zip with every record (JSON + CSV), every sticker, and every photo.</p>
-        {IS_DEMO ? <p className="text-[17px] text-dim">Downloads are blocked in this preview. Export works on the live site.</p> : null}
+        <p className="text-[15px] text-dim">One zip with every record (JSON + CSV), every sticker, and every photo.</p>
+        {IS_DEMO ? <p className="text-[15px] text-dim">Downloads are blocked in this preview. Export works on the live site.</p> : null}
         <Button big variant="primary" disabled={!!exporting || IS_DEMO} onClick={() => void doExport()}>
-          <Archive className="size-7" /> {exporting ? `Packing ${exporting}` : "Export backup"}
+          <Archive className="size-5" /> {exporting ? `Packing ${exporting}` : "Export backup"}
         </Button>
       </Section>
 
       <Section title="Restore">
-        <p className="text-[18px] text-dim">Loads a backup zip into the live list. Entries with the same code are overwritten. Nothing else is deleted.</p>
+        <p className="text-[15px] text-dim">Loads a backup zip into the live list. Entries with the same code are overwritten. Nothing else is deleted.</p>
         <input
           ref={fileRef}
           type="file"
@@ -98,7 +98,7 @@ export function MorePage() {
           }}
         />
         <Button disabled={!!restoring} onClick={() => fileRef.current?.click()}>
-          <Upload className="size-6" /> {restoring ? `Restoring ${restoring}` : "Choose backup zip"}
+          <Upload className="size-[18px]" /> {restoring ? `Restoring ${restoring}` : "Choose backup zip"}
         </Button>
       </Section>
 
@@ -118,11 +118,11 @@ export function MorePage() {
         {checks ? (
           <ul className="flex flex-col gap-2">
             {checks.map((c) => (
-              <li key={c.label} className={cx("rounded-[var(--radius-box)] border-2 px-4 py-3", c.ok ? "border-line" : "border-danger")}>
+              <li key={c.label} className={cx("rounded-[var(--radius-box)] border bg-panel px-4 py-3 text-[14px]", c.ok ? "border-line" : "border-danger/60")}>
                 <p className="font-semibold">
-                  {c.ok ? "✓" : "✗"} {c.label}
+                  <span className={c.ok ? "text-cyan" : "text-danger"}>{c.ok ? "✓" : "✗"}</span> {c.label}
                 </p>
-                <p className={cx("text-[16px]", c.ok ? "text-dim" : "text-danger")}>{c.detail}</p>
+                <p className={cx("text-[13px]", c.ok ? "text-dim" : "text-danger")}>{c.detail}</p>
               </li>
             ))}
           </ul>
@@ -138,7 +138,7 @@ export function MorePage() {
             else window.location.assign("/");
           }}
         >
-          <Lock className="size-6" /> Lock with PIN
+          <Lock className="size-[18px]" /> Lock with PIN
         </Button>
       </Section>
 

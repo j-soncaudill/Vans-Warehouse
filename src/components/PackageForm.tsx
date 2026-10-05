@@ -25,12 +25,12 @@ export function PackageForm({
   );
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <Field label="Job" htmlFor="f-job" hint="required">
         <input
           id="f-job"
           required
-          className="field font-cond text-[24px] font-bold"
+          className="field font-sans text-[17px] font-semibold text-white"
           maxLength={120}
           autoComplete="off"
           placeholder="Job name"
@@ -40,7 +40,7 @@ export function PackageForm({
       </Field>
       {text("poNumber", "f-po", "PO number", { placeholder: "PO #", max: 60, mono: true })}
       {text("vendor", "f-vendor", "Vendor", { placeholder: "Supplier", max: 200 })}
-      <div className="grid gap-5 sm:grid-cols-2">
+      <div className="grid grid-cols-2 gap-2.5">
         {text("deliveredBy", "f-delivered", "Delivered by", { placeholder: "Carrier or driver" })}
         {text("receivedBy", "f-received", "Received by", { placeholder: "Who signed" })}
       </div>
@@ -58,7 +58,7 @@ export function PackageForm({
         />
       </Field>
 
-      <div className="grid gap-5 sm:grid-cols-2">
+      <div className="grid grid-cols-2 gap-2.5">
         <Field label="Packing slip" htmlFor="f-slip">
           <YesNoBlank id="f-slip" value={values.packingSlip} onChange={(v) => onChange({ packingSlip: v })} />
         </Field>
@@ -67,8 +67,8 @@ export function PackageForm({
         </Field>
       </div>
 
-      <Field label="Color tag" htmlFor="f-color" hint={values.colorTag ? "tap again to clear" : "optional"}>
-        <div id="f-color" role="radiogroup" className="grid grid-cols-4 gap-2">
+      <Field label={values.colorTag ? `color tag · ${values.colorTag.toLowerCase()}` : "color tag"} htmlFor="f-color">
+        <div id="f-color" role="radiogroup" className="grid grid-cols-8 gap-1.5">
           {COLOR_TAGS.map((tag) => {
             const on = values.colorTag === tag;
             return (
@@ -77,20 +77,17 @@ export function PackageForm({
                 type="button"
                 role="radio"
                 aria-checked={on}
+                aria-label={tag}
+                title={tag}
                 onClick={() => onChange({ colorTag: on ? "" : tag })}
+                style={{ background: COLOR_HEX[tag] }}
                 className={cx(
-                  "flex min-h-[64px] flex-col items-center justify-center gap-1 rounded-[var(--radius-box)] border-2 bg-panel px-1 font-cond text-[15px] font-bold uppercase",
-                  on ? "border-amber bg-raised" : "border-line active:bg-raised",
+                  "flex h-11 items-center justify-center rounded-[6px]",
+                  tag === "Black" && "border border-[#2a4a52]",
+                  on && "shadow-[0_0_0_2px_#05080a,0_0_0_4px_var(--color-cyan)]",
                 )}
               >
-                <span
-                  aria-hidden
-                  className="flex size-7 items-center justify-center rounded-[5px] border-2 border-ink/50"
-                  style={{ background: COLOR_HEX[tag] }}
-                >
-                  {on ? <Check className={cx("size-5", tag === "White" || tag === "Yellow" ? "text-black" : "text-white")} strokeWidth={4} /> : null}
-                </span>
-                {tag}
+                {on ? <Check aria-hidden className={cx("size-5", tag === "White" || tag === "Yellow" ? "text-black" : "text-white")} strokeWidth={3.5} /> : null}
               </button>
             );
           })}

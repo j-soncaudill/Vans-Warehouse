@@ -109,15 +109,15 @@ export function ReceivePage({ code: incoming }: { code?: string }) {
     return (
       <>
         <div className="mb-4 flex items-center gap-3">
-          <CheckCircle2 className="size-10 shrink-0 text-amber" strokeWidth={2.5} />
+          <CheckCircle2 className="size-8 shrink-0 text-cyan" strokeWidth={2} />
           <div>
-            <h1 className="font-cond text-[30px] leading-none font-bold uppercase">On the floor</h1>
-            <p className="mt-1 text-[18px] text-dim">
-              {pkg.jobName} · <span className="code text-amber">{pkg.code}</span>
+            <h1 className="m-0 text-[26px] leading-tight font-semibold tracking-[-0.03em]"><span className="grad-title">On the floor</span><span className="text-cyan">_</span></h1>
+            <p className="mt-1 text-[15px] text-dim">
+              {pkg.jobName} · <span className="code text-cyan">{pkg.code}</span>
             </p>
           </div>
         </div>
-        <p className="mb-3 text-[18px]">Put this sticker on the box.</p>
+        <p className="mb-3 text-[13px] text-faint">// put this sticker on the box</p>
         <StickerPreview info={pkg} />
         <div className="mt-4 flex flex-col gap-3">
           <StickerButtons info={pkg} primary />
@@ -134,10 +134,10 @@ export function ReceivePage({ code: incoming }: { code?: string }) {
 
   return (
     <>
-      <PageTitle>Receive</PageTitle>
-      <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-7">
-        <section aria-label="Barcode" className="flex flex-col gap-3">
-          <span className="label mb-0!">Barcode</span>
+      <PageTitle cmd="receive">New delivery</PageTitle>
+      <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-6">
+        <section aria-label="Barcode" className="flex flex-col gap-2.5">
+          <span className="section-label">// barcode</span>
           <div role="radiogroup" className="grid grid-cols-2 gap-2">
             {(
               [
@@ -152,8 +152,8 @@ export function ReceivePage({ code: incoming }: { code?: string }) {
                 aria-checked={mode === m}
                 onClick={() => setMode(m)}
                 className={cx(
-                  "min-h-16 rounded-[var(--radius-box)] border-2 px-2 font-cond text-[19px] leading-tight font-bold uppercase",
-                  mode === m ? "border-amber bg-amber text-amber-ink" : "border-line bg-panel active:bg-raised",
+                  "min-h-12 rounded-[var(--radius-box)] border px-2 text-[13px] leading-tight",
+                  mode === m ? "border-cyan bg-cyan/10 text-cyan" : "border-line bg-panel text-dim active:bg-raised",
                 )}
               >
                 {text}
@@ -161,7 +161,7 @@ export function ReceivePage({ code: incoming }: { code?: string }) {
             ))}
           </div>
           {mode === "new" ? (
-            <p className="text-[17px] text-dim">A new {CODE_PREFIX} code and sticker are made when you save.</p>
+            <p className="text-[12px] text-faint">a new {CODE_PREFIX} code and sticker are made when you save</p>
           ) : (
             <div className="flex gap-2">
               <label htmlFor="existing-code" className="sr-only">
@@ -169,7 +169,7 @@ export function ReceivePage({ code: incoming }: { code?: string }) {
               </label>
               <input
                 id="existing-code"
-                className="field code min-w-0 flex-1 text-[22px] uppercase"
+                className="field code min-w-0 flex-1 text-[17px] text-cyan uppercase"
                 autoComplete="off"
                 autoCapitalize="characters"
                 autoCorrect="off"
@@ -190,9 +190,9 @@ export function ReceivePage({ code: incoming }: { code?: string }) {
                 type="button"
                 aria-label="Scan the code with the camera"
                 onClick={() => setScanner(true)}
-                className="flex size-14 shrink-0 items-center justify-center rounded-[var(--radius-box)] bg-amber text-amber-ink"
+                className="grad-cyan flex size-12 shrink-0 items-center justify-center rounded-[var(--radius-box)] text-cyan-ink"
               >
-                <ScanLine className="size-7" strokeWidth={2.5} />
+                <ScanLine className="size-5" strokeWidth={2.5} />
               </button>
             </div>
           )}
@@ -202,16 +202,14 @@ export function ReceivePage({ code: incoming }: { code?: string }) {
           <PackageForm values={values} onChange={patch} />
         </div>
 
-        <section aria-label="Box photo" className="flex flex-col gap-3">
-          <span className="label mb-0!">
-            Box photo <span className="ml-2 normal-case tracking-normal text-dim/80">optional</span>
-          </span>
+        <section aria-label="Box photo" className="flex flex-col gap-2.5">
+          <span className="section-label">// box photo</span>
           {preview ? (
             <div className="flex items-center gap-3">
-              <img src={preview} alt="Box photo" className="size-28 rounded-[8px] object-cover" />
+              <img src={preview} alt="Box photo" className="size-24 rounded-[8px] border border-line object-cover" />
               <div className="flex flex-1 flex-col gap-2">
                 <Button onClick={() => setCamera(true)}>
-                  <Camera className="size-6" /> Retake
+                  <Camera className="size-[18px]" /> Retake
                 </Button>
                 <Button
                   variant="ghost"
@@ -220,13 +218,13 @@ export function ReceivePage({ code: incoming }: { code?: string }) {
                     void savePhotoDraft(null);
                   }}
                 >
-                  <Trash2 className="size-5" /> Remove
+                  <Trash2 className="size-[18px]" /> Remove
                 </Button>
               </div>
             </div>
           ) : (
             <Button onClick={() => setCamera(true)}>
-              <Camera className="size-6" /> Open camera
+              <Camera className="size-[18px]" /> Open camera
             </Button>
           )}
         </section>
