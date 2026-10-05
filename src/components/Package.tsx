@@ -43,6 +43,7 @@ export function ColorChip({ tag, large }: { tag: string | null; large?: boolean 
   if (!hex || !tag) return null;
   return (
     <span className={cx("inline-flex items-center gap-2 lowercase", large ? "text-[14px]" : "text-[12px] text-dim")}>
+      {large ? <span className="text-dim">color tag</span> : null}
       <span aria-hidden className={cx("inline-block rounded-[2px]", large ? "size-2.5" : "size-2")} style={{ background: hex }} />
       {tag}
     </span>

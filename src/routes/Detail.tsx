@@ -43,7 +43,7 @@ function Row({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
-const yn = (v: boolean | null) => (v == null ? "—" : v ? "yes" : "no");
+const yn = (v: boolean | null) => (v == null ? "—" : v ? "yes" : <span className="text-danger">no</span>);
 
 export function DetailPage({ code: rawCode }: { code: string }) {
   const code = normalizeCode(rawCode);
