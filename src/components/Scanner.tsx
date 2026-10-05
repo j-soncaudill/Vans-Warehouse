@@ -121,6 +121,7 @@ export function Scanner({
         );
         if (cancelled) return stop();
         setCam("live");
+        coverRegion();
         try {
           const t = reader.getRunningTrackCameraCapabilities().torchFeature();
           if (t.isSupported()) setTorch(false);
@@ -140,8 +141,31 @@ export function Scanner({
       }
     })();
 
+    // Scale the video up to fill the area, like object-fit: cover, without
+    // changing its layout size (which the library reads to crop each frame).
+    let observer: ResizeObserver | null = null;
+    function coverRegion() {
+      const region = document.getElementById(REGION_ID);
+      const video = region?.querySelector("video");
+      if (!region || !video) return;
+      const fit = () => {
+        const w = video.clientWidth;
+        const h = video.clientHeight;
+        if (!w || !h) return;
+        const k = Math.max(region.clientWidth / w, region.clientHeight / h, 1);
+        video.style.transform = `translate(-50%, -50%) scale(${k})`;
+      };
+      video.addEventListener("loadedmetadata", fit);
+      video.addEventListener("resize", fit);
+      observer = new ResizeObserver(fit);
+      observer.observe(region);
+      observer.observe(video);
+      fit();
+    }
+
     return () => {
       cancelled = true;
+      observer?.disconnect();
       void stop();
     };
   }, []);

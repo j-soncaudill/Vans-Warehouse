@@ -1,11 +1,12 @@
 // End-to-end smoke test of the built dist/ against an in-memory fake of
 // Supabase REST + Storage. No real project is touched.
 //   npm run build && npm run smoke
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import JSZip from "jszip";
+import QRCode from "qrcode";
 import { chromium } from "playwright";
 import { loadEnv } from "vite";
 
@@ -138,9 +139,23 @@ await new Promise((resolve) => {
   setTimeout(resolve, 5000);
 });
 
+// The fake camera shows a QR sticker for SCAN_CODE, so the live scanner has
+// something real to decode (needs ffmpeg; falls back to Chrome's test pattern).
+const SCAN_CODE = "AB-778899";
+const fakeVideo = path.join(shots, "fake-camera.y4m");
+let liveQr = false;
+try {
+  mkdirSync(shots, { recursive: true });
+  const png = path.join(shots, "fake-camera.png");
+  await QRCode.toFile(png, SCAN_CODE, { width: 480, margin: 6, errorCorrectionLevel: "Q" });
+  execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-loop", "1", "-i", png, "-vf", "pad=640:480:(ow-iw)/2:(oh-ih)/2:white,format=yuv420p", "-t", "1", "-r", "10", fakeVideo]);
+  liveQr = true;
+} catch {
+  /* no ffmpeg */
+}
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH ?? "/opt/pw-browsers/chromium",
-  args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"],
+  args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream", ...(liveQr ? [`--use-file-for-fake-video-capture=${fakeVideo}`] : [])],
 });
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, permissions: ["camera"], acceptDownloads: true });
 const page = await ctx.newPage();
@@ -281,12 +296,8 @@ try {
 
   await step("Scan page: typed unknown code goes to Receive with that code", async () => {
     await page.getByRole("link", { name: "scan", exact: true }).click();
-    await page.getByRole("button", { name: "Open camera" }).click();
-    await page.waitForTimeout(1500);
-    await shot("11-scanner");
-    await page.getByRole("button", { name: "Type code" }).click();
-    await page.fill("#scan-typed", "ab-778899");
-    await page.getByRole("button", { name: "Go" }).click();
+    await page.fill("#scan-code", "ab-778899");
+    await page.getByRole("button", { name: "Look up" }).click();
     await expect(page.getByRole("radio", { name: "Code on the box" }), "receive existing");
     if ((await page.inputValue("#existing-code")) !== "AB-778899") throw new Error("code not carried over");
     await page.fill("#f-job", "Oak Ave");
@@ -302,6 +313,33 @@ try {
     await page.keyboard.type(mintedCode, { delay: 10 });
     await page.keyboard.press("Enter");
     await page.waitForURL(`**/p/${mintedCode}`);
+  });
+
+  await step("Scanner camera fills the screen and reads a live QR code", async () => {
+    await page.getByRole("link", { name: "scan", exact: true }).click();
+    // html5-qrcode sets the region to position:relative, which once collapsed
+    // it to 0px tall (black camera on iPhone). Record the region's size while
+    // the scanner is open; with the fake QR feed the scan finishes quickly.
+    await page.evaluate(() => {
+      window.__regionBox = { w: 0, h: 0 };
+      window.__regionPoll = setInterval(() => {
+        const el = document.getElementById("vw-scan-region");
+        if (!el?.querySelector("video")) return;
+        const r = el.getBoundingClientRect();
+        window.__regionBox = { w: Math.max(window.__regionBox.w, r.width), h: Math.max(window.__regionBox.h, r.height) };
+      }, 10);
+    });
+    await page.getByRole("button", { name: /open camera/i }).click();
+    if (liveQr) {
+      await page.waitForURL(`**/p/${SCAN_CODE}`, { timeout: 15000 });
+    } else {
+      await page.waitForFunction(() => document.querySelector("#vw-scan-region video")?.readyState >= 2);
+      await shot("12b-scanner");
+    }
+    const box = await page.evaluate(() => (clearInterval(window.__regionPoll), window.__regionBox));
+    const vp = page.viewportSize();
+    if (box.h < vp.height * 0.4 || box.w < vp.width * 0.9) throw new Error(`scanner area too small: ${JSON.stringify(box)}`);
+    if (!liveQr) await page.getByRole("button", { name: /close/i }).click();
   });
 
   await step("Realtime: a box received on another phone appears without reload", async () => {
