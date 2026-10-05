@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Download, Printer } from "lucide-react";
 import { Button, errorText, toast } from "@/components/ui";
+import { IS_DEMO } from "@/lib/supabase";
 import { printSticker, renderSticker, saveSticker, type StickerInfo } from "@/lib/sticker";
 
 /** On-screen preview is the exact PNG that gets saved or printed. */
@@ -34,6 +35,9 @@ export function StickerPreview({ info }: { info: StickerInfo }) {
 
 export function StickerButtons({ info, primary }: { info: StickerInfo; primary?: boolean }) {
   const [busy, setBusy] = useState<"" | "save" | "print">("");
+  if (IS_DEMO) {
+    return <p className="rounded-[var(--radius-box)] border-2 border-dashed border-line px-4 py-3 text-[17px] text-dim">Save and Print work on the live site. This preview blocks downloads and printing.</p>;
+  }
   async function run(kind: "save" | "print") {
     setBusy(kind);
     try {

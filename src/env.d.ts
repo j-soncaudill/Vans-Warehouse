@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 
 declare const __SHOP_PIN_HASH__: string;
+declare const __DEMO__: boolean;
 
 interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL?: string;

@@ -5,6 +5,7 @@ import {
   RouterProvider,
   createRootRoute,
   createRoute,
+  createHashHistory,
   createRouter,
 } from "@tanstack/react-router";
 import { Gate } from "@/components/Gate";
@@ -21,6 +22,7 @@ import "@fontsource/archivo-narrow/latin-600.css";
 import "@fontsource/archivo-narrow/latin-700.css";
 import "@fontsource/jetbrains-mono/latin-700.css";
 import "@/styles.css";
+import { IS_DEMO } from "@/lib/supabase";
 
 const rootRoute = createRootRoute({
   component: () => (
@@ -63,6 +65,8 @@ const detailRoute = createRoute({
 const router = createRouter({
   routeTree: rootRoute.addChildren([floorRoute, outRoute, scanRoute, receiveRoute, detailRoute, moreRoute]),
   scrollRestoration: true,
+  // The demo runs inside a claude.ai frame where only the hash is ours.
+  ...(IS_DEMO ? { history: createHashHistory() } : {}),
 });
 
 declare module "@tanstack/react-router" {

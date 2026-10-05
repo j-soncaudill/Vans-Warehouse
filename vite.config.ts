@@ -24,8 +24,10 @@ function pagesFiles(): Plugin {
 }
 
 export default defineConfig(({ mode }) => {
+  const demo = mode === "demo";
   const env = loadEnv(mode, root, "");
-  const pin = (env.VITE_SHOP_PIN ?? "").trim();
+  // The demo build never sees the real PIN or Supabase keys.
+  const pin = demo ? "0000" : (env.VITE_SHOP_PIN ?? "").trim();
   if (!pin && mode === "production") {
     console.warn(
       "\n[vans-warehouse] VITE_SHOP_PIN is empty. The unlock screen will only accept a PIN hash stored in the settings table.\n",
@@ -36,16 +38,17 @@ export default defineConfig(({ mode }) => {
 
   return {
     base: "/",
-    envPrefix: ["VITE_SUPABASE_"],
+    envPrefix: demo ? ["VITE_DEMO_NONE_"] : ["VITE_SUPABASE_"],
     define: {
       __SHOP_PIN_HASH__: JSON.stringify(pinHash),
+      __DEMO__: JSON.stringify(demo),
     },
     resolve: {
       alias: { "@": path.join(root, "src") },
     },
-    plugins: [tailwindcss(), react(), pagesFiles()],
+    plugins: [tailwindcss(), react(), ...(demo ? [] : [pagesFiles()])],
     build: {
-      outDir: distDir,
+      outDir: demo ? path.join(root, "dist-demo") : distDir,
       emptyOutDir: true,
       assetsDir: "",
       // Inline the logo and any other small asset so dist stays four files.

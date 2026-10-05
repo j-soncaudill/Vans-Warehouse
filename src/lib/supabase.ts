@@ -1,9 +1,13 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { DEMO_URL, demoFetch, seedDemo } from "@/lib/demo";
+
+export const IS_DEMO: boolean = typeof __DEMO__ === "boolean" && __DEMO__;
 
 export const BARCODES_BUCKET = "barcodes";
 export const PHOTOS_BUCKET = "package-photos";
 
 export function supabaseUrl(): string {
+  if (IS_DEMO) return DEMO_URL;
   const raw = (import.meta.env.VITE_SUPABASE_URL ?? "").trim();
   if (!raw) return "";
   if (/^https?:\/\//i.test(raw)) return raw.replace(/\/+$/, "");
@@ -12,6 +16,7 @@ export function supabaseUrl(): string {
 }
 
 function anonKey(): string {
+  if (IS_DEMO) return "demo";
   return (import.meta.env.VITE_SUPABASE_ANON_KEY ?? "").trim();
 }
 
@@ -26,6 +31,7 @@ export function sb(): SupabaseClient {
   if (!isConfigured()) throw new Error("Supabase is not configured.");
   client = createClient(supabaseUrl(), anonKey(), {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    ...(IS_DEMO ? { global: { fetch: demoFetch } } : {}),
   });
   return client;
 }
@@ -52,6 +58,7 @@ export type SchemaState = "unconfigured" | "missing" | "outdated" | "ready" | "o
 /** One cheap REST call to see whether schema.sql has been run. */
 export async function probeSchema(): Promise<SchemaState> {
   if (!isConfigured()) return "unconfigured";
+  if (IS_DEMO) await seedDemo();
   try {
     const { error } = await sb().from("packages").select("id, photo_path, thumb_path").limit(1);
     if (!error) return "ready";

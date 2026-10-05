@@ -7,7 +7,7 @@ import { buildBackup, restoreBackup } from "@/lib/backup";
 import { notifyChanged } from "@/lib/live";
 import { lock } from "@/lib/pin";
 import { downloadBlob } from "@/lib/sticker";
-import { BARCODES_BUCKET, PHOTOS_BUCKET, probeSchema, sb } from "@/lib/supabase";
+import { BARCODES_BUCKET, IS_DEMO, PHOTOS_BUCKET, probeSchema, sb } from "@/lib/supabase";
 
 type Check = { label: string; ok: boolean; detail: string };
 
@@ -78,7 +78,8 @@ export function MorePage() {
 
       <Section title="Export backup">
         <p className="text-[18px] text-dim">One zip with every record (JSON + CSV), every sticker, and every photo.</p>
-        <Button big variant="primary" disabled={!!exporting} onClick={() => void doExport()}>
+        {IS_DEMO ? <p className="text-[17px] text-dim">Downloads are blocked in this preview. Export works on the live site.</p> : null}
+        <Button big variant="primary" disabled={!!exporting || IS_DEMO} onClick={() => void doExport()}>
           <Archive className="size-7" /> {exporting ? `Packing ${exporting}` : "Export backup"}
         </Button>
       </Section>
@@ -133,7 +134,8 @@ export function MorePage() {
         <Button
           onClick={() => {
             lock();
-            window.location.assign("/");
+            if (IS_DEMO) window.location.reload();
+            else window.location.assign("/");
           }}
         >
           <Lock className="size-6" /> Lock with PIN

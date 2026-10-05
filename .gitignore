@@ -1,6 +1,7 @@
 node_modules
 dist
 dist.zip
+dist-demo
 .env
 .env.local
 *.log

@@ -6,6 +6,7 @@
     "dev": "vite --host 0.0.0.0 --port 8080",
     "build": "vite build",
     "build:pages": "vite build && node scripts/zip-dist.mjs",
+    "build:demo": "vite build --mode demo && node scripts/demo-page.mjs",
     "preview": "vite preview --host 0.0.0.0 --port 8080",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

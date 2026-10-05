@@ -6,6 +6,7 @@ import logo from "@/assets/vans-logo.png";
 import { useWedgeScanner } from "@/lib/hid";
 import { useRealtime, type LiveStatus } from "@/lib/live";
 import { getPackage } from "@/lib/packages";
+import { IS_DEMO } from "@/lib/supabase";
 
 export function Brand({ large }: { large?: boolean }) {
   return (
@@ -67,6 +68,11 @@ export function Shell({ children }: { children: ReactNode }) {
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col">
+      {IS_DEMO ? (
+        <p className="bg-amber px-4 py-1.5 text-center font-cond text-[15px] font-bold tracking-[0.04em] text-amber-ink uppercase">
+          Demo · sample data · nothing is saved
+        </p>
+      ) : null}
       <header className="sticky top-0 z-30 flex items-center gap-3 border-b-2 border-line bg-bg/95 px-4 pt-[max(env(safe-area-inset-top),8px)] pb-2 backdrop-blur">
         <Link to="/" className="min-w-0 flex-1" aria-label="On floor">
           <Brand />

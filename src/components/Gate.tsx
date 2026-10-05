@@ -3,7 +3,7 @@ import { Lock } from "lucide-react";
 import { Brand } from "@/components/Shell";
 import { Button } from "@/components/ui";
 import { isUnlocked, unlock } from "@/lib/pin";
-import { probeSchema, type SchemaState } from "@/lib/supabase";
+import { IS_DEMO, probeSchema, type SchemaState } from "@/lib/supabase";
 import schemaSql from "../../supabase/schema.sql?raw";
 
 function Screen({ children }: { children: ReactNode }) {
@@ -145,6 +145,7 @@ export function Gate({ children }: { children: ReactNode }) {
             setMsg("");
           }}
         />
+        {IS_DEMO ? <p className="text-[18px] text-dim">Demo PIN: <span className="code text-amber">0000</span></p> : null}
         {msg ? <p className="text-[18px] font-semibold text-danger">{msg}</p> : null}
         <Button big variant="primary" type="submit" disabled={busy || !pin.trim()}>
           {busy ? "Checking…" : "Unlock"}

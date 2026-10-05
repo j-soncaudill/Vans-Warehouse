@@ -1,4 +1,5 @@
-import { PHOTOS_BUCKET, sb } from "@/lib/supabase";
+import { demoFileUrl } from "@/lib/demo";
+import { IS_DEMO, PHOTOS_BUCKET, sb } from "@/lib/supabase";
 
 export const PHOTO_MAX_EDGE = 1280;
 export const PHOTO_QUALITY = 0.72;
@@ -81,6 +82,7 @@ export async function photoFromFile(file: Blob): Promise<CapturedPhoto> {
 
 export function photoUrl(path: string | null | undefined): string | null {
   if (!path) return null;
+  if (IS_DEMO) return demoFileUrl(PHOTOS_BUCKET, path);
   return sb().storage.from(PHOTOS_BUCKET).getPublicUrl(path).data.publicUrl || null;
 }
 

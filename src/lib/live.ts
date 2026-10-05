@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { sb } from "@/lib/supabase";
+import { IS_DEMO, sb } from "@/lib/supabase";
 
 /** Bumps whenever packages change: realtime event, local write, or the phone waking up. */
 let version = 0;
@@ -56,8 +56,9 @@ export type LiveStatus = "connecting" | "live" | "offline";
 
 /** One realtime channel for the whole app. */
 export function useRealtime(): LiveStatus {
-  const [status, setStatus] = useState<LiveStatus>("connecting");
+  const [status, setStatus] = useState<LiveStatus>(IS_DEMO ? "live" : "connecting");
   useEffect(() => {
+    if (IS_DEMO) return;
     const client = sb();
     let timer = 0;
     const bump = () => {
