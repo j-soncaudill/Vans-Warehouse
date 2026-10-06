@@ -1,4 +1,6 @@
-# Van's Warehouse
+# Floorcast
+
+The VANS shop's warehouse app.
 
 Phone tool for the shop floor: receive deliveries, label them, find them,
 check them out to a job. Every phone sees the same live list.
@@ -25,7 +27,11 @@ check them out to a job. Every phone sees the same live list.
 - **Entry**: check out (asks who took it), return to floor, edit, retake
   photo (until checkout), save/print sticker, remove (row + sticker + photos).
 - **Backup & setup**: export backup, restore backup, database/storage check,
-  the returns station poster, lock this phone.
+  the "Open the app" poster, the returns station poster, lock this phone.
+- **Open the app poster**: a QR of the site's own address. Post it anywhere;
+  scanning it with a phone camera opens Floorcast. The app ships a web
+  manifest and icons, so **Add to Home Screen** gives it a Floorcast icon and
+  opens it full screen like an installed app.
 
 Stack: Vite, React, TanStack Router, Tailwind CSS v4, Supabase JS. The build
 is a static single-page app for Cloudflare Pages: no Worker, no server.
@@ -80,7 +86,7 @@ It:
    anon read / insert / update / delete policies.
 
 The last query prints `buckets_ready = 2` and `photo_columns = 2` when it
-worked. In the app, ☰ → **Check database & storage** shows the same.
+worked. In the app, Backup & setup → **Check database & storage** shows the same.
 
 There is no Supabase Auth and no user accounts. The anon key is in the page
 and the PIN gate is a shop-floor lock, not real security: anyone with the
@@ -143,29 +149,37 @@ _redirects        /*    /index.html    200
 
 Fonts and the logo are inlined, so nothing else is needed.
 
-## Deploy to the existing Pages project
+## Deploy to Cloudflare Pages (floorcast.pages.dev)
 
 1. Run `npm run build:pages` with the real `.env`.
-2. Cloudflare dashboard → **Workers & Pages** → the existing Pages project
-   (currently `skidmark.pages.dev`).
-3. **Deployments** → **Create deployment** (or **Upload assets**).
-4. Pick **Production**, drop `dist.zip` (or the four files in `dist/`), and
-   **Save and deploy**.
-5. Open the site, unlock with the PIN, ☰ → **Check database & storage**.
+2. Cloudflare dashboard → **Workers & Pages** → **Create** → **Pages** →
+   **Upload assets**. Project name: `floorcast` (the address becomes
+   `floorcast.pages.dev`; if the name is taken Cloudflare suggests another).
+   For later updates, open the same project → **Create deployment**.
+3. Drop `dist.zip` (or every file in `dist/`) and **Deploy**.
+4. Open the site, unlock with the PIN, Backup & setup → **Check database &
+   storage**. The PIN unlock is remembered per address, so each phone enters
+   it once on the new address.
+5. Print the **Open the app** and **Returns station** posters from Backup &
+   setup *on the new address* (the app poster encodes the address it's made
+   from).
 
-If the project was set up with **Connect to Git** instead of direct upload,
+The old `skidmark.pages.dev` project can keep running or be deleted; both
+talk to the same Supabase project. No Supabase change is needed for a new
+address.
+
+If a project was set up with **Connect to Git** instead of direct upload,
 Cloudflare will not offer an upload button. Either point its build settings
 at this repo (build command `npm run build`, output directory `dist`, the
 three variables above under **Settings → Variables**, `NODE_VERSION=22`), or
-create a new direct-upload project and move the custom domain to it.
+use a direct-upload project as above.
 
-Renaming the project changes the `*.pages.dev` address; to serve under a
-new name, add a custom domain in the project's **Custom domains** tab or
-create a new Pages project and upload the same zip.
+Icons: `public/icon-*.png`, `apple-touch-icon.png` and `favicon.png` are made
+by `node scripts/make-icons.mjs`; `public/manifest.webmanifest` names the app.
 
 ## Backups
 
-☰ → **Export backup** downloads `vans-warehouse-backup-YYYYMMDD-HHMM.zip`:
+Backup & setup → **Export backup** downloads `floorcast-backup-YYYYMMDD-HHMM.zip`:
 
 ```
 packages.json      every record (restore reads this)
@@ -177,7 +191,7 @@ returns.json       every return (returns.csv for a spreadsheet)
 return-photos/<code>.jpg
 ```
 
-☰ → **Restore** merges a backup into the live list by code: same code is
+Backup & setup → **Restore** merges a backup into the live list by code: same code is
 overwritten, nothing else is deleted. Thumbnails are rebuilt from the photos.
 Each restored box gets exactly the location history in the zip. Returns merge
 by code the same way. Older backups without returns or history still restore.

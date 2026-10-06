@@ -15,7 +15,7 @@ if (/eyJ[\w-]+\.eyJ[\w-]+\./.test(js) || leaks.some((v) => js.includes(v))) {
   console.error("✗ demo bundle references a real Supabase project");
   process.exit(1);
 }
-const html = `<title>Van's Warehouse Demo</title>
+const html = `<title>Floorcast Demo</title>
 <style>${css}</style>
 <div id="root"></div>
 <script type="module">${js}</script>

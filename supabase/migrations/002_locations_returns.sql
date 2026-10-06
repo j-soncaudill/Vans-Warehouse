@@ -1,4 +1,4 @@
--- Van's Warehouse — add locations (with move history) and returns.
+-- Floorcast — add locations (with move history) and returns.
 --
 -- SAFE ON A LIVE DATABASE: this only adds columns, tables and a setting.
 -- It never drops or rewrites existing packages. Running it twice is fine.

@@ -8,7 +8,7 @@ import { buildBackup, restoreBackup } from "@/lib/backup";
 import { notifyChanged } from "@/lib/live";
 import { lock } from "@/lib/pin";
 import { stationPayload, stationToken } from "@/lib/returns";
-import { downloadBlob, renderStationPoster } from "@/lib/sticker";
+import { downloadBlob, renderAppPoster, renderStationPoster } from "@/lib/sticker";
 import { BARCODES_BUCKET, IS_DEMO, PHOTOS_BUCKET, probeSchema, sb } from "@/lib/supabase";
 
 type Check = { label: string; ok: boolean; detail: string };
@@ -141,6 +141,10 @@ export function MorePage() {
         ) : null}
       </Section>
 
+      <Section title="Open the app">
+        <AppPoster />
+      </Section>
+
       <Section title="Returns station">
         <StationPoster />
       </Section>
@@ -213,6 +217,42 @@ function StationPoster() {
       </div>
       {IS_DEMO ? <p className="text-[13px] text-faint">Downloads are blocked in this preview. Save the poster from the live site.</p> : null}
       <Button variant="primary" disabled={!blob || IS_DEMO} onClick={() => blob && downloadBlob(blob, "returns-station-poster.png")}>
+        <Download className="size-[18px]" /> Save poster to print
+      </Button>
+    </>
+  );
+}
+
+/** A QR that opens this site. Post it wherever the crew needs the app. */
+function AppPoster() {
+  const url = `${window.location.origin}/`;
+  const [img, setImg] = useState<string | null>(null);
+  const [blob, setBlob] = useState<Blob | null>(null);
+  useEffect(() => {
+    let made: string | null = null;
+    let alive = true;
+    void renderAppPoster(url).then((b) => {
+      if (!alive) return;
+      made = URL.createObjectURL(b);
+      setBlob(b);
+      setImg(made);
+    });
+    return () => {
+      alive = false;
+      if (made) URL.revokeObjectURL(made);
+    };
+  }, [url]);
+  return (
+    <>
+      <p className="text-[15px] text-dim">
+        Print this and post it where the crew will see it. Scanning it with a phone camera opens Floorcast at{" "}
+        <span className="code text-cyan">{url.replace(/^https?:\/\//, "").replace(/\/$/, "")}</span>.
+      </p>
+      <div className="overflow-hidden rounded-[12px] border border-line bg-white">
+        {img ? <img src={img} alt="Poster with a QR code that opens Floorcast" className="mx-auto block max-h-[60vh] w-auto" /> : <div className="aspect-[17/22] w-full" />}
+      </div>
+      {IS_DEMO ? <p className="text-[13px] text-faint">Downloads are blocked in this preview. Save the poster from the live site.</p> : null}
+      <Button variant="primary" disabled={!blob || IS_DEMO} onClick={() => blob && downloadBlob(blob, "floorcast-app-poster.png")}>
         <Download className="size-[18px]" /> Save poster to print
       </Button>
     </>

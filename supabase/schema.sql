@@ -1,4 +1,4 @@
--- Van's Warehouse — full schema reset.
+-- Floorcast — full schema reset.
 --
 -- Paste this whole file into Supabase → SQL Editor → New query → Run.
 --

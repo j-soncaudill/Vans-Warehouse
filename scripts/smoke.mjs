@@ -247,6 +247,8 @@ try {
     await expect(page.getByText("Floor is empty"), "empty floor");
     await expect(page.getByText("live", { exact: true }), "realtime live");
     await shot("02-floor-empty");
+    if ((await page.locator("header").innerText()).toLowerCase().indexOf("floorcast") < 0) throw new Error("header does not say floorcast");
+    if ((await page.title()) !== "Floorcast") throw new Error(`title is ${await page.title()}`);
   });
 
   await step("Receive with new VW- code, all fields, in-app photo", async () => {
@@ -534,11 +536,31 @@ try {
     await page.waitForURL(`**/r/${retCode}`);
   });
 
-  await step("Export backup includes records, stickers, photos", async () => {
+  await step("Backup & setup: Open the app poster saves a QR of this site", async () => {
     await page.getByRole("link", { name: "Backup and restore" }).click();
+    const poster = page.getByAltText("Poster with a QR code that opens Floorcast");
+    await poster.waitFor();
+    await expect(page.getByText(`localhost:${PORT}`), "address shown");
+    const dl = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Save poster to print" }).first().click();
+    const d = await dl;
+    if (d.suggestedFilename() !== "floorcast-app-poster.png") throw new Error(`poster file ${d.suggestedFilename()}`);
+    await d.saveAs(path.join(shots, "app-poster.png"));
+    const res = await page.request.get(`http://localhost:${PORT}/manifest.webmanifest`);
+    const man = await res.json();
+    if (man.name !== "Floorcast" || !man.icons?.length) throw new Error("manifest wrong");
+    for (const icon of ["/icon-192.png", "/icon-512.png", "/apple-touch-icon.png"]) {
+      const r = await page.request.get(`http://localhost:${PORT}${icon}`);
+      if (!r.ok() || !(r.headers()["content-type"] ?? "").includes("png")) throw new Error(`${icon} not served`);
+    }
+    await shot("22-app-poster");
+  });
+
+  await step("Export backup includes records, stickers, photos", async () => {
     const dl = page.waitForEvent("download");
     await page.getByRole("button", { name: "Export backup" }).click();
     const d = await dl;
+    if (!/^floorcast-backup-\d{8}-\d{4}\.zip$/.test(d.suggestedFilename())) throw new Error(`backup named ${d.suggestedFilename()}`);
     backup = path.join(shots, d.suggestedFilename());
     await d.saveAs(backup);
     const zip = await JSZip.loadAsync(await import("node:fs").then((fs) => fs.readFileSync(backup)));

@@ -63,7 +63,7 @@ export async function renderSticker({ code, jobName, receivedAt }: StickerInfo):
 
   ctx.textAlign = "right";
   ctx.font = `700 22px ${SANS}`;
-  ctx.fillText("VAN'S WAREHOUSE", W - PAD, H - 40);
+  ctx.fillText("VANS FLOORCAST", W - PAD, H - 40);
 
   return new Promise((resolve, reject) =>
     c.toBlob((b) => (b ? resolve(b) : reject(new Error("Could not save the sticker."))), "image/png"),
@@ -137,11 +137,19 @@ export function downloadBlob(blob: Blob, filename: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
-/**
- * Letter-size poster for the returns station (1275×1650, 150 dpi). Posted in
- * the warehouse; scanning it is how a return proves it started on site.
- */
-export async function renderStationPoster(payload: string): Promise<Blob> {
+type PosterInfo = {
+  title: string;
+  /** One or two short lines under the title. */
+  lines: string[];
+  payload: string;
+  /** Printed under the QR (e.g. the web address), in case a camera won't scan. */
+  caption?: string;
+  tips?: string[];
+  footer: string;
+};
+
+/** Letter-size poster (1275×1650, 150 dpi) with one big QR code. */
+export async function renderPoster({ title, lines, payload, caption, tips = [], footer }: PosterInfo): Promise<Blob> {
   await document.fonts?.ready.catch(() => undefined);
   const W = 1275;
   const H = 1650;
@@ -155,21 +163,52 @@ export async function renderStationPoster(payload: string): Promise<Blob> {
   ctx.fillStyle = INK;
   ctx.textAlign = "center";
   ctx.font = `700 150px ${SANS}`;
-  ctx.fillText("RETURNS", W / 2, 230);
+  ctx.fillText(title, W / 2, 230, W - 120);
   ctx.font = `500 46px ${SANS}`;
-  ctx.fillText("Open the app → returns → Start a return", W / 2, 320, W - 120);
-  ctx.fillText("then scan this code.", W / 2, 380, W - 120);
+  lines.slice(0, 2).forEach((line, i) => ctx.fillText(line, W / 2, 320 + i * 60, W - 120));
 
-  const QR = 900;
+  const QR = 860;
   const qr = document.createElement("canvas");
   await QRCode.toCanvas(qr, payload, { width: QR, margin: 2, color: { dark: INK, light: PAPER }, errorCorrectionLevel: "M" });
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(qr, (W - QR) / 2, 440, QR, QR);
 
-  ctx.font = `500 40px ${SANS}`;
-  ctx.fillText("Write the code the app gives you on the item.", W / 2, 1430, W - 120);
-  ctx.fillRect(120, 1490, W - 240, 4);
+  let y = 1360;
+  if (caption) {
+    ctx.font = `700 44px ${MONO}`;
+    ctx.fillText(caption, W / 2, y, W - 120);
+    y += 60;
+  }
+  ctx.font = `500 34px ${SANS}`;
+  for (const tip of tips.slice(0, 2)) {
+    ctx.fillText(tip, W / 2, y, W - 120);
+    y += 46;
+  }
+  ctx.fillRect(120, 1530, W - 240, 4);
   ctx.font = `700 34px ${SANS}`;
-  ctx.fillText("VAN'S WAREHOUSE · RETURN STATION", W / 2, 1560, W - 120);
+  ctx.fillText(footer, W / 2, 1595, W - 120);
   return await new Promise<Blob>((resolve, reject) => c.toBlob((b) => (b ? resolve(b) : reject(new Error("Could not draw the poster."))), "image/png"));
+}
+
+/** Posted in the warehouse; scanning it is how a return proves it started on site. */
+export function renderStationPoster(payload: string): Promise<Blob> {
+  return renderPoster({
+    title: "RETURNS",
+    lines: ["Open Floorcast → returns → Start a return", "then scan this code."],
+    payload,
+    tips: ["Write the code the app gives you on the item."],
+    footer: "FLOORCAST · RETURN STATION",
+  });
+}
+
+/** Posted anywhere the crew needs the app: scanning it opens Floorcast. */
+export function renderAppPoster(url: string): Promise<Blob> {
+  return renderPoster({
+    title: "FLOORCAST",
+    lines: ["Scan with your phone camera", "to open the warehouse app."],
+    payload: url,
+    caption: url.replace(/^https?:\/\//, "").replace(/\/$/, ""),
+    tips: ["iPhone: Share → Add to Home Screen", "Android: ⋮ menu → Add to Home screen"],
+    footer: "VANS · FLOORCAST",
+  });
 }

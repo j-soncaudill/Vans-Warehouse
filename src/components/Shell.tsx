@@ -14,7 +14,7 @@ export function Brand({ large }: { large?: boolean }) {
   return (
     <span className="flex items-center gap-3">
       <img src={logo} alt="VANS" className={large ? "h-9 w-auto" : "h-6 w-auto"} />
-      <span className={cx("text-faint lowercase", large ? "text-[15px]" : "hidden text-[12px] min-[360px]:inline")}>warehouse</span>
+      <span className={cx("text-faint lowercase", large ? "text-[15px]" : "hidden text-[12px] min-[360px]:inline")}>floorcast</span>
     </span>
   );
 }

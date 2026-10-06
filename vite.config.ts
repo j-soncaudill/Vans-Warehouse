@@ -15,7 +15,7 @@ const REDIRECTS = "/*    /index.html    200\n";
 
 function pagesFiles(): Plugin {
   return {
-    name: "vans-warehouse-pages",
+    name: "floorcast-pages",
     apply: "build",
     closeBundle() {
       writeFileSync(path.join(distDir, "_redirects"), REDIRECTS);
@@ -30,7 +30,7 @@ export default defineConfig(({ mode }) => {
   const pin = demo ? "0000" : (env.VITE_SHOP_PIN ?? "").trim();
   if (!pin && mode === "production") {
     console.warn(
-      "\n[vans-warehouse] VITE_SHOP_PIN is empty. The unlock screen will only accept a PIN hash stored in the settings table.\n",
+      "\n[floorcast] VITE_SHOP_PIN is empty. The unlock screen will only accept a PIN hash stored in the settings table.\n",
     );
   }
   // Only the hash ships to the browser. Client code never reads VITE_SHOP_PIN.

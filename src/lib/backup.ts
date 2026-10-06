@@ -66,7 +66,7 @@ const RETURN_CSV_COLUMNS = ["code", "type", "status", "returnedBy", "vendor", "j
 
 export function backupName(now = new Date()): string {
   const p = (n: number) => String(n).padStart(2, "0");
-  return `vans-warehouse-backup-${now.getFullYear()}${p(now.getMonth() + 1)}${p(now.getDate())}-${p(now.getHours())}${p(now.getMinutes())}.zip`;
+  return `floorcast-backup-${now.getFullYear()}${p(now.getMonth() + 1)}${p(now.getDate())}-${p(now.getHours())}${p(now.getMinutes())}.zip`;
 }
 
 async function download(bucket: string, path: string | null): Promise<Blob | null> {
@@ -112,7 +112,7 @@ export async function buildBackup(onProgress?: (done: number, total: number) => 
     });
     onProgress?.((i += 1), packages.length);
   }
-  zip.file("packages.json", JSON.stringify({ app: "vans-warehouse", version: 1, exportedAt: new Date().toISOString(), packages: records }, null, 2));
+  zip.file("packages.json", JSON.stringify({ app: "floorcast", version: 1, exportedAt: new Date().toISOString(), packages: records }, null, 2));
   zip.file("packages.csv", toCsv(records));
 
   const moves = await listAllMoves();
@@ -205,7 +205,7 @@ function fileByCode(zip: JSZip, folder: string, ext: RegExp) {
 export async function restoreBackup(file: File, onProgress?: (done: number, total: number) => void) {
   const zip = await JSZip.loadAsync(await file.arrayBuffer());
   const json = zip.file("packages.json");
-  if (!json) throw new Error("That zip has no packages.json. Pick a Van's Warehouse backup.");
+  if (!json) throw new Error("That zip has no packages.json. Pick a Floorcast backup.");
   const parsed = JSON.parse(await json.async("string")) as unknown;
   const list = Array.isArray(parsed) ? parsed : (parsed as { packages?: unknown })?.packages;
   if (!Array.isArray(list)) throw new Error("packages.json is not a package list.");
