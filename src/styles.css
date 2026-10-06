@@ -272,6 +272,193 @@ body::before {
 /* No double-tap zoom delay on phones, so taps answer at once. */
 a, button, input, select, textarea, label, [role="radio"] { touch-action: manipulation; }
 
+/* ---- ambient: a slow aurora behind everything, cyan top-left, red low-right */
+body::after {
+  content: "";
+  position: fixed;
+  inset: -20%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(38% 30% at 22% 18%, rgb(45 174 196 / 0.16), transparent 70%),
+    radial-gradient(42% 34% at 80% 86%, rgb(197 44 46 / 0.16), transparent 70%);
+  animation: vw-aurora 22s ease-in-out infinite alternate;
+  will-change: transform, opacity;
+}
+@keyframes vw-aurora {
+  0% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.75; }
+  50% { transform: translate3d(4%, 3%, 0) scale(1.08); opacity: 1; }
+  100% { transform: translate3d(-3%, -2%, 0) scale(1.04); opacity: 0.8; }
+}
+
+/* ---- the light that runs along the brand line above the tabs */
+.vw-comet {
+  position: absolute;
+  top: 1px;
+  left: 0;
+  height: 3px;
+  width: 22%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.9) 45%, var(--color-cyan) 60%, transparent);
+  filter: blur(0.6px) drop-shadow(0 0 6px var(--color-cyan));
+  animation: vw-comet 7s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+  pointer-events: none;
+}
+@keyframes vw-comet {
+  0% { transform: translateX(-120%); opacity: 0; }
+  4% { opacity: 1; }
+  34% { opacity: 1; }
+  38%, 100% { transform: translateX(480%); opacity: 0; }
+}
+
+/* ---- tab indicator glides between tabs and stretches as it travels */
+.vw-tab-ind {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 25%;
+  height: 0;
+  transition: transform 0.55s var(--ease-spring);
+  pointer-events: none;
+}
+.vw-tab-ind > span {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  height: 2px;
+  width: 28px;
+  margin-left: -14px;
+  border-radius: 99px;
+  background: var(--color-cyan);
+  box-shadow: 0 0 10px var(--color-cyan), 0 6px 18px rgb(45 174 196 / 0.55);
+  animation: vw-stretch 0.55s var(--ease-out);
+}
+@keyframes vw-stretch {
+  0% { transform: scaleX(1); }
+  35% { transform: scaleX(2.6); }
+  100% { transform: scaleX(1); }
+}
+
+/* ---- live dot: a stronger beat each time data arrives */
+@keyframes vw-beat {
+  0% { transform: scale(1); opacity: 0.9; box-shadow: 0 0 0 0 rgb(45 174 196 / 0.6); }
+  100% { transform: scale(5); opacity: 0; box-shadow: 0 0 0 6px rgb(45 174 196 / 0); }
+}
+.vw-beat { animation: vw-beat 0.9s var(--ease-out) forwards; }
+@keyframes vw-glow-text {
+  0% { text-shadow: 0 0 12px var(--color-cyan); color: #ffffff; }
+  100% { text-shadow: none; }
+}
+.vw-glow-text { animation: vw-glow-text 0.9s ease-out; }
+
+/* ---- odometer digits */
+@keyframes vw-roll {
+  0% { transform: translateY(85%); opacity: 0; filter: blur(2px); }
+  100% { transform: none; opacity: 1; filter: none; }
+}
+.vw-roll { animation: vw-roll 0.45s var(--ease-spring) backwards; }
+
+/* ---- self-drawing strokes (pathLength = 1) */
+@keyframes vw-draw-in {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+.vw-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: vw-draw-in 0.5s var(--ease-out) forwards;
+}
+
+/* ---- tap ripple in brand colors, from where the finger landed */
+.vw-press { overflow: hidden; }
+.vw-ripple {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0);
+  background: radial-gradient(circle, rgb(255 255 255 / 0.28) 0%, rgb(45 174 196 / 0.32) 38%, rgb(197 44 46 / 0.2) 62%, transparent 72%);
+  animation: vw-ripple 0.6s var(--ease-out) forwards;
+  mix-blend-mode: screen;
+}
+@keyframes vw-ripple {
+  to { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+}
+
+/* ---- yes / no / blank: the selection slides between answers */
+.vw-seg-pill {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: calc(100% / 3);
+  transition: transform 0.42s var(--ease-spring), background 0.3s ease-out, opacity 0.2s ease-out;
+  pointer-events: none;
+}
+
+/* ---- scanner lock-on: brackets snap to the code and flash */
+@keyframes vw-lock {
+  0% { transform: scale(1); }
+  45% { transform: scale(0.82); }
+  100% { transform: scale(0.88); }
+}
+.vw-lock { animation: vw-lock 0.32s var(--ease-spring) forwards; }
+.vw-lock span { border-color: #ffffff !important; box-shadow: 0 0 14px var(--color-cyan); }
+@keyframes vw-lock-flash {
+  0% { opacity: 0.55; }
+  100% { opacity: 0; }
+}
+.vw-lock-flash {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 50%, rgb(45 174 196 / 0.5), transparent 60%);
+  animation: vw-lock-flash 0.4s ease-out forwards;
+  pointer-events: none;
+}
+
+/* ---- the sticker prints out of a slot, top to bottom */
+@keyframes vw-print {
+  from { clip-path: inset(0 0 100% 0); transform: translateY(-14px); }
+  to { clip-path: inset(0 0 0 0); transform: none; }
+}
+.vw-print { animation: vw-print 1.1s cubic-bezier(0.5, 0, 0.2, 1) 0.15s backwards; }
+@keyframes vw-print-head {
+  0% { top: 0; opacity: 1; }
+  92% { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+.vw-print-head {
+  position: absolute;
+  inset-inline: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--color-cyan), transparent);
+  box-shadow: 0 0 12px var(--color-cyan);
+  animation: vw-print-head 1.1s cubic-bezier(0.5, 0, 0.2, 1) 0.15s backwards;
+  pointer-events: none;
+}
+
+/* ---- loading rows: a scan of light passes over them */
+.vw-skeleton {
+  position: relative;
+  overflow: hidden;
+}
+.vw-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgb(45 174 196 / 0.09) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: vw-skeleton 1.4s ease-in-out infinite;
+}
+@keyframes vw-skeleton {
+  to { transform: translateX(100%); }
+}
+
+/* ---- color swatch: a ring closes in around the chosen tag */
+@keyframes vw-ring {
+  from { box-shadow: 0 0 0 2px #05080a, 0 0 0 14px rgb(45 174 196 / 0); }
+  to { box-shadow: 0 0 0 2px #05080a, 0 0 0 4px var(--color-cyan); }
+}
+.vw-ring { animation: vw-ring 0.4s var(--ease-spring) both; }
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

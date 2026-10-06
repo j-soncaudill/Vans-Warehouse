@@ -12,6 +12,7 @@ import { notifyChanged, useLiveQuery } from "@/lib/live";
 import { checkOut, editPackage, getPackage, removePackage, replacePhoto, returnToFloor, type Pkg } from "@/lib/packages";
 import { photoUrl, type CapturedPhoto } from "@/lib/photo";
 import { stamp } from "@/lib/time";
+import { Decode } from "@/components/motion";
 
 function Row({ label, value }: { label: string; value: ReactNode }) {
   if (value == null || value === "") return null;
@@ -139,7 +140,7 @@ function Entry({ pkg }: { pkg: Pkg }) {
 
       <div>
         <h1 className="m-0 font-sans text-[32px] leading-[1.1] font-bold tracking-[-0.02em] break-words text-white">{pkg.jobName}</h1>
-        <span className="grad-code mt-1 block text-[19px] font-semibold tracking-[0.02em]">{pkg.code}</span>
+        <Decode text={pkg.code} className="grad-code mt-1 block text-[19px] font-semibold tracking-[0.02em]" />
         <div className="mt-2 flex flex-wrap items-center gap-4">
           <ColorChip tag={pkg.colorTag} large />
           {pkg.damaged ? <DamageChip /> : null}

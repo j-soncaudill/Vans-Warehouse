@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
 import { Download, Printer } from "lucide-react";
-import { Button, errorText, toast } from "@/components/ui";
+import { Button, cx, errorText, toast } from "@/components/ui";
 import { IS_DEMO } from "@/lib/supabase";
 import { printSticker, renderSticker, saveSticker, type StickerInfo } from "@/lib/sticker";
 
-/** On-screen preview is the exact PNG that gets saved or printed. */
-export function StickerPreview({ info }: { info: StickerInfo }) {
+/**
+ * On-screen preview is the exact PNG that gets saved or printed.
+ * `print`: the sticker feeds out top to bottom, like a label printer.
+ */
+export function StickerPreview({ info, print }: { info: StickerInfo; print?: boolean }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
@@ -23,9 +26,12 @@ export function StickerPreview({ info }: { info: StickerInfo }) {
     };
   }, [info.code, info.jobName, info.receivedAt]);
   return (
-    <div className="overflow-hidden rounded-[12px] border border-line bg-white">
+    <div className={cx("relative overflow-hidden rounded-[12px] border border-line", print ? "bg-panel" : "bg-white")}>
       {url ? (
-        <img src={url} alt={`Sticker ${info.code}`} className="block aspect-[4/3] w-full" />
+        <>
+          <img src={url} alt={`Sticker ${info.code}`} className={cx("block aspect-[4/3] w-full bg-white", print && "vw-print")} />
+          {print ? <span aria-hidden className="vw-print-head" /> : null}
+        </>
       ) : (
         <div className="aspect-[4/3] w-full" />
       )}

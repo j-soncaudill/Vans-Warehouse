@@ -92,7 +92,7 @@ function PackageList({ status }: { status: PkgStatus }) {
       {loading && !data ? (
         <div className="flex flex-col gap-3" aria-busy>
           {[0, 1, 2].map((i) => (
-            <div key={i} className="h-[80px] border-b border-hair" />
+            <div key={i} className="vw-skeleton h-[80px] border-b border-hair" style={{ animationDelay: `${i * 120}ms` }} />
           ))}
         </div>
       ) : data && all.length === 0 ? (

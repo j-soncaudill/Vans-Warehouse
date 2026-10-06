@@ -4,7 +4,8 @@ import { ArrowRight, DatabaseBackup, LayoutGrid, Plus, ScanLine } from "lucide-r
 import { cx, errorText, toast, useOnline } from "@/components/ui";
 import logo from "@/assets/vans-logo.png";
 import { useWedgeScanner } from "@/lib/hid";
-import { useRealtime, type LiveStatus } from "@/lib/live";
+import { useChangeVersion, useRealtime, type LiveStatus } from "@/lib/live";
+import { Decode, Ticker } from "@/components/motion";
 import { getPackage } from "@/lib/packages";
 import { IS_DEMO } from "@/lib/supabase";
 
@@ -21,10 +22,13 @@ function LiveDot({ status }: { status: LiveStatus }) {
   const online = useOnline();
   const s = online ? status : "offline";
   const text = s === "live" ? "live" : s === "connecting" ? "connecting" : "offline";
+  // Each time data changes (another phone, or this one) the dot beats once.
+  const beat = useChangeVersion();
   return (
     <span className={cx("flex items-center gap-1.5 text-[12px]", s === "offline" ? "text-danger" : s === "live" ? "text-cyan" : "text-dim")} aria-live="polite">
       <span aria-hidden className="relative flex size-1.5">
         {s === "live" ? <span className="vw-ping absolute inset-0 rounded-full bg-cyan" /> : null}
+        {s === "live" && beat > 0 ? <span key={beat} className="vw-beat absolute inset-0 rounded-full bg-cyan" /> : null}
         <span
           className={cx(
             "relative size-1.5 rounded-full",
@@ -32,7 +36,9 @@ function LiveDot({ status }: { status: LiveStatus }) {
           )}
         />
       </span>
-      {text}
+      <span key={s === "live" ? beat : -1} className={cx(s === "live" && beat > 0 && "vw-glow-text")}>
+        {text}
+      </span>
     </span>
   );
 }
@@ -48,6 +54,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const status = useRealtime();
   const navigate = useNavigate();
   const path = useRouterState({ select: (s) => s.location.pathname });
+  const active = TABS.findIndex(({ to }) => (to === "/" ? path === "/" : path.startsWith(to)));
 
   const onWedge = useCallback(
     async (code: string) => {
@@ -94,8 +101,18 @@ export function Shell({ children }: { children: ReactNode }) {
         aria-label="Main"
         className="fixed inset-x-0 bottom-0 z-30 bg-[linear-gradient(180deg,rgb(18_9_11/0)_0%,rgb(12_8_10/0.92)_30%)] px-2 pb-[max(env(safe-area-inset-bottom),14px)]"
       >
-        <div aria-hidden className="brand-rule vw-flow mx-auto mb-1 max-w-2xl opacity-80" />
-        <div className="mx-auto grid max-w-2xl grid-cols-4">
+        <div aria-hidden className="relative mx-auto -mt-[2px] mb-[2px] flex h-[5px] max-w-2xl items-center overflow-hidden">
+          <div className="brand-rule vw-flow w-full opacity-80" />
+          <span className="vw-comet" />
+        </div>
+        <div className="relative mx-auto grid max-w-2xl grid-cols-4">
+          <span
+            aria-hidden
+            className="vw-tab-ind"
+            style={{ transform: `translateX(${Math.max(active, 0) * 100}%)`, opacity: active < 0 ? 0 : 1 }}
+          >
+            <span key={active} />
+          </span>
           {TABS.map(({ to, label, icon: Icon }) => {
             const on = to === "/" ? path === "/" : path.startsWith(to);
             return (
@@ -108,7 +125,6 @@ export function Shell({ children }: { children: ReactNode }) {
                   on ? "text-cyan [text-shadow:0_0_10px_rgb(45_174_196/0.6)]" : "text-dim active:text-ink",
                 )}
               >
-                {on ? <span aria-hidden className="vw-grow-x absolute top-0 h-[2px] w-6 rounded-full bg-cyan shadow-[0_0_8px_var(--color-cyan)]" /> : null}
                 <Icon className={cx("size-[22px]", on && "vw-lift")} strokeWidth={on ? 2.1 : 1.8} />
                 {label}
               </Link>
@@ -126,9 +142,9 @@ export function PageTitle({ children, count, aside }: { children: ReactNode; cou
     <div className="mb-4 flex flex-col gap-1.5 pt-2">
       <div className="flex items-baseline justify-between gap-3">
         <h1 className="m-0 text-[30px] leading-tight font-semibold tracking-[-0.03em]">
-          <span className="grad-title">{children}</span>
+          <span className="grad-title">{typeof children === "string" ? <Decode text={children} ms={420} /> : children}</span>
         </h1>
-        {typeof count === "number" ? <span className="text-[13px] text-faint tabular-nums">{String(count).padStart(2, "0")} {count === 1 ? "item" : "items"}</span> : aside}
+        {typeof count === "number" ? <span className="text-[13px] text-faint tabular-nums"><Ticker value={count} /> {count === 1 ? "item" : "items"}</span> : aside}
       </div>
     </div>
   );

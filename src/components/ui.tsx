@@ -91,8 +91,15 @@ export function YesNoBlank({
     ["no", "No"],
     ["", "—"],
   ];
+  const idx = opts.findIndex(([v]) => v === value);
   return (
-    <div id={id} role="radiogroup" className="grid grid-cols-3 overflow-hidden rounded-[var(--radius-box)] border border-line">
+    <div id={id} role="radiogroup" className="relative grid grid-cols-3 overflow-hidden rounded-[var(--radius-box)] border border-line bg-panel">
+      {/* The selection is one pill that slides to the chosen answer. */}
+      <span
+        aria-hidden
+        className={cx("vw-seg-pill", value ? "grad-cyan shadow-[0_0_18px_rgb(45_174_196/0.35)]" : "bg-raised")}
+        style={{ transform: `translateX(${idx * 100}%)` }}
+      />
       {opts.map(([v, text]) => {
         const on = value === v;
         return (
@@ -104,11 +111,11 @@ export function YesNoBlank({
             aria-label={v ? text : "Not answered"}
             onClick={() => onChange(on ? "" : v)}
             className={cx(
-              "vw-press min-h-12 border-l border-line font-mono text-[14px] lowercase first:border-l-0 active:scale-100!",
-              on ? (v ? "grad-cyan font-semibold text-cyan-ink" : "bg-raised text-ink") : "bg-panel text-dim active:bg-raised",
+              "relative min-h-12 border-l border-line font-mono text-[14px] lowercase transition-colors duration-300 first:border-l-0",
+              on ? (v ? "font-semibold text-cyan-ink" : "text-ink") : "text-dim",
             )}
           >
-            <span className={cx("inline-block", on && "vw-tap")}>{text}</span>
+            <span className={cx("relative inline-block", on && "vw-tap")}>{text}</span>
           </button>
         );
       })}

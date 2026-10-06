@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Camera, CheckCircle2, ScanLine, Trash2 } from "lucide-react";
+import { Camera, ScanLine, Trash2 } from "lucide-react";
 import { PackageForm } from "@/components/PackageForm";
 import { PhotoCamera } from "@/components/PhotoCamera";
 import { Scanner } from "@/components/Scanner";
+import { Decode, DrawCheck } from "@/components/motion";
 import { PageTitle } from "@/components/Shell";
 import { StickerButtons, StickerPreview } from "@/components/Sticker";
 import { Button, btn, cx, errorText, toast } from "@/components/ui";
@@ -109,16 +110,16 @@ export function ReceivePage({ code: incoming }: { code?: string }) {
     return (
       <>
         <div className="mb-4 flex items-center gap-3">
-          <CheckCircle2 className="vw-pop size-8 shrink-0 text-cyan" strokeWidth={2} />
+          <DrawCheck className="size-8 shrink-0 text-cyan drop-shadow-[0_0_10px_rgb(45_174_196/0.6)]" />
           <div>
-            <h1 className="m-0 text-[26px] leading-tight font-semibold tracking-[-0.03em]"><span className="grad-title">On the floor</span></h1>
+            <h1 className="m-0 text-[26px] leading-tight font-semibold tracking-[-0.03em]"><span className="grad-title"><Decode text="On the floor" ms={420} /></span></h1>
             <p className="mt-1 text-[15px] text-dim">
-              {pkg.jobName} · <span className="code text-cyan">{pkg.code}</span>
+              {pkg.jobName} · <Decode text={pkg.code} className="code text-cyan" />
             </p>
           </div>
         </div>
         <p className="mb-3 text-[13px] text-faint">put this sticker on the box</p>
-        <StickerPreview info={pkg} />
+        <StickerPreview info={pkg} print />
         <div className="mt-4 flex flex-col gap-3">
           <StickerButtons info={pkg} primary />
           <Button big onClick={reset}>

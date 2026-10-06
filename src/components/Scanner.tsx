@@ -67,6 +67,7 @@ export function Scanner({
   const onScanRef = useRef(onScan);
   onScanRef.current = onScan;
   const [cam, setCam] = useState<CamState>("starting");
+  const [locked, setLocked] = useState(false);
   const [camError, setCamError] = useState("");
   const [torch, setTorch] = useState<null | boolean>(null);
   const [typing, setTyping] = useState(startTyping);
@@ -86,7 +87,9 @@ export function Scanner({
       if (!code || doneRef.current) return;
       doneRef.current = true;
       navigator.vibrate?.(60);
-      void stop().finally(() => onScanRef.current(code));
+      // Brackets snap onto the code and flash before moving on.
+      setLocked(true);
+      window.setTimeout(() => void stop().finally(() => onScanRef.current(code)), 340);
     };
 
     const stop = async () => {
@@ -214,12 +217,13 @@ export function Scanner({
         <div id={REGION_ID} className="absolute inset-0" />
         {cam === "live" ? (
           <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <div className="vw-pop relative h-[34%] w-[80%] max-w-[520px]">
+            <div className={cx("relative h-[34%] w-[80%] max-w-[520px]", locked ? "vw-lock" : "vw-pop")}>
               <span className="absolute top-0 left-0 size-7 border-t-2 border-l-2 border-cyan" />
               <span className="absolute top-0 right-0 size-7 border-t-2 border-r-2 border-cyan" />
               <span className="absolute bottom-0 left-0 size-7 border-b-2 border-l-2 border-cyan" />
               <span className="absolute right-0 bottom-0 size-7 border-r-2 border-b-2 border-cyan" />
-              <span className="vw-sweep absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2 bg-[linear-gradient(90deg,transparent,var(--color-cyan),transparent)] shadow-[0_0_14px_var(--color-cyan)]" />
+              {locked ? <span className="vw-lock-flash rounded-[6px]" /> : null}
+              <span className={cx(locked && "hidden", "vw-sweep absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2 bg-[linear-gradient(90deg,transparent,var(--color-cyan),transparent)] shadow-[0_0_14px_var(--color-cyan)]")} />
             </div>
           </div>
         ) : null}

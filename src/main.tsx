@@ -31,6 +31,20 @@ import { IS_DEMO } from "@/lib/supabase";
 // also lets iPhone browsers apply :active styles at all.
 document.addEventListener("touchstart", () => undefined, { passive: true });
 let pressed: Element | null = null;
+const calm = matchMedia("(prefers-reduced-motion: reduce)");
+/** A brand-colored ripple that spreads from where the finger landed. */
+function ripple(el: Element, x: number, y: number) {
+  if (calm.matches) return;
+  const host = el as HTMLElement;
+  if (getComputedStyle(host).position === "static") host.style.position = "relative";
+  const r = host.getBoundingClientRect();
+  const size = Math.hypot(Math.max(x - r.left, r.right - x), Math.max(y - r.top, r.bottom - y)) * 2.2;
+  const dot = document.createElement("span");
+  dot.className = "vw-ripple";
+  dot.style.cssText = `left:${x - r.left}px;top:${y - r.top}px;width:${size}px;height:${size}px`;
+  host.appendChild(dot);
+  dot.addEventListener("animationend", () => dot.remove(), { once: true });
+}
 const release = () => {
   pressed?.removeAttribute("data-pressed");
   pressed = null;
@@ -43,6 +57,7 @@ document.addEventListener(
     if (!el || (el as HTMLButtonElement).disabled) return;
     pressed = el;
     el.setAttribute("data-pressed", "");
+    ripple(el, e.clientX, e.clientY);
   },
   { passive: true },
 );
