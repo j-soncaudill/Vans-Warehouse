@@ -1,6 +1,10 @@
 import { sb } from "@/lib/supabase";
 
 const KEY = "vw.unlocked";
+const ROLE_KEY = "vw.role";
+
+/** Field phones need no PIN and can't change or delete. Admin is the shop PIN. */
+export type Role = "admin" | "field";
 
 export async function sha256Hex(text: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
@@ -38,9 +42,30 @@ export async function isUnlocked(): Promise<boolean> {
   return (await acceptedHashes()).includes(stored);
 }
 
+/** Admin while the stored PIN hash is still valid; field if chosen; otherwise ask. */
+export async function currentRole(): Promise<Role | null> {
+  if (await isUnlocked()) return "admin";
+  try {
+    return localStorage.getItem(ROLE_KEY) === "field" ? "field" : null;
+  } catch {
+    return null;
+  }
+}
+
+export function chooseField() {
+  try {
+    localStorage.removeItem(KEY);
+    localStorage.setItem(ROLE_KEY, "field");
+  } catch {
+    /* private mode: field for this tab only */
+  }
+}
+
+/** Forget this phone's role; the chooser shows next. */
 export function lock() {
   try {
     localStorage.removeItem(KEY);
+    localStorage.removeItem(ROLE_KEY);
   } catch {
     /* ignore */
   }
@@ -53,6 +78,7 @@ export async function unlock(pin: string): Promise<"ok" | "wrong" | "unset"> {
   if (!hashes.includes(entered)) return "wrong";
   try {
     localStorage.setItem(KEY, entered);
+    localStorage.setItem(ROLE_KEY, "admin");
   } catch {
     /* private mode: unlocked for this tab only */
   }

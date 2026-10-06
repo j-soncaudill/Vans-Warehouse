@@ -57,7 +57,9 @@ export function DamageChip() {
 export function PackageCard({ pkg }: { pkg: Pkg }) {
   const out = pkg.status === "checked_out";
   const line = out
-    ? [pkg.checkedOutTo ? `taken by ${pkg.checkedOutTo}` : null]
+    ? pkg.lastLocation
+      ? [`taken from ${pkg.lastLocation}`, pkg.checkedOutTo ? `by ${pkg.checkedOutTo}` : null]
+      : [pkg.checkedOutTo ? `taken by ${pkg.checkedOutTo}` : null]
     : [pkg.vendor?.toLowerCase(), pkg.poNumber ? `po ${pkg.poNumber}` : null];
   const when = ago(out ? pkg.checkedOutAt : pkg.receivedAt);
   const hex = colorHex(pkg.colorTag);
@@ -74,7 +76,7 @@ export function PackageCard({ pkg }: { pkg: Pkg }) {
             <span className="text-cyan">{pkg.code}</span>
             {hex ? <span aria-label={`${pkg.colorTag} tag`} className="inline-block size-2 rounded-[2px]" style={{ background: hex }} /> : null}
             {pkg.damaged ? <DamageChip /> : null}
-            {pkg.lastLocation ? (
+            {pkg.lastLocation && !out ? (
               <span className="inline-flex items-center gap-1 text-[12px] text-dim">
                 <MapPin aria-hidden className="size-3" />
                 {pkg.lastLocation.toLowerCase()}

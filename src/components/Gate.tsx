@@ -1,8 +1,9 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { Lock } from "lucide-react";
+import { HardHat, Lock, ShieldCheck } from "lucide-react";
 import { Brand } from "@/components/Shell";
-import { Button, cx } from "@/components/ui";
-import { isUnlocked, unlock } from "@/lib/pin";
+import { BackButton, Button, cx } from "@/components/ui";
+import { chooseField, currentRole, lock, unlock, type Role } from "@/lib/pin";
+import { RoleContext } from "@/lib/role";
 import { IS_DEMO, probeSchema, type SchemaState } from "@/lib/supabase";
 import schemaSql from "../../supabase/schema.sql?raw";
 import upgradeSql from "../../supabase/migrations/002_locations_returns.sql?raw";
@@ -42,10 +43,27 @@ export function CopySql({ sql = schemaSql, label = "Copy setup SQL" }: { sql?: s
   );
 }
 
-/** Supabase config → schema present → shop PIN. Then the app. */
+function RoleCard({ icon, title, body, onClick }: { icon: ReactNode; title: string; body: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="vw-press flex items-center gap-4 rounded-[14px] border border-line bg-panel px-4 py-5 text-left active:bg-raised"
+    >
+      <span className="flex size-12 shrink-0 items-center justify-center rounded-[12px] border border-cyan/40 bg-cyan/10 text-cyan">{icon}</span>
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="font-sans text-[20px] font-semibold text-white">{title}</span>
+        <span className="text-[13px] text-dim">{body}</span>
+      </span>
+    </button>
+  );
+}
+
+/** Supabase config → schema present → role (Field, or Administrator with the shop PIN). Then the app. */
 export function Gate({ children }: { children: ReactNode }) {
   const [schema, setSchema] = useState<SchemaState | "checking">("checking");
-  const [unlocked, setUnlocked] = useState<boolean | null>(null);
+  const [role, setRole] = useState<Role | null | undefined>(undefined);
+  const [askPin, setAskPin] = useState(false);
   const [pin, setPin] = useState("");
   const [shake, setShake] = useState(false);
   const [msg, setMsg] = useState("");
@@ -57,10 +75,10 @@ export function Gate({ children }: { children: ReactNode }) {
   };
   useEffect(check, []);
   useEffect(() => {
-    if (schema === "ready") void isUnlocked().then(setUnlocked);
+    if (schema === "ready") void currentRole().then(setRole);
   }, [schema]);
 
-  if (schema === "checking" || (schema === "ready" && unlocked === null)) {
+  if (schema === "checking" || (schema === "ready" && role === undefined)) {
     return (
       <Screen>
         <p className="text-[14px] text-dim">Connecting…</p>
@@ -128,7 +146,43 @@ export function Gate({ children }: { children: ReactNode }) {
     );
   }
 
-  if (unlocked) return <>{children}</>;
+  if (role) {
+    const switchRole = () => {
+      lock();
+      setPin("");
+      setMsg("");
+      setAskPin(false);
+      setRole(null);
+    };
+    return <RoleContext.Provider value={{ role, switchRole }}>{children}</RoleContext.Provider>;
+  }
+
+  if (!askPin) {
+    return (
+      <Screen>
+        <h1 className="m-0 text-[30px] font-semibold tracking-[-0.03em]">
+          <span className="grad-title">Who's using this phone?</span>
+        </h1>
+        <div className="mt-6 flex flex-col gap-3">
+          <RoleCard
+            icon={<HardHat className="size-6" strokeWidth={2} />}
+            title="Field"
+            body="Receive, scan, check out. No PIN."
+            onClick={() => {
+              chooseField();
+              setRole("field");
+            }}
+          />
+          <RoleCard
+            icon={<ShieldCheck className="size-6" strokeWidth={2} />}
+            title="Administrator"
+            body="Everything, including edits and backup. Needs PIN."
+            onClick={() => setAskPin(true)}
+          />
+        </div>
+      </Screen>
+    );
+  }
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -136,7 +190,7 @@ export function Gate({ children }: { children: ReactNode }) {
     setMsg("");
     const r = await unlock(pin).catch(() => "wrong" as const);
     setBusy(false);
-    if (r === "ok") setUnlocked(true);
+    if (r === "ok") setRole("admin");
     else if (r === "unset") setMsg("No shop PIN is set for this build. Set VITE_SHOP_PIN and rebuild.");
     else {
       setMsg("Wrong PIN.");
@@ -148,6 +202,15 @@ export function Gate({ children }: { children: ReactNode }) {
   return (
     <Screen>
       <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
+        <div className="-mt-4 mb-2">
+          <BackButton
+            onClick={() => {
+              setAskPin(false);
+              setPin("");
+              setMsg("");
+            }}
+          />
+        </div>
         <h1 className="m-0 flex items-center gap-3 text-[30px] font-semibold tracking-[-0.03em]">
           <Lock className="size-6 text-cyan" strokeWidth={2.2} />
           <span className="grad-title">Shop PIN</span>

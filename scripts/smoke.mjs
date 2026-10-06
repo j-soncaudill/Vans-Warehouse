@@ -237,6 +237,9 @@ let retCode = "";
 try {
   await step("PIN gate rejects wrong PIN, accepts right one", async () => {
     await page.goto(`http://localhost:${PORT}/`);
+    await expect(page.getByText("Who's using this phone?"), "role chooser");
+    await shot("00-role");
+    await page.getByRole("button", { name: /Administrator/ }).click();
     await expect(page.getByText("Shop PIN"), "pin screen");
     await shot("01-pin");
     await page.fill("#pin", "000");
@@ -264,6 +267,8 @@ try {
     await page.locator("#f-damage").getByRole("radio", { name: "No", exact: true }).click();
     await page.getByRole("radio", { name: "Blue" }).click();
     await page.fill("#f-notes", "Keep dry");
+    const order = await page.evaluate(() => ["#f-qty", "#f-location", "#f-notes"].map((s) => document.querySelector(s)?.getBoundingClientRect().top ?? -1));
+    if (!(order[0] < order[1] && order[1] < order[2])) throw new Error(`location not between quantities and notes: ${order}`);
     await shot("03-receive-form");
     await page.getByRole("button", { name: "Open camera" }).click();
     await page.getByRole("button", { name: "Take photo", exact: true }).waitFor();
@@ -311,9 +316,10 @@ try {
     await shot("09-checkout");
     await page.getByRole("dialog").getByRole("button", { name: "Check out" }).click();
     await expect(page.getByText(/Checked out · Truck 3/), "checked out banner");
+    await expect(page.getByText("Taken from Warehouse"), "taken from on entry");
     if (await page.getByRole("button", { name: /Retake photo/ }).count()) throw new Error("retake allowed after checkout");
     await page.getByRole("link", { name: "out", exact: true }).click();
-    await expect(page.getByText("taken by Truck 3"), "out list");
+    await expect(page.getByText("taken from Warehouse · by Truck 3"), "out list");
     await shot("10-out-list");
     await page.getByRole("link", { name: /Maple St Remodel/ }).click();
     await page.getByRole("button", { name: "Return to floor" }).click();
@@ -485,8 +491,8 @@ try {
         const p2 = await c2.newPage();
         p2.on("pageerror", (e) => errors.push(String(e)));
         await p2.goto(`http://localhost:${PORT}/`);
-        await p2.fill("#pin", PIN);
-        await p2.getByRole("button", { name: "Unlock" }).click();
+        // A Field phone can start a return, no PIN.
+        await p2.getByRole("button", { name: /Field/ }).click();
         await p2.getByRole("link", { name: "returns", exact: true }).click();
         await p2.getByRole("link", { name: "Start a return" }).click();
         await p2.getByText("What kind of return?").first().waitFor({ timeout: 15000 });
@@ -617,9 +623,55 @@ try {
     if (r.job_name !== "Maple St Remodel – Phase 2" || r.color_tag !== "Blue") throw new Error("restore fields wrong");
   });
 
-  await step("Lock returns to the PIN screen", async () => {
-    await page.getByRole("button", { name: "Lock with PIN" }).click();
-    await expect(page.getByText("Shop PIN"), "locked");
+  await step("Field phone: no PIN, check out only, no edits, no backup page", async () => {
+    const c3 = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+    try {
+      await c3.route(/\/rest\/v1\//, (route, req) => rest(route, req, new URL(req.url())));
+      await c3.route(/\/storage\/v1\//, (route, req) => storage(route, req, new URL(req.url())));
+      await c3.routeWebSocket(/\/realtime\/v1\//, () => undefined);
+      const f = await c3.newPage();
+      f.on("pageerror", (e) => errors.push(String(e)));
+      await f.goto(`http://localhost:${PORT}/`);
+      await f.getByRole("button", { name: /Field/ }).click();
+      await f.getByRole("link", { name: "floor", exact: true }).waitFor();
+      if (await f.locator("#pin").count()) throw new Error("field asked for a PIN");
+      if (await f.getByRole("link", { name: "Backup and restore" }).count()) throw new Error("field sees backup link");
+      await f.goto(`http://localhost:${PORT}/p/${mintedCode}`);
+      await f.getByRole("button", { name: "Check out" }).waitFor();
+      await f.getByRole("button", { name: "Move" }).waitFor();
+      await f.getByRole("button", { name: "Print" }).waitFor();
+      for (const gone of ["Edit details", "Remove", "Retake photo"]) {
+        if (await f.getByRole("button", { name: gone }).count()) throw new Error(`field sees ${gone}`);
+      }
+      await f.screenshot({ path: path.join(shots, "23-field-entry.png") });
+      await f.getByRole("button", { name: "Check out" }).click();
+      await f.fill("#taken-by", "Truck 9");
+      await f.getByRole("dialog").getByRole("button", { name: "Check out" }).click();
+      await f.getByText(/Checked out · Truck 9/).waitFor();
+      await f.getByText("Taken from").first().waitFor();
+      if (await f.getByRole("button", { name: /Return to floor/ }).count()) throw new Error("field can return to floor");
+      await f.screenshot({ path: path.join(shots, "24-field-checked-out.png") });
+      if (rows.find((x) => x.code === mintedCode)?.checked_out_to !== "Truck 9") throw new Error("field check out not saved");
+      await f.goto(`http://localhost:${PORT}/more`);
+      await f.getByText("Administrators only").waitFor();
+      if (await f.getByRole("button", { name: "Export backup" }).count()) throw new Error("field sees backup");
+      await f.goto(`http://localhost:${PORT}/r/${retCode}`);
+      await f.getByText(retCode).first().waitFor();
+      for (const gone of ["Close out", "Reopen", "Remove", "Edit details", "Change type"]) {
+        if (await f.getByRole("button", { name: gone }).count()) throw new Error(`field sees ${gone} on a return`);
+      }
+      await f.getByRole("button", { name: "Field phone. Switch role" }).click();
+      await f.getByRole("button", { name: "Switch", exact: true }).click();
+      await f.getByText("Who's using this phone?").waitFor();
+    } finally {
+      await c3.close();
+    }
+  });
+
+  await step("Switch role returns to the chooser", async () => {
+    await page.getByRole("link", { name: "Backup and restore" }).click();
+    await page.getByRole("button", { name: "Switch role" }).click();
+    await expect(page.getByText("Who's using this phone?"), "chooser");
   });
 
   if (errors.length) throw new Error(`page errors:\n${errors.join("\n")}`);

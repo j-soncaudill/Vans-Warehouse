@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { Archive, Download, Lock, Upload } from "lucide-react";
+import { Archive, Download, Lock, ShieldCheck, Upload } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
+import { useRole } from "@/lib/role";
 import { CopySql } from "@/components/Gate";
 import upgradeSql from "../../supabase/migrations/002_locations_returns.sql?raw";
 import { PageTitle } from "@/components/Shell";
 import { Button, Confirm, cx, errorText, toast } from "@/components/ui";
 import { buildBackup, restoreBackup } from "@/lib/backup";
 import { notifyChanged } from "@/lib/live";
-import { lock } from "@/lib/pin";
 import { stationPayload, stationToken } from "@/lib/returns";
 import { downloadBlob, renderAppPoster, renderStationPoster } from "@/lib/sticker";
 import { BARCODES_BUCKET, IS_DEMO, PHOTOS_BUCKET, probeSchema, sb } from "@/lib/supabase";
@@ -45,6 +46,30 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export function MorePage() {
+  const { role, switchRole } = useRole();
+  const navigate = useNavigate();
+  const toChooser = () => {
+    void navigate({ to: "/" });
+    switchRole();
+  };
+  if (role !== "admin") {
+    return (
+      <div className="flex flex-col gap-4 py-6">
+        <h1 className="m-0 flex items-center gap-3 text-[28px] font-semibold tracking-[-0.03em]">
+          <ShieldCheck className="size-6 text-cyan" strokeWidth={2.2} />
+          <span className="grad-title">Administrators only</span>
+        </h1>
+        <p className="text-[15px] text-dim">Backup &amp; setup is locked on Field phones.</p>
+        <Button big variant="primary" onClick={toChooser}>
+          Switch to Administrator
+        </Button>
+      </div>
+    );
+  }
+  return <AdminMore onSwitch={toChooser} />;
+}
+
+function AdminMore({ onSwitch }: { onSwitch: () => void }) {
   const [exporting, setExporting] = useState("");
   const [restoreFile, setRestoreFile] = useState<File | null>(null);
   const [restoring, setRestoring] = useState("");
@@ -150,14 +175,8 @@ export function MorePage() {
       </Section>
 
       <Section title="This phone">
-        <Button
-          onClick={() => {
-            lock();
-            if (IS_DEMO) window.location.reload();
-            else window.location.assign("/");
-          }}
-        >
-          <Lock className="size-[18px]" /> Lock with PIN
+        <Button onClick={onSwitch}>
+          <Lock className="size-[18px]" /> Switch role
         </Button>
       </Section>
 

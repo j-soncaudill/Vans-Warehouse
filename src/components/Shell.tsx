@@ -1,7 +1,8 @@
-import { useCallback, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { ArrowRight, DatabaseBackup, LayoutGrid, Plus, ScanLine, Undo2 } from "lucide-react";
-import { cx, errorText, toast, useOnline } from "@/components/ui";
+import { ArrowRight, DatabaseBackup, HardHat, LayoutGrid, Plus, ScanLine, Undo2 } from "lucide-react";
+import { Confirm, cx, errorText, toast, useOnline } from "@/components/ui";
+import { useRole } from "@/lib/role";
 import logo from "@/assets/vans-logo.png";
 import { useWedgeScanner } from "@/lib/hid";
 import { useChangeVersion, useRealtime, type LiveStatus } from "@/lib/live";
@@ -60,6 +61,8 @@ export function Shell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const path = useRouterState({ select: (s) => s.location.pathname });
   const active = TABS.findIndex((t) => tabOn(t, path));
+  const { role, switchRole } = useRole();
+  const [askSwitch, setAskSwitch] = useState(false);
 
   const onWedge = useCallback(
     async (code: string) => {
@@ -90,17 +93,41 @@ export function Shell({ children }: { children: ReactNode }) {
           <Brand />
         </Link>
         <LiveDot status={status} />
-        <Link
-          to="/more"
-          aria-label="Backup and restore"
-          className={cx(
-            "vw-press inline-flex size-11 items-center justify-center rounded-[var(--radius-box)] border bg-panel active:bg-raised",
-            path === "/more" ? "border-cyan text-cyan" : "border-line text-ink",
-          )}
-        >
-          <DatabaseBackup className="size-5" strokeWidth={1.9} />
-        </Link>
+        {role === "admin" ? (
+          <Link
+            to="/more"
+            aria-label="Backup and restore"
+            className={cx(
+              "vw-press inline-flex size-11 items-center justify-center rounded-[var(--radius-box)] border bg-panel active:bg-raised",
+              path === "/more" ? "border-cyan text-cyan" : "border-line text-ink",
+            )}
+          >
+            <DatabaseBackup className="size-5" strokeWidth={1.9} />
+          </Link>
+        ) : (
+          <button
+            type="button"
+            aria-label="Field phone. Switch role"
+            onClick={() => setAskSwitch(true)}
+            className="vw-press inline-flex h-11 items-center gap-1.5 rounded-[var(--radius-box)] border border-line bg-panel px-3 text-[13px] text-cyan lowercase active:bg-raised"
+          >
+            <HardHat className="size-4" strokeWidth={2} /> field
+          </button>
+        )}
       </header>
+      {askSwitch ? (
+        <Confirm
+          title="Switch role?"
+          body="This phone goes back to the Field / Administrator choice. Administrator needs the shop PIN."
+          confirmLabel="Switch"
+          onCancel={() => setAskSwitch(false)}
+          onConfirm={() => {
+            setAskSwitch(false);
+            void navigate({ to: "/" });
+            switchRole();
+          }}
+        />
+      ) : null}
       <main className="flex-1 px-4 pt-3 pb-[calc(104px+env(safe-area-inset-bottom))]">
         <div key={path} className="vw-page">
           {children}

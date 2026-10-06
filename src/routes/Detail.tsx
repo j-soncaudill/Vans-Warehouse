@@ -14,6 +14,7 @@ import { listMoves } from "@/lib/locations";
 import { checkOut, editPackage, getPackage, movePackage, removePackage, replacePhoto, returnToFloor, type Pkg } from "@/lib/packages";
 import { photoUrl, type CapturedPhoto } from "@/lib/photo";
 import { ago, stamp } from "@/lib/time";
+import { useIsAdmin } from "@/lib/role";
 import { Decode } from "@/components/motion";
 
 function Row({ label, value }: { label: string; value: ReactNode }) {
@@ -62,6 +63,7 @@ function Entry({ pkg }: { pkg: Pkg }) {
   const navigate = useNavigate();
   const router = useRouter();
   const onFloor = pkg.status === "on_floor";
+  const admin = useIsAdmin();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<FormValues>(() => formFromPkg(pkg));
   const [busy, setBusy] = useState(false);
@@ -96,7 +98,7 @@ function Entry({ pkg }: { pkg: Pkg }) {
 
   const back = () => (router.history.length > 1 ? router.history.back() : void navigate({ to: onFloor ? "/" : "/out" }));
 
-  if (editing) {
+  if (editing && admin) {
     return (
       <form
         onSubmit={(e: FormEvent) => {
@@ -139,6 +141,11 @@ function Entry({ pkg }: { pkg: Pkg }) {
       >
         {onFloor ? "On the floor" : `Checked out · ${pkg.checkedOutTo ?? "?"} · ${stamp(pkg.checkedOutAt)}`}
       </div>
+      {!onFloor && pkg.lastLocation ? (
+        <p className="-mt-3 flex items-center gap-1.5 text-[14px] text-dim">
+          <MapPin aria-hidden className="size-4 text-cyan" strokeWidth={2} /> Taken from <span className="text-white">{pkg.lastLocation}</span>
+        </p>
+      ) : null}
 
       <div>
         <h1 className="m-0 font-sans text-[32px] leading-[1.1] font-bold tracking-[-0.02em] break-words text-white">{pkg.jobName}</h1>
@@ -166,7 +173,7 @@ function Entry({ pkg }: { pkg: Pkg }) {
           <img src={full} alt={`Photo of ${pkg.jobName}`} onError={() => setImgBroken(true)} className="mx-auto max-h-[60vh] w-full object-contain" />
         </button>
       ) : null}
-      {onFloor ? (
+      {onFloor && (admin || !full) ? (
         <Button onClick={() => setCamera(true)} disabled={busy}>
           <Camera className="size-[18px]" /> {full ? "Retake photo" : "Add photo"}
         </Button>
@@ -176,11 +183,11 @@ function Entry({ pkg }: { pkg: Pkg }) {
         <Button big variant="primary" disabled={busy} onClick={() => setCheckout(true)}>
           Check out
         </Button>
-      ) : (
+      ) : admin ? (
         <Button big variant="primary" disabled={busy} onClick={() => void act(() => returnToFloor(pkg.code), "Back on the floor.")}>
           <Undo2 className="size-5" /> Return to floor
         </Button>
-      )}
+      ) : null}
 
       <dl className="m-0 border-t border-hair">
         <Row label="Received" value={stamp(pkg.receivedAt)} />
@@ -193,6 +200,7 @@ function Entry({ pkg }: { pkg: Pkg }) {
         <Row label="Packing slip" value={yn(pkg.packingSlip)} />
         <Row label="Damage" value={yn(pkg.damaged)} />
         <Row label="Notes" value={pkg.notes} />
+        {!onFloor ? <Row label="Taken from" value={pkg.lastLocation} /> : null}
         {!onFloor ? <Row label="Taken by" value={`${pkg.checkedOutTo ?? ""} · ${stamp(pkg.checkedOutAt)}`} /> : null}
       </dl>
 
@@ -235,16 +243,18 @@ function Entry({ pkg }: { pkg: Pkg }) {
         <StickerButtons info={pkg} />
       </section>
 
-      <div className="mt-2 flex flex-col gap-3 border-t-2 border-line pt-5">
-        {onFloor ? (
-          <Button onClick={() => setEditing(true)} disabled={busy}>
-            <Pencil className="size-5" /> Edit details
+      {admin ? (
+        <div className="mt-2 flex flex-col gap-3 border-t-2 border-line pt-5">
+          {onFloor ? (
+            <Button onClick={() => setEditing(true)} disabled={busy}>
+              <Pencil className="size-5" /> Edit details
+            </Button>
+          ) : null}
+          <Button variant="danger" onClick={() => setConfirmRemove(true)} disabled={busy}>
+            <Trash2 className="size-5" /> Remove
           </Button>
-        ) : null}
-        <Button variant="danger" onClick={() => setConfirmRemove(true)} disabled={busy}>
-          <Trash2 className="size-5" /> Remove
-        </Button>
-      </div>
+        </div>
+      ) : null}
 
       {checkout ? (
         <CheckoutSheet
@@ -274,7 +284,7 @@ function Entry({ pkg }: { pkg: Pkg }) {
         />
       ) : null}
 
-      {confirmRemove ? (
+      {confirmRemove && admin ? (
         <Confirm
           title={`Remove ${pkg.code}?`}
           body="Deletes this entry, its sticker file, and its photos for every phone. This cannot be undone. Export a backup first if you need a record."

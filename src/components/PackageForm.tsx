@@ -43,11 +43,6 @@ export function PackageForm({
           onChange={(e) => onChange({ jobName: e.target.value })}
         />
       </Field>
-      {withLocation ? (
-        <Field label="Last known location" htmlFor="f-location" hint="required">
-          <LocationPicker id="f-location" value={values.location} onChange={(location) => onChange({ location })} />
-        </Field>
-      ) : null}
       {text("poNumber", "f-po", "PO number", { placeholder: "PO #", max: 60, mono: true })}
       <Field label="Vendor" htmlFor="f-vendor" hint="optional">
         <VendorPicker id="f-vendor" value={values.vendor} onChange={(vendor) => onChange({ vendor })} />
@@ -106,6 +101,11 @@ export function PackageForm({
         </div>
       </Field>
 
+      {withLocation ? (
+        <Field label="Last known location" htmlFor="f-location" hint="required">
+          <LocationPicker id="f-location" value={values.location} onChange={(location) => onChange({ location })} />
+        </Field>
+      ) : null}
       <Field label="Notes" htmlFor="f-notes" hint="optional">
         <textarea
           id="f-notes"

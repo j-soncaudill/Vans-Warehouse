@@ -92,6 +92,13 @@ There is no Supabase Auth and no user accounts. The anon key is in the page
 and the PIN gate is a shop-floor lock, not real security: anyone with the
 site URL and some skill can read the list. Do not store personal data.
 
+Roles: the first time a phone opens the app it picks **Field** (no PIN) or
+**Administrator** (the shop PIN). Field can receive, scan, check out, move,
+print stickers, add a photo to a box with none, and start returns. It cannot
+edit, remove, return to floor, close or change returns, or open Backup &
+setup. The header's "field" badge switches roles. Like the PIN, roles are a
+lock on the screens, not on the database.
+
 Returns station poster: Backup & setup → **Returns station** → **Save poster
 to print**. Starting a return requires scanning it, so the person has to be at
 the warehouse. To retire a printed poster (say a photo of it got passed

@@ -27,6 +27,7 @@ import {
   type ReturnStatus,
 } from "@/lib/returns";
 import { ago, stamp } from "@/lib/time";
+import { useIsAdmin } from "@/lib/role";
 
 /** The type the code was minted as (its prefix), which never changes. */
 const typeFromCode = (code: string): ReturnType => RETURN_TYPES.find((t) => code.startsWith(`${t.prefix}-`))?.type ?? "general";
@@ -533,6 +534,7 @@ function ReturnEntry({ ret }: { ret: Ret }) {
   }
 
   const back = () => (router.history.length > 1 ? router.history.back() : void navigate({ to: "/returns" }));
+  const admin = useIsAdmin();
 
   return (
     <article className="flex flex-col gap-5">
@@ -566,7 +568,7 @@ function ReturnEntry({ ret }: { ret: Ret }) {
         </button>
       ) : null}
 
-      {open ? (
+      {!admin ? null : open ? (
         <div className="flex flex-col gap-2.5">
           <Button big variant="primary" disabled={busy} onClick={() => setSheet("close")}>
             Close out
@@ -586,7 +588,7 @@ function ReturnEntry({ ret }: { ret: Ret }) {
         </Button>
       )}
 
-      {editing ? (
+      {editing && admin ? (
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -615,16 +617,18 @@ function ReturnEntry({ ret }: { ret: Ret }) {
         </dl>
       )}
 
-      <div className="mt-2 flex flex-col gap-3 border-t-2 border-line pt-5">
-        {!editing ? (
-          <Button onClick={() => setEditing(true)} disabled={busy}>
-            <PenLine className="size-5" /> Edit details
+      {admin ? (
+        <div className="mt-2 flex flex-col gap-3 border-t-2 border-line pt-5">
+          {!editing ? (
+            <Button onClick={() => setEditing(true)} disabled={busy}>
+              <PenLine className="size-5" /> Edit details
+            </Button>
+          ) : null}
+          <Button variant="danger" onClick={() => setSheet("remove")} disabled={busy}>
+            <Trash2 className="size-5" /> Remove
           </Button>
-        ) : null}
-        <Button variant="danger" onClick={() => setSheet("remove")} disabled={busy}>
-          <Trash2 className="size-5" /> Remove
-        </Button>
-      </div>
+        </div>
+      ) : null}
 
       {sheet === "type" ? (
         <Overlay title="Change type" onClose={() => setSheet("")} closeLabel="Cancel">
