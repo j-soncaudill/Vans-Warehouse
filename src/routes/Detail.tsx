@@ -1,12 +1,12 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
-import { ArrowLeft, ArrowRight, Camera, MapPin, Pencil, Trash2, Undo2 } from "lucide-react";
+import { ArrowRight, Camera, MapPin, Pencil, Trash2, Undo2 } from "lucide-react";
 import { LocationPicker } from "@/components/LocationPicker";
 import { ColorChip, DamageChip } from "@/components/Package";
 import { PackageForm } from "@/components/PackageForm";
 import { PhotoCamera, PhotoViewer } from "@/components/PhotoCamera";
 import { StickerButtons, StickerPreview } from "@/components/Sticker";
-import { Button, Confirm, Overlay, btn, errorText, toast } from "@/components/ui";
+import { BackButton, Button, Confirm, Overlay, btn, errorText, toast } from "@/components/ui";
 import { normalizeCode } from "@/lib/codes";
 import { formFromPkg, type FormValues } from "@/lib/form";
 import { notifyChanged, useLiveQuery } from "@/lib/live";
@@ -125,9 +125,7 @@ function Entry({ pkg }: { pkg: Pkg }) {
   return (
     <article className="flex flex-col gap-5">
       <div className="-mt-1 flex items-center gap-2">
-        <button type="button" onClick={back} className="vw-press -ml-2 inline-flex min-h-11 items-center gap-1.5 px-2 text-[14px] text-cyan lowercase active:opacity-70">
-          <ArrowLeft className="size-[18px]" /> Back
-        </button>
+        <BackButton onClick={back} />
         <span className="flex-1" />
         <span className="text-[12px] text-faint">recv {stamp(pkg.receivedAt)}</span>
       </div>

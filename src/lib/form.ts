@@ -1,6 +1,9 @@
 import { DEFAULT_LOCATION } from "@/lib/locations";
 import type { Pkg } from "@/lib/packages";
 
+/** Most-used vendors, in the order they show in the dropdown. */
+export const VENDORS = ["Etna", "Behler-Young", "Williams", "Ferguson"] as const;
+
 export const COLOR_TAGS = ["Red", "Orange", "Yellow", "Green", "Blue", "White", "Pink", "Black"] as const;
 export type ColorTag = (typeof COLOR_TAGS)[number];
 

@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
+import { ArrowLeft, X } from "lucide-react";
 
 export function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
@@ -269,4 +269,13 @@ export function useOnline() {
 
 export function errorText(err: unknown, fallback: string) {
   return err instanceof Error && err.message ? err.message : fallback;
+}
+
+/** The one back button used across the app: big, bordered, easy to spot. */
+export function BackButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className="vw-back vw-press">
+      <ArrowLeft className="size-5" strokeWidth={2.2} /> back
+    </button>
+  );
 }

@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
-import { ArrowLeft, Camera, ChevronRight, PenLine, RotateCcw, ScanLine, Trash2, Undo2, X } from "lucide-react";
+import { Camera, ChevronRight, PenLine, RotateCcw, ScanLine, Trash2, Undo2, X } from "lucide-react";
 import { Decode, DrawCheck } from "@/components/motion";
 import { PhotoCamera, PhotoViewer } from "@/components/PhotoCamera";
 import { Scanner } from "@/components/Scanner";
 import { PageTitle } from "@/components/Shell";
-import { Button, Confirm, Field, Overlay, btn, cx, errorText, toast } from "@/components/ui";
+import { BackButton, Button, Confirm, Field, Overlay, btn, cx, errorText, toast } from "@/components/ui";
 import { RETURN_TYPES, normalizeCode, returnTypeInfo, type ReturnType } from "@/lib/codes";
 import { notifyChanged, useLiveQuery } from "@/lib/live";
 import { photoUrl, type CapturedPhoto } from "@/lib/photo";
@@ -537,9 +537,7 @@ function ReturnEntry({ ret }: { ret: Ret }) {
   return (
     <article className="flex flex-col gap-5">
       <div className="-mt-1 flex items-center gap-2">
-        <button type="button" onClick={back} className="vw-press -ml-2 inline-flex min-h-11 items-center gap-1.5 px-2 text-[14px] text-cyan lowercase active:opacity-70">
-          <ArrowLeft className="size-[18px]" /> Back
-        </button>
+        <BackButton onClick={back} />
         <span className="flex-1" />
         <span className="text-[12px] text-faint">started {stamp(ret.createdAt)}</span>
       </div>

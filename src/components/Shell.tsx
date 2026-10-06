@@ -110,10 +110,7 @@ export function Shell({ children }: { children: ReactNode }) {
         aria-label="Main"
         className="fixed inset-x-0 bottom-0 z-30 bg-[linear-gradient(180deg,rgb(18_9_11/0)_0%,rgb(12_8_10/0.92)_30%)] px-2 pb-[max(env(safe-area-inset-bottom),14px)]"
       >
-        <div aria-hidden className="relative mx-auto -mt-[2px] mb-[2px] flex h-[5px] max-w-2xl items-center overflow-hidden">
-          <div className="brand-rule vw-flow w-full opacity-80" />
-          <span className="vw-comet" />
-        </div>
+        <div aria-hidden className="brand-rule vw-flow mx-auto mb-1 max-w-2xl opacity-80" />
         <div className="relative mx-auto grid max-w-2xl grid-cols-5">
           <span
             aria-hidden

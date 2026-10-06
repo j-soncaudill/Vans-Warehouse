@@ -1,5 +1,6 @@
 import { Check } from "lucide-react";
 import { LocationPicker } from "@/components/LocationPicker";
+import { VendorPicker } from "@/components/VendorPicker";
 import { Field, YesNoBlank, cx } from "@/components/ui";
 import { COLOR_HEX, COLOR_TAGS, type FormValues } from "@/lib/form";
 
@@ -48,7 +49,9 @@ export function PackageForm({
         </Field>
       ) : null}
       {text("poNumber", "f-po", "PO number", { placeholder: "PO #", max: 60, mono: true })}
-      {text("vendor", "f-vendor", "Vendor", { placeholder: "Supplier", max: 200 })}
+      <Field label="Vendor" htmlFor="f-vendor" hint="optional">
+        <VendorPicker id="f-vendor" value={values.vendor} onChange={(vendor) => onChange({ vendor })} />
+      </Field>
       <div className="grid grid-cols-2 gap-2.5">
         {text("deliveredBy", "f-delivered", "Delivered by", { placeholder: "Carrier or driver" })}
         {text("receivedBy", "f-received", "Received by", { placeholder: "Who signed" })}

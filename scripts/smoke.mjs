@@ -255,7 +255,7 @@ try {
     await page.getByRole("link", { name: "receive", exact: true }).click();
     await page.fill("#f-job", "Maple St Remodel");
     await page.fill("#f-po", "PO-4471");
-    await page.fill("#f-vendor", "Ferguson");
+    await page.selectOption("#f-vendor", "Ferguson");
     await page.fill("#f-delivered", "UPS");
     await page.fill("#f-received", "Dana");
     await page.fill("#f-pm", "Rick");
@@ -278,7 +278,7 @@ try {
     if (!/^VW-[A-Z0-9]{6}$/.test(mintedCode)) throw new Error(`bad code ${mintedCode}`);
     const r = rows[0];
     if (!r.photo_path || !r.thumb_path || !r.barcode_path) throw new Error(`files missing ${JSON.stringify(r)}`);
-    if (r.packing_slip_received !== true || r.damaged !== false || r.color_tag !== "Blue") throw new Error("fields wrong");
+    if (r.packing_slip_received !== true || r.damaged !== false || r.color_tag !== "Blue" || r.vendor !== "Ferguson") throw new Error("fields wrong");
     if (!files.has(`package-photos/${r.photo_path}`) || !files.has(`barcodes/${r.barcode_path}`)) throw new Error("storage missing");
     await page.waitForTimeout(400);
     await shot("05-received-sticker");
@@ -301,6 +301,11 @@ try {
     await page.getByRole("link", { name: /Maple St Remodel/ }).click();
     await expect(page.getByRole("button", { name: "Check out" }), "detail");
     await shot("08-entry");
+    if (await page.locator(".vw-comet").count()) throw new Error("zipping light still on the page");
+    await page.getByRole("button", { name: "back", exact: true }).click();
+    await expect(page.getByText("Maple St Remodel"), "back to list");
+    await page.getByRole("link", { name: /Maple St Remodel/ }).click();
+    await expect(page.getByRole("button", { name: "Check out" }), "detail again");
     await page.getByRole("button", { name: "Check out" }).click();
     await page.fill("#taken-by", "Truck 3");
     await shot("09-checkout");
@@ -319,8 +324,16 @@ try {
     const oldPhoto = rows[0].photo_path;
     await page.getByRole("button", { name: "Edit details" }).click();
     await page.fill("#f-job", "Maple St Remodel – Phase 2");
+    if ((await page.inputValue("#f-vendor")) !== "Ferguson") throw new Error("edit did not preselect Ferguson");
+    await page.selectOption("#f-vendor", "__other__");
+    await page.fill("#f-vendor-other", "Graybar");
+    await shot("08b-vendor-other");
     await page.getByRole("button", { name: "Save changes" }).click();
     await expect(page.getByRole("heading", { name: "Maple St Remodel – Phase 2" }), "edited");
+    if (rows[0].vendor !== "Graybar") throw new Error(`vendor saved as ${rows[0].vendor}`);
+    await page.getByRole("button", { name: "Edit details" }).click();
+    if ((await page.inputValue("#f-vendor")) !== "__other__" || (await page.inputValue("#f-vendor-other")) !== "Graybar") throw new Error("Other vendor not restored in edit");
+    await page.getByRole("button", { name: "Cancel" }).click();
     await page.getByRole("button", { name: "Retake photo" }).click();
     await page.waitForFunction(() => document.querySelector("video")?.readyState >= 2);
     await page.getByRole("button", { name: "Take photo", exact: true }).click();
