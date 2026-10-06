@@ -115,6 +115,7 @@ export function ReceivePage({ code: incoming }: { code?: string }) {
             <h1 className="m-0 text-[26px] leading-tight font-semibold tracking-[-0.03em]"><span className="grad-title"><Decode text="On the floor" ms={420} /></span></h1>
             <p className="mt-1 text-[15px] text-dim">
               {pkg.jobName} · <Decode text={pkg.code} className="code text-cyan" />
+              {pkg.lastLocation ? <span className="block text-[13px] text-faint">at {pkg.lastLocation.toLowerCase()}</span> : null}
             </p>
           </div>
         </div>
@@ -200,7 +201,7 @@ export function ReceivePage({ code: incoming }: { code?: string }) {
         </section>
 
         <div ref={jobRef}>
-          <PackageForm values={values} onChange={patch} />
+          <PackageForm values={values} onChange={patch} withLocation />
         </div>
 
         <section aria-label="Box photo" className="flex flex-col gap-2.5">
@@ -230,7 +231,7 @@ export function ReceivePage({ code: incoming }: { code?: string }) {
           )}
         </section>
 
-        <Button big variant="primary" type="submit" disabled={busy}>
+        <Button big variant="primary" type="submit" disabled={busy || !values.location.trim()}>
           {busy ? "Saving…" : "Receive to floor"}
         </Button>
       </form>

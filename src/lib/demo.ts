@@ -9,6 +9,11 @@ type Row = Record<string, unknown> & { id: number; code: string };
 
 let nextId = 1;
 const rows: Row[] = [];
+const moves: Row[] = [];
+const returns: Row[] = [];
+const TABLES: Record<string, Row[]> = { packages: rows, package_moves: moves, returns };
+/** Tables whose rows are unique by code. */
+const BY_CODE = new Set(["packages", "returns"]);
 const files = new Map<string, Blob>();
 const urls = new Map<string, string>();
 
@@ -27,12 +32,14 @@ export function demoFileUrl(bucket: string, path: string): string | null {
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json" } });
 
-function filtered(url: URL): Row[] {
-  let out = rows;
+function filtered(url: URL, table: Row[] = rows): Row[] {
+  let out = table;
   for (const [k, v] of url.searchParams) {
     if (["select", "order", "limit", "on_conflict", "columns"].includes(k)) continue;
     const m = /^eq\.(.*)$/.exec(v);
     if (m) out = out.filter((r) => String(r[k]) === m[1]);
+    const n = /^is\.null$/.exec(v);
+    if (n) out = out.filter((r) => r[k] == null);
   }
   return out;
 }
@@ -65,7 +72,18 @@ function makeRow(item: Record<string, unknown>): Row {
     po_number: null, vendor: null, delivered_by: null, received_by: null, pm: null,
     packing_slip_received: null, quantities: null, damaged: null, color_tag: null, notes: null,
     status: "on_floor", received_at: now, checked_out_to: null, checked_out_at: null,
-    barcode_path: null, photo_path: null, thumb_path: null, created_at: now, updated_at: now,
+    barcode_path: null, photo_path: null, thumb_path: null, last_location: null, location_at: null,
+    created_at: now, updated_at: now,
+    ...item,
+  } as unknown as Row;
+}
+
+function makeOther(table: string, item: Record<string, unknown>): Row {
+  const now = new Date().toISOString();
+  if (table === "package_moves") return { id: nextId++, from_location: null, moved_by: null, moved_at: now, ...item } as unknown as Row;
+  return {
+    id: nextId++, status: "open", returned_by: null, vendor: null, job_name: null, notes: null, photo_path: null, thumb_path: null,
+    created_at: now, updated_at: now, closed_at: null, closed_by: null, close_note: null,
     ...item,
   } as unknown as Row;
 }
@@ -78,34 +96,41 @@ async function rest(url: URL, init: RequestInit | undefined, headers: Headers): 
     return data.length === 1 ? json(data[0], status) : json({ code: "PGRST116", message: "no rows" }, 406);
   };
   if (table === "settings") return reply([]);
+  const name = table ?? "packages";
+  const list = TABLES[name];
+  if (!list) return json({ code: "PGRST205", message: `Could not find the table '${name}'` }, 404);
   const method = (init?.method ?? "GET").toUpperCase();
   const now = new Date().toISOString();
-  if (method === "GET" || method === "HEAD") return reply(sortRows(filtered(url), url.searchParams.get("order")));
+  if (method === "GET" || method === "HEAD") return reply(sortRows(filtered(url, list), url.searchParams.get("order")));
   const body = init?.body ? JSON.parse(String(init.body)) : {};
   if (method === "POST") {
     const made: Row[] = [];
     for (const item of Array.isArray(body) ? body : [body]) {
-      const existing = rows.find((r) => r.code === item.code);
+      const existing = BY_CODE.has(name) ? list.find((r) => r.code === item.code) : undefined;
       if (existing && !url.searchParams.get("on_conflict")) return json({ code: "23505", message: "duplicate key" }, 409);
       if (existing) {
         Object.assign(existing, item, { updated_at: now });
         made.push(existing);
       } else {
-        const row = makeRow(item);
-        rows.push(row);
+        const row = name === "packages" ? makeRow(item) : makeOther(name, item);
+        list.push(row);
         made.push(row);
       }
     }
     return reply(made, 201);
   }
   if (method === "PATCH") {
-    const hit = filtered(url);
-    for (const r of hit) Object.assign(r, body, { updated_at: now });
+    const hit = filtered(url, list);
+    for (const r of hit) Object.assign(r, body, name === "package_moves" ? {} : { updated_at: now });
     return reply(hit);
   }
   if (method === "DELETE") {
-    const hit = filtered(url);
-    for (const r of hit) rows.splice(rows.indexOf(r), 1);
+    const hit = filtered(url, list);
+    for (const r of hit) {
+      list.splice(list.indexOf(r), 1);
+      // The real schema cascades a package's moves when it is removed.
+      if (name === "packages") for (const m of moves.filter((x) => x.package_code === r.code)) moves.splice(moves.indexOf(m), 1);
+    }
     return reply(hit);
   }
   return json({ message: "unsupported" }, 405);
@@ -204,8 +229,21 @@ export async function seedDemo() {
     { code: "012345678905", job_name: "Example: Oak Ave tenant", vendor: "Home Depot Pro", color_tag: "Green", received_at: at(70), photo: null },
     { code: "VW-EX3H8T", job_name: "Example: Ridge school", po_number: "40150", vendor: "Rexel", received_by: "Dana", color_tag: "Yellow", received_at: at(120), status: "checked_out", checked_out_to: "Truck 3", checked_out_at: at(5), photo: ["REXEL", "#a98552"] },
   ];
+  const places: Record<string, Array<[string, number, string]>> = {
+    "VW-EX4M7P": [["Warehouse", 2, "Dana"]],
+    "VW-EX9K2R": [["Warehouse", 26, "Luis"], ["Conex 2", 6, "Luis"]],
+    "012345678905": [["Warehouse", 70, "Dana"], ["Metal shop", 30, "Rick"]],
+    "VW-EX3H8T": [["Warehouse", 120, "Dana"]],
+  };
   for (const { photo, ...item } of examples) {
-    const row = makeRow(item);
+    const trail = places[item.code] ?? [];
+    let from: string | null = null;
+    for (const [to, h, by] of trail) {
+      moves.push(makeOther("package_moves", { package_code: item.code, from_location: from, to_location: to, moved_by: by, moved_at: at(h) }));
+      from = to;
+    }
+    const last = trail[trail.length - 1];
+    const row = makeRow({ ...item, last_location: last?.[0] ?? null, location_at: last ? at(last[1]) : null });
     if (photo) {
       const p = await boxPhoto(photo[0], photo[1]);
       row.photo_path = `${row.code}/ex.jpg`;
@@ -215,4 +253,9 @@ export async function seedDemo() {
     }
     rows.push(row);
   }
+  returns.push(
+    makeOther("returns", { code: "VVR-4127", type: "vendor", returned_by: "Luis", vendor: "Ferguson", job_name: "Example: Harbor clinic", notes: "Wrong size couplings", created_at: at(3) }),
+    makeOther("returns", { code: "VRR-0583", type: "general", returned_by: "Marco", notes: "Leftover from Oak Ave, not sure", created_at: at(20) }),
+    makeOther("returns", { code: "VWR-9902", type: "warranty", vendor: "Rexel", status: "closed", created_at: at(90), closed_at: at(40), closed_by: "Ana", close_note: "RMA 55120 shipped" }),
+  );
 }

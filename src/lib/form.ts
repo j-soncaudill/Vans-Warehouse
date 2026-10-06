@@ -1,3 +1,4 @@
+import { DEFAULT_LOCATION } from "@/lib/locations";
 import type { Pkg } from "@/lib/packages";
 
 export const COLOR_TAGS = ["Red", "Orange", "Yellow", "Green", "Blue", "White", "Pink", "Black"] as const;
@@ -33,6 +34,8 @@ export type FormValues = {
   damaged: YesNo;
   colorTag: string;
   notes: string;
+  /** Receive only. After that, location changes go through Move. */
+  location: string;
 };
 
 export function emptyForm(): FormValues {
@@ -48,6 +51,7 @@ export function emptyForm(): FormValues {
     damaged: "",
     colorTag: "",
     notes: "",
+    location: DEFAULT_LOCATION,
   };
 }
 
@@ -75,6 +79,7 @@ export function formFromPkg(pkg: Pkg): FormValues {
     damaged: toYesNo(pkg.damaged),
     colorTag: pkg.colorTag ?? "",
     notes: pkg.notes ?? "",
+    location: pkg.lastLocation ?? "",
   };
 }
 

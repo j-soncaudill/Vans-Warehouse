@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, type CSSProperties } from "react";
 import { Link } from "@tanstack/react-router";
-import { PackagePlus, X } from "lucide-react";
+import { MapPin, PackagePlus, X } from "lucide-react";
 import { PackageCard } from "@/components/Package";
 import { PageTitle } from "@/components/Shell";
 import { Button, btn, cx } from "@/components/ui";
@@ -10,7 +10,7 @@ import { listPackages, type Pkg, type PkgStatus } from "@/lib/packages";
 
 function matches(p: Pkg, q: string) {
   if (!q) return true;
-  return [p.jobName, p.code, p.poNumber, p.vendor, p.pm, p.deliveredBy, p.receivedBy, p.quantities, p.notes, p.checkedOutTo, p.colorTag]
+  return [p.jobName, p.code, p.poNumber, p.vendor, p.pm, p.deliveredBy, p.receivedBy, p.quantities, p.notes, p.checkedOutTo, p.colorTag, p.lastLocation]
     .filter(Boolean)
     .join(" ")
     .toLowerCase()
@@ -21,9 +21,19 @@ function PackageList({ status }: { status: PkgStatus }) {
   const { data, error, loading, reload } = useLiveQuery(`list:${status}`, () => listPackages(status));
   const [q, setQ] = useState("");
   const [color, setColor] = useState("");
+  const [place, setPlace] = useState("");
   const all = data ?? [];
-  const shown = useMemo(() => all.filter((p) => matches(p, q.trim().toLowerCase()) && (!color || p.colorTag === color)), [all, q, color]);
+  const shown = useMemo(
+    () => all.filter((p) => matches(p, q.trim().toLowerCase()) && (!color || p.colorTag === color) && (!place || p.lastLocation === place)),
+    [all, q, color, place],
+  );
   const usedColors = COLOR_TAGS.filter((t) => all.some((p) => p.colorTag === t));
+  // Only places something is actually at, busiest first.
+  const usedPlaces = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const p of all) if (p.lastLocation) counts.set(p.lastLocation, (counts.get(p.lastLocation) ?? 0) + 1);
+    return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  }, [all]);
   const floor = status === "on_floor";
   // Rows present on first load cascade in; rows that show up later (another
   // phone, over realtime) glow once so the change is noticed.
@@ -47,7 +57,7 @@ function PackageList({ status }: { status: PkgStatus }) {
               type="search"
               aria-label="Search"
               className="field pr-12 pl-8"
-              placeholder="search job, code, po, vendor"
+              placeholder="search job, code, po, vendor, place"
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />
@@ -57,6 +67,29 @@ function PackageList({ status }: { status: PkgStatus }) {
               </button>
             ) : null}
           </div>
+          {usedPlaces.length > 1 || (usedPlaces.length === 1 && place) ? (
+            <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1" role="group" aria-label="Filter by location">
+              {usedPlaces.map(([name, n]) => {
+                const on = place === name;
+                return (
+                  <button
+                    key={name}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => setPlace(on ? "" : name)}
+                    className={cx(
+                      "vw-press flex min-h-10 shrink-0 items-center gap-1.5 rounded-[8px] border px-3 text-[13px] lowercase",
+                      on ? "border-cyan bg-cyan/10 text-cyan" : "border-line bg-panel text-dim",
+                    )}
+                  >
+                    <MapPin aria-hidden className="size-3.5" />
+                    {name}
+                    <span className="rounded-[4px] bg-raised px-1.5 text-[11px] text-faint tabular-nums">{n}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
           {usedColors.length > 0 ? (
             <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1" role="group" aria-label="Filter by color tag">
               {usedColors.map((t) => {

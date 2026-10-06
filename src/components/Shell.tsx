@@ -1,11 +1,12 @@
 import { useCallback, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { ArrowRight, DatabaseBackup, LayoutGrid, Plus, ScanLine } from "lucide-react";
+import { ArrowRight, DatabaseBackup, LayoutGrid, Plus, ScanLine, Undo2 } from "lucide-react";
 import { cx, errorText, toast, useOnline } from "@/components/ui";
 import logo from "@/assets/vans-logo.png";
 import { useWedgeScanner } from "@/lib/hid";
 import { useChangeVersion, useRealtime, type LiveStatus } from "@/lib/live";
 import { Decode, Ticker } from "@/components/motion";
+import { isReturnCode } from "@/lib/codes";
 import { getPackage } from "@/lib/packages";
 import { IS_DEMO } from "@/lib/supabase";
 
@@ -44,21 +45,29 @@ function LiveDot({ status }: { status: LiveStatus }) {
 }
 
 const TABS = [
-  { to: "/", label: "floor", icon: LayoutGrid },
-  { to: "/scan", label: "scan", icon: ScanLine },
-  { to: "/receive", label: "receive", icon: Plus },
-  { to: "/out", label: "out", icon: ArrowRight },
+  { to: "/", label: "floor", icon: LayoutGrid, also: [] },
+  { to: "/scan", label: "scan", icon: ScanLine, also: [] },
+  { to: "/receive", label: "receive", icon: Plus, also: [] },
+  { to: "/out", label: "out", icon: ArrowRight, also: [] },
+  { to: "/returns", label: "returns", icon: Undo2, also: ["/r/"] },
 ] as const;
+
+const tabOn = (tab: (typeof TABS)[number], path: string) =>
+  tab.to === "/" ? path === "/" : path.startsWith(tab.to) || tab.also.some((p) => path.startsWith(p));
 
 export function Shell({ children }: { children: ReactNode }) {
   const status = useRealtime();
   const navigate = useNavigate();
   const path = useRouterState({ select: (s) => s.location.pathname });
-  const active = TABS.findIndex(({ to }) => (to === "/" ? path === "/" : path.startsWith(to)));
+  const active = TABS.findIndex((t) => tabOn(t, path));
 
   const onWedge = useCallback(
     async (code: string) => {
       try {
+        if (isReturnCode(code)) {
+          await navigate({ to: "/r/$code", params: { code } });
+          return;
+        }
         const found = await getPackage(code);
         if (found) await navigate({ to: "/p/$code", params: { code: found.code } });
         else await navigate({ to: "/receive", search: { code } });
@@ -105,7 +114,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <div className="brand-rule vw-flow w-full opacity-80" />
           <span className="vw-comet" />
         </div>
-        <div className="relative mx-auto grid max-w-2xl grid-cols-4">
+        <div className="relative mx-auto grid max-w-2xl grid-cols-5">
           <span
             aria-hidden
             className="vw-tab-ind"
@@ -113,8 +122,9 @@ export function Shell({ children }: { children: ReactNode }) {
           >
             <span key={active} />
           </span>
-          {TABS.map(({ to, label, icon: Icon }) => {
-            const on = to === "/" ? path === "/" : path.startsWith(to);
+          {TABS.map((tab) => {
+            const { to, label, icon: Icon } = tab;
+            const on = tabOn(tab, path);
             return (
               <Link
                 key={to}

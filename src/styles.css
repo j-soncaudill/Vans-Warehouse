@@ -154,6 +154,12 @@ body::before {
   display: none;
 }
 
+/* Our own clear button replaces the browser one on search fields. */
+input[type="search"]::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  display: none;
+}
+
 @media print {
   @page {
     size: 4in 3in;
@@ -316,7 +322,7 @@ body::after {
   position: absolute;
   top: 0;
   left: 0;
-  width: 25%;
+  width: 20%;
   height: 0;
   transition: transform 0.55s var(--ease-spring);
   pointer-events: none;

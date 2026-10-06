@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Camera, ChevronRight } from "lucide-react";
+import { Camera, ChevronRight, MapPin } from "lucide-react";
 import { PhotoViewer } from "@/components/PhotoCamera";
 import { cx } from "@/components/ui";
 import { colorHex } from "@/lib/form";
@@ -74,6 +74,12 @@ export function PackageCard({ pkg }: { pkg: Pkg }) {
             <span className="text-cyan">{pkg.code}</span>
             {hex ? <span aria-label={`${pkg.colorTag} tag`} className="inline-block size-2 rounded-[2px]" style={{ background: hex }} /> : null}
             {pkg.damaged ? <DamageChip /> : null}
+            {pkg.lastLocation ? (
+              <span className="inline-flex items-center gap-1 text-[12px] text-dim">
+                <MapPin aria-hidden className="size-3" />
+                {pkg.lastLocation.toLowerCase()}
+              </span>
+            ) : null}
           </span>
           {line.some(Boolean) ? <span className="truncate text-[12px] text-dim">{line.filter(Boolean).join(" · ")}</span> : null}
         </span>

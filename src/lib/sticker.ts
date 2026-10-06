@@ -136,3 +136,40 @@ export function downloadBlob(blob: Blob, filename: string) {
   a.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
+
+/**
+ * Letter-size poster for the returns station (1275×1650, 150 dpi). Posted in
+ * the warehouse; scanning it is how a return proves it started on site.
+ */
+export async function renderStationPoster(payload: string): Promise<Blob> {
+  await document.fonts?.ready.catch(() => undefined);
+  const W = 1275;
+  const H = 1650;
+  const c = document.createElement("canvas");
+  c.width = W;
+  c.height = H;
+  const ctx = c.getContext("2d");
+  if (!ctx) throw new Error("Could not draw the poster.");
+  ctx.fillStyle = PAPER;
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = INK;
+  ctx.textAlign = "center";
+  ctx.font = `700 150px ${SANS}`;
+  ctx.fillText("RETURNS", W / 2, 230);
+  ctx.font = `500 46px ${SANS}`;
+  ctx.fillText("Open the app → returns → Start a return", W / 2, 320, W - 120);
+  ctx.fillText("then scan this code.", W / 2, 380, W - 120);
+
+  const QR = 900;
+  const qr = document.createElement("canvas");
+  await QRCode.toCanvas(qr, payload, { width: QR, margin: 2, color: { dark: INK, light: PAPER }, errorCorrectionLevel: "M" });
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(qr, (W - QR) / 2, 440, QR, QR);
+
+  ctx.font = `500 40px ${SANS}`;
+  ctx.fillText("Write the code the app gives you on the item.", W / 2, 1430, W - 120);
+  ctx.fillRect(120, 1490, W - 240, 4);
+  ctx.font = `700 34px ${SANS}`;
+  ctx.fillText("VAN'S WAREHOUSE · RETURN STATION", W / 2, 1560, W - 120);
+  return await new Promise<Blob>((resolve, reject) => c.toBlob((b) => (b ? resolve(b) : reject(new Error("Could not draw the poster."))), "image/png"));
+}

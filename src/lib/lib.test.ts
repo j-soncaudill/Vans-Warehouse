@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { recordToRow, toCsv } from "@/lib/backup";
-import { isMintedCode, isPlausibleCode, mintCode, normalizeCode, pickCode } from "@/lib/codes";
+import { isMintedCode, isPlausibleCode, mintCode, normalizeCode, pickCode, isReturnCode, mintReturnCode } from "@/lib/codes";
 import { emptyForm, formToRow, fromYesNo, toYesNo } from "@/lib/form";
 
 describe("codes", () => {
@@ -50,10 +50,28 @@ describe("backup", () => {
       {
         code: "VW-1", jobName: 'A, "B"', poNumber: null, vendor: null, deliveredBy: null, receivedBy: null, pm: null,
         packingSlip: null, quantities: "1\n2", damaged: null, colorTag: null, notes: null, status: "on_floor",
-        receivedAt: "2026-01-01T00:00:00Z", checkedOutTo: null, checkedOutAt: null, stickerFile: null, photoFile: null,
+        receivedAt: "2026-01-01T00:00:00Z", checkedOutTo: null, checkedOutAt: null,
+      lastLocation: null,
+      locationAt: null, stickerFile: null, photoFile: null,
       },
     ]);
     expect(csv).toContain('"A, ""B"""');
     expect(csv).toContain('"1\n2"');
+  });
+});
+
+describe("return codes", () => {
+  it("mints PREFIX-dddd for each type", () => {
+    expect(mintReturnCode("vendor", () => 0)).toBe("VVR-0000");
+    expect(mintReturnCode("stock", () => 0.8342)).toBe("VRS-8342");
+    expect(mintReturnCode("warranty", () => 0.99999)).toBe("VWR-9999");
+    expect(mintReturnCode("general", () => 0.05)).toBe("VRR-0500");
+  });
+  it("recognizes only the four return formats", () => {
+    expect(isReturnCode("vrs-8342")).toBe(true);
+    expect(isReturnCode("VVR-1234")).toBe(true);
+    expect(isReturnCode("VRX-1234")).toBe(false);
+    expect(isReturnCode("VRS-834")).toBe(false);
+    expect(isReturnCode("VW-ABC123")).toBe(false);
   });
 });

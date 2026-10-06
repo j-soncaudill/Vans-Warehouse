@@ -1,12 +1,14 @@
-import { useRef, useState } from "react";
-import { Archive, Lock, Upload } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Archive, Download, Lock, Upload } from "lucide-react";
 import { CopySql } from "@/components/Gate";
+import upgradeSql from "../../supabase/migrations/002_locations_returns.sql?raw";
 import { PageTitle } from "@/components/Shell";
 import { Button, Confirm, cx, errorText, toast } from "@/components/ui";
 import { buildBackup, restoreBackup } from "@/lib/backup";
 import { notifyChanged } from "@/lib/live";
 import { lock } from "@/lib/pin";
-import { downloadBlob } from "@/lib/sticker";
+import { stationPayload, stationToken } from "@/lib/returns";
+import { downloadBlob, renderStationPoster } from "@/lib/sticker";
 import { BARCODES_BUCKET, IS_DEMO, PHOTOS_BUCKET, probeSchema, sb } from "@/lib/supabase";
 
 type Check = { label: string; ok: boolean; detail: string };
@@ -23,7 +25,14 @@ async function systemCheck(): Promise<Check[]> {
     ok: schema === "ready",
     detail: schema === "ready" ? "Ready" : schema === "outdated" ? "Old table. Run the setup SQL." : schema === "missing" ? "Missing. Run the setup SQL." : "Unreachable",
   };
-  return [table, await bucketOk(BARCODES_BUCKET), await bucketOk(PHOTOS_BUCKET)];
+  const extra: Check = {
+    label: "locations + returns (update 002)",
+    ok: schema === "ready",
+    detail: schema === "ready" ? "Ready" : schema === "upgrade" ? "Not added yet. Run the update SQL below." : "Waiting on the packages table.",
+  };
+  const token = schema === "ready" ? await stationToken() : null;
+  const station: Check = { label: "Returns station code", ok: Boolean(token), detail: token ? "Ready" : "Missing. Run the update SQL below." };
+  return [table, extra, station, await bucketOk(BARCODES_BUCKET), await bucketOk(PHOTOS_BUCKET)];
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -127,7 +136,13 @@ export function MorePage() {
             ))}
           </ul>
         ) : null}
-        {checks?.some((c) => !c.ok) ? <CopySql /> : null}
+        {checks?.some((c) => !c.ok) ? (
+          checks[0].ok ? <CopySql sql={upgradeSql} label="Copy update SQL" /> : <CopySql />
+        ) : null}
+      </Section>
+
+      <Section title="Returns station">
+        <StationPoster />
       </Section>
 
       <Section title="This phone">
@@ -157,5 +172,49 @@ export function MorePage() {
         />
       ) : null}
     </div>
+  );
+}
+
+/** The QR posted in the warehouse. Starting a return requires scanning it. */
+function StationPoster() {
+  const [url, setUrl] = useState<string | null>(null);
+  const [blob, setBlob] = useState<Blob | null>(null);
+  const [missing, setMissing] = useState(false);
+  useEffect(() => {
+    let made: string | null = null;
+    let alive = true;
+    void stationToken()
+      .then(async (token) => {
+        if (!token) {
+          if (alive) setMissing(true);
+          return;
+        }
+        const b = await renderStationPoster(stationPayload(token));
+        if (!alive) return;
+        made = URL.createObjectURL(b);
+        setBlob(b);
+        setUrl(made);
+      })
+      .catch(() => alive && setMissing(true));
+    return () => {
+      alive = false;
+      if (made) URL.revokeObjectURL(made);
+    };
+  }, []);
+  if (missing)
+    return <p className="text-[15px] text-dim">The returns station code isn't set up yet. Run the update SQL from the system check.</p>;
+  return (
+    <>
+      <p className="text-[15px] text-dim">
+        Print this and post it in the warehouse. A return can only be started by scanning it, so whoever drops one off has to be there.
+      </p>
+      <div className="overflow-hidden rounded-[12px] border border-line bg-white">
+        {url ? <img src={url} alt="Returns station poster with QR code" className="mx-auto block max-h-[60vh] w-auto" /> : <div className="aspect-[17/22] w-full" />}
+      </div>
+      {IS_DEMO ? <p className="text-[13px] text-faint">Downloads are blocked in this preview. Save the poster from the live site.</p> : null}
+      <Button variant="primary" disabled={!blob || IS_DEMO} onClick={() => blob && downloadBlob(blob, "returns-station-poster.png")}>
+        <Download className="size-[18px]" /> Save poster to print
+      </Button>
+    </>
   );
 }

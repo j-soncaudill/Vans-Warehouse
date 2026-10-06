@@ -69,6 +69,8 @@ export function useRealtime(): LiveStatus {
     const channel = client
       .channel("vw-packages")
       .on("postgres_changes", { event: "*", schema: "public", table: "packages" }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "package_moves" }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "returns" }, bump)
       .subscribe((s) => {
         if (s === "SUBSCRIBED") {
           setStatus("live");

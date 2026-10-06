@@ -5,6 +5,7 @@ import { Button, cx } from "@/components/ui";
 import { isUnlocked, unlock } from "@/lib/pin";
 import { IS_DEMO, probeSchema, type SchemaState } from "@/lib/supabase";
 import schemaSql from "../../supabase/schema.sql?raw";
+import upgradeSql from "../../supabase/migrations/002_locations_returns.sql?raw";
 
 function Screen({ children }: { children: ReactNode }) {
   return (
@@ -15,7 +16,7 @@ function Screen({ children }: { children: ReactNode }) {
   );
 }
 
-export function CopySql({ sql = schemaSql }: { sql?: string }) {
+export function CopySql({ sql = schemaSql, label = "Copy setup SQL" }: { sql?: string; label?: string }) {
   const [copied, setCopied] = useState(false);
   const [show, setShow] = useState(false);
   return (
@@ -29,7 +30,7 @@ export function CopySql({ sql = schemaSql }: { sql?: string }) {
           )
         }
       >
-        {copied ? "Copied" : "Copy setup SQL"}
+        {copied ? "Copied" : label}
       </Button>
       <Button variant="ghost" onClick={() => setShow((s) => !s)}>
         {show ? "Hide SQL" : "Show SQL"}
@@ -87,6 +88,24 @@ export function Gate({ children }: { children: ReactNode }) {
         <Button big variant="primary" onClick={check}>
           Try again
         </Button>
+      </Screen>
+    );
+  }
+
+  if (schema === "upgrade") {
+    return (
+      <Screen>
+        <h1 className="font-sans text-[28px] font-bold tracking-[-0.02em]">One database update</h1>
+        <p className="mt-3 mb-6 text-[14px] text-dim">
+          This version adds locations and returns. In Supabase, open SQL Editor, paste this update, and press Run. It only adds new
+          columns and tables. Every existing entry is kept.
+        </p>
+        <CopySql sql={upgradeSql} label="Copy update SQL" />
+        <div className="mt-6">
+          <Button big onClick={check}>
+            I ran it, check again
+          </Button>
+        </div>
       </Screen>
     );
   }

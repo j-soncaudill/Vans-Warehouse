@@ -4,7 +4,7 @@ import { ScanLine } from "lucide-react";
 import { Scanner } from "@/components/Scanner";
 import { PageTitle } from "@/components/Shell";
 import { Button, errorText, toast } from "@/components/ui";
-import { isPlausibleCode, normalizeCode } from "@/lib/codes";
+import { isPlausibleCode, isReturnCode, normalizeCode } from "@/lib/codes";
 import { getPackage } from "@/lib/packages";
 
 const finePointer = () => typeof window !== "undefined" && window.matchMedia?.("(pointer: fine)").matches;
@@ -25,6 +25,10 @@ export function ScanPage() {
     const c = normalizeCode(raw);
     if (!isPlausibleCode(c)) {
       toast("That does not look like a barcode.", "error");
+      return;
+    }
+    if (isReturnCode(c)) {
+      await navigate({ to: "/r/$code", params: { code: c } });
       return;
     }
     setBusy(true);

@@ -1,5 +1,6 @@
 import { isPlausibleCode, mintCode, normalizeCode } from "@/lib/codes";
 import { formToRow, type FormValues } from "@/lib/form";
+import { cleanLocation, moveRow } from "@/lib/locations";
 import { removePhotoFiles, uploadPhoto, type CapturedPhoto } from "@/lib/photo";
 import { stickerPath, uploadSticker } from "@/lib/sticker";
 import { BARCODES_BUCKET, PHOTOS_BUCKET, isTableMissing, sb } from "@/lib/supabase";
@@ -27,6 +28,8 @@ export type Pkg = {
   barcodePath: string | null;
   photoPath: string | null;
   thumbPath: string | null;
+  lastLocation: string | null;
+  locationAt: string | null;
   updatedAt: string | null;
 };
 
@@ -51,11 +54,13 @@ export type PkgRow = {
   barcode_path: string | null;
   photo_path: string | null;
   thumb_path: string | null;
+  last_location: string | null;
+  location_at: string | null;
   updated_at: string | null;
 };
 
 const COLUMNS =
-  "id, code, job_name, po_number, vendor, delivered_by, received_by, pm, packing_slip_received, quantities, damaged, color_tag, notes, status, received_at, checked_out_to, checked_out_at, barcode_path, photo_path, thumb_path, updated_at";
+  "id, code, job_name, po_number, vendor, delivered_by, received_by, pm, packing_slip_received, quantities, damaged, color_tag, notes, status, received_at, checked_out_to, checked_out_at, barcode_path, photo_path, thumb_path, last_location, location_at, updated_at";
 
 export function mapRow(r: PkgRow): Pkg {
   return {
@@ -79,6 +84,8 @@ export function mapRow(r: PkgRow): Pkg {
     barcodePath: r.barcode_path,
     photoPath: r.photo_path,
     thumbPath: r.thumb_path,
+    lastLocation: r.last_location ?? null,
+    locationAt: r.location_at ?? null,
     updatedAt: r.updated_at,
   };
 }
@@ -124,6 +131,8 @@ export async function receivePackage(
   photo: CapturedPhoto | null,
 ): Promise<ReceiveResult> {
   const row = formToRow(values);
+  const location = cleanLocation(values.location);
+  if (!location) throw new Error("Pick where it is, or type the location under Other.");
   let code: string;
   if (existingCode) {
     code = normalizeCode(existingCode);
@@ -136,7 +145,7 @@ export async function receivePackage(
 
   const { data, error } = await sb()
     .from("packages")
-    .insert({ ...row, code, status: "on_floor" })
+    .insert({ ...row, code, status: "on_floor", last_location: location, location_at: new Date().toISOString() })
     .select(COLUMNS)
     .single();
   if (error) {
@@ -145,6 +154,8 @@ export async function receivePackage(
   }
   let pkg = mapRow(data as PkgRow);
   const warnings: string[] = [];
+  const moved = await sb().from("package_moves").insert(moveRow(code, null, location, row.received_by));
+  if (moved.error) warnings.push("The location was saved, but its history entry was not.");
   const patch: Record<string, unknown> = {};
 
   const barcodePath = await uploadSticker({ code, jobName: pkg.jobName, receivedAt: pkg.receivedAt });
@@ -194,6 +205,22 @@ export async function checkOut(code: string, takenBy: string): Promise<Pkg> {
   if (!who) throw new Error("Enter who it was checked out by.");
   const pkg = await update(code, { status: "checked_out", checked_out_to: who, checked_out_at: new Date().toISOString() }, "on_floor");
   if (!pkg) throw new Error("Already checked out, or removed.");
+  return pkg;
+}
+
+/** Records where the box is now, plus a history entry. Works on the floor or checked out. */
+export async function movePackage(code: string, to: string, movedBy: string): Promise<Pkg> {
+  const place = cleanLocation(to);
+  const who = movedBy.trim().slice(0, 80);
+  if (!place) throw new Error("Pick where it went, or type it under Other.");
+  if (!who) throw new Error("Enter who moved it.");
+  const current = await getPackage(code);
+  if (!current) throw new Error("That package is gone.");
+  if (current.lastLocation === place) throw new Error(`It's already marked at ${place}.`);
+  const pkg = await update(code, { last_location: place, location_at: new Date().toISOString() });
+  if (!pkg) throw new Error("That package is gone.");
+  const { error } = await sb().from("package_moves").insert(moveRow(code, current.lastLocation, place, who));
+  if (error) throw new Error("The location changed, but its history entry did not save.");
   return pkg;
 }
 

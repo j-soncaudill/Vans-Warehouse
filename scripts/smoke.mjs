@@ -20,16 +20,39 @@ const PORT = 4321;
 // ------------------------------------------------------------ fake supabase
 let nextId = 1;
 const rows = [];
+const moves = [];
+const returnsRows = [];
+const TABLES = { packages: rows, package_moves: moves, returns: returnsRows };
+const BY_CODE = new Set(["packages", "returns"]);
+const STATION_TOKEN = "smoke-station-token";
 const files = new Map(); // "bucket/path" -> { body, type }
 
-function filterRows(url) {
-  let out = rows;
+function filterRows(url, list = rows) {
+  let out = list;
   for (const [k, v] of url.searchParams) {
     if (["select", "order", "limit", "on_conflict", "columns"].includes(k)) continue;
     const m = /^eq\.(.*)$/.exec(v);
     if (m) out = out.filter((r) => String(r[k]) === decodeURIComponent(m[1]));
   }
   return out;
+}
+
+function newRow(table, item) {
+  const now = new Date().toISOString();
+  if (table === "package_moves") return { id: nextId++, from_location: null, moved_by: null, moved_at: now, ...item };
+  if (table === "returns") {
+    return {
+      id: nextId++, status: "open", returned_by: null, vendor: null, job_name: null, notes: null, photo_path: null, thumb_path: null,
+      created_at: now, updated_at: now, closed_at: null, closed_by: null, close_note: null, ...item,
+    };
+  }
+  return {
+    id: nextId++, po_number: null, vendor: null, delivered_by: null, received_by: null, pm: null,
+    packing_slip_received: null, quantities: null, damaged: null, color_tag: null, notes: null,
+    status: "on_floor", received_at: now, checked_out_to: null, checked_out_at: null,
+    barcode_path: null, photo_path: null, thumb_path: null, last_location: null, location_at: null,
+    created_at: now, updated_at: now, ...item,
+  };
 }
 
 async function rest(route, req, url) {
@@ -42,20 +65,26 @@ async function rest(route, req, url) {
     }
     return route.fulfill({ status, contentType: "application/json", body: JSON.stringify(data) });
   };
-  if (table === "settings") return reply([]);
+  if (table === "settings") {
+    const all = [{ key: "return_station_token", value: STATION_TOKEN }];
+    return reply(filterRows(url, all));
+  }
+  const list = TABLES[table];
+  if (!list) return route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ code: "PGRST205", message: "no table" }) });
   const method = req.method();
   const now = () => new Date().toISOString();
   if (method === "GET" || method === "HEAD") {
-    let out = [...filterRows(url)];
-    if ((url.searchParams.get("order") ?? "").includes("desc")) out.sort((a, b) => (b.received_at > a.received_at ? 1 : -1));
+    let out = [...filterRows(url, list)];
+    const [col, dir] = (url.searchParams.get("order") ?? "").split(",")[0].split(".");
+    if (col) out.sort((a, b) => (String(a[col] ?? "") > String(b[col] ?? "") ? 1 : -1) * (dir === "desc" ? -1 : 1));
     return reply(out);
   }
   if (method === "POST") {
     const body = JSON.parse(req.postData() ?? "{}");
-    const list = Array.isArray(body) ? body : [body];
+    const items = Array.isArray(body) ? body : [body];
     const made = [];
-    for (const item of list) {
-      const existing = rows.find((r) => r.code === item.code);
+    for (const item of items) {
+      const existing = BY_CODE.has(table) ? list.find((r) => r.code === item.code) : undefined;
       if (existing && !url.searchParams.get("on_conflict")) {
         return route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ code: "23505", message: "duplicate key" }) });
       }
@@ -63,13 +92,8 @@ async function rest(route, req, url) {
         Object.assign(existing, item, { updated_at: now() });
         made.push(existing);
       } else {
-        const row = {
-          id: nextId++, po_number: null, vendor: null, delivered_by: null, received_by: null, pm: null,
-          packing_slip_received: null, quantities: null, damaged: null, color_tag: null, notes: null,
-          status: "on_floor", received_at: now(), checked_out_to: null, checked_out_at: null,
-          barcode_path: null, photo_path: null, thumb_path: null, created_at: now(), updated_at: now(), ...item,
-        };
-        rows.push(row);
+        const row = newRow(table, item);
+        list.push(row);
         made.push(row);
       }
     }
@@ -77,13 +101,16 @@ async function rest(route, req, url) {
   }
   if (method === "PATCH") {
     const body = JSON.parse(req.postData() ?? "{}");
-    const hit = filterRows(url);
-    for (const r of hit) Object.assign(r, body, { updated_at: now() });
+    const hit = filterRows(url, list);
+    for (const r of hit) Object.assign(r, body, table === "package_moves" ? {} : { updated_at: now() });
     return reply(hit);
   }
   if (method === "DELETE") {
-    const hit = filterRows(url);
-    for (const r of hit) rows.splice(rows.indexOf(r), 1);
+    const hit = filterRows(url, list);
+    for (const r of hit) {
+      list.splice(list.indexOf(r), 1);
+      if (table === "packages") for (const m of moves.filter((x) => x.package_code === r.code)) moves.splice(moves.indexOf(m), 1);
+    }
     return reply(hit);
   }
   return route.fulfill({ status: 405 });
@@ -143,12 +170,17 @@ await new Promise((resolve) => {
 // something real to decode (needs ffmpeg; falls back to Chrome's test pattern).
 const SCAN_CODE = "AB-778899";
 const fakeVideo = path.join(shots, "fake-camera.y4m");
+// A second camera that sees the returns station poster.
+const stationVideo = path.join(shots, "fake-station.y4m");
 let liveQr = false;
 try {
   mkdirSync(shots, { recursive: true });
   const png = path.join(shots, "fake-camera.png");
   await QRCode.toFile(png, SCAN_CODE, { width: 480, margin: 6, errorCorrectionLevel: "Q" });
   execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-loop", "1", "-i", png, "-vf", "pad=640:480:(ow-iw)/2:(oh-ih)/2:white,format=yuv420p", "-t", "1", "-r", "10", fakeVideo]);
+  const stationPng = path.join(shots, "fake-station.png");
+  await QRCode.toFile(stationPng, `VW-RETURN-STATION:${STATION_TOKEN}`, { width: 480, margin: 6, errorCorrectionLevel: "M" });
+  execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-loop", "1", "-i", stationPng, "-vf", "pad=640:480:(ow-iw)/2:(oh-ih)/2:white,format=yuv420p", "-t", "1", "-r", "10", stationVideo]);
   liveQr = true;
 } catch {
   /* no ffmpeg */
@@ -200,6 +232,8 @@ const expect = async (locator, what) => {
 };
 
 let mintedCode = "";
+let locCode = "";
+let retCode = "";
 try {
   await step("PIN gate rejects wrong PIN, accepts right one", async () => {
     await page.goto(`http://localhost:${PORT}/`);
@@ -362,6 +396,137 @@ try {
   });
 
   let backup;
+  await step("Receive: location defaults to Warehouse; Other needs text", async () => {
+    await page.getByRole("link", { name: "receive", exact: true }).click();
+    await page.fill("#f-job", "Loc Test");
+    const wh = page.locator("#f-location").getByRole("radio", { name: "Warehouse" });
+    if ((await wh.getAttribute("aria-checked")) !== "true") throw new Error("Warehouse not preselected");
+    await page.locator("#f-location").getByRole("radio", { name: "other" }).click();
+    const go = page.getByRole("button", { name: "Receive to floor" });
+    if (!(await go.isDisabled())) throw new Error("receive allowed with an empty Other location");
+    await page.fill("#f-location-other", "Trailer 7");
+    await shot("14-location-other");
+    await go.click();
+    await expect(page.getByText("On the floor"), "received with location");
+    const r = rows.find((x) => x.job_name === "Loc Test");
+    if (!r || r.last_location !== "Trailer 7" || !r.location_at) throw new Error(`location not saved: ${JSON.stringify(r)}`);
+    locCode = r.code;
+    const m = moves.filter((x) => x.package_code === locCode);
+    if (m.length !== 1 || m[0].to_location !== "Trailer 7" || m[0].from_location !== null) throw new Error(`first move wrong: ${JSON.stringify(m)}`);
+  });
+
+  await step("Move records the new location and its history", async () => {
+    await page.goto(`http://localhost:${PORT}/p/${locCode}`);
+    await expect(page.getByText("Trailer 7"), "location card");
+    await page.getByRole("button", { name: "Move", exact: true }).click();
+    await page.locator("#move-to").getByRole("radio", { name: "Conex 2" }).click();
+    const save = page.getByRole("button", { name: "Save location" });
+    if (!(await save.isDisabled())) throw new Error("move allowed without a name");
+    await page.fill("#moved-by", "Luis");
+    await shot("15-move-sheet");
+    await save.click();
+    await expect(page.getByText("Marked at Conex 2."), "moved toast");
+    const hist = page.getByRole("region", { name: "Location history" });
+    await expect(hist.getByText("Trailer 7"), "history from");
+    await expect(hist.getByText(/Luis/), "history by");
+    const m = moves.filter((x) => x.package_code === locCode);
+    if (m.length !== 2 || m[1].from_location !== "Trailer 7" || m[1].to_location !== "Conex 2" || m[1].moved_by !== "Luis") throw new Error(`move history wrong: ${JSON.stringify(m)}`);
+    if (rows.find((x) => x.code === locCode).last_location !== "Conex 2") throw new Error("last_location not updated");
+    await shot("16-location-history");
+  });
+
+  await step("Floor filters by location; search finds the place", async () => {
+    await page.getByRole("link", { name: "floor", exact: true }).click();
+    await page.getByRole("group", { name: "Filter by location" }).getByRole("button", { name: /conex 2/i }).click();
+    await expect(page.getByText("Loc Test"), "filtered row");
+    if (await page.getByText("Oak Ave").count()) throw new Error("location filter let other rows through");
+    await page.getByRole("group", { name: "Filter by location" }).getByRole("button", { name: /conex 2/i }).click();
+    await page.fill('input[aria-label="Search"]', "conex 2");
+    await expect(page.getByText("Loc Test"), "search by place");
+    if (await page.getByText("Oak Ave").count()) throw new Error("place search let other rows through");
+    await shot("17-floor-locations");
+  });
+
+  await step("Returns: a QR that isn't the station is rejected", async () => {
+    await page.getByRole("link", { name: "returns", exact: true }).click();
+    await page.getByRole("link", { name: "Start a return" }).click();
+    if (liveQr) {
+      await expect(page.getByText("That's not the returns station code"), "wrong QR rejected");
+      if (returnsRows.length) throw new Error("a return was created from the wrong QR");
+    }
+  });
+
+  await step("Returns: station QR, pick type, get a VRS-#### code", async () => {
+    if (liveQr) {
+      const b2 = await chromium.launch({
+        executablePath: process.env.CHROMIUM_PATH ?? "/opt/pw-browsers/chromium",
+        args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream", `--use-file-for-fake-video-capture=${stationVideo}`],
+      });
+      try {
+        const c2 = await b2.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, permissions: ["camera"] });
+        await c2.route(/\/rest\/v1\//, (route, req) => rest(route, req, new URL(req.url())));
+        await c2.route(/\/storage\/v1\//, (route, req) => storage(route, req, new URL(req.url())));
+        await c2.routeWebSocket(/\/realtime\/v1\//, () => undefined);
+        const p2 = await c2.newPage();
+        p2.on("pageerror", (e) => errors.push(String(e)));
+        await p2.goto(`http://localhost:${PORT}/`);
+        await p2.fill("#pin", PIN);
+        await p2.getByRole("button", { name: "Unlock" }).click();
+        await p2.getByRole("link", { name: "returns", exact: true }).click();
+        await p2.getByRole("link", { name: "Start a return" }).click();
+        await p2.getByText("What kind of return?").first().waitFor({ timeout: 15000 });
+        await p2.screenshot({ path: path.join(shots, "18-return-types.png") });
+        await p2.getByRole("button", { name: /Return to stock/ }).click();
+        await p2.getByText("Write this on the item").first().waitFor();
+        await p2.waitForTimeout(900);
+        await p2.screenshot({ path: path.join(shots, "19-return-code.png") });
+        const made = returnsRows[returnsRows.length - 1];
+        if (!made || !/^VRS-\d{4}$/.test(made.code) || made.type !== "stock" || made.status !== "open") throw new Error(`return wrong: ${JSON.stringify(made)}`);
+        retCode = made.code;
+        await p2.getByLabel(retCode).first().waitFor();
+        await p2.fill("#r-by", "Marco");
+        await p2.getByRole("button", { name: "Save details" }).click();
+        await p2.getByText("Saved.").first().waitFor();
+        if (made.returned_by !== "Marco") throw new Error("return details not saved");
+      } finally {
+        await b2.close();
+      }
+    } else {
+      const now = new Date().toISOString();
+      returnsRows.push(newRow("returns", { code: "VRS-1234", type: "stock", returned_by: "Marco", created_at: now }));
+      retCode = "VRS-1234";
+    }
+  });
+
+  await step("Returns: change type keeps the code; close out moves it to Closed", async () => {
+    await page.goto(`http://localhost:${PORT}/r/${retCode}`);
+    await page.getByRole("button", { name: "Change type" }).click();
+    await page.getByRole("button", { name: /Return to vendor/ }).click();
+    await expect(page.getByText("Now return to vendor."), "reclassified");
+    const r = returnsRows.find((x) => x.code === retCode);
+    if (!r || r.type !== "vendor") throw new Error("type not changed");
+    await expect(page.getByText("started as return to stock"), "original type shown");
+    await page.getByRole("button", { name: "Close out" }).first().click();
+    const sheet = page.getByRole("dialog");
+    await sheet.locator("#closed-by").fill("Ana");
+    await sheet.locator("#close-note").fill("RMA 5512");
+    await sheet.getByRole("button", { name: "Close out" }).click();
+    await expect(page.getByText("Closed out."), "closed toast");
+    if (r.status !== "closed" || r.closed_by !== "Ana" || r.close_note !== "RMA 5512") throw new Error("close-out not saved");
+    await shot("20-return-closed");
+    await page.getByRole("link", { name: "returns", exact: true }).click();
+    await page.getByRole("tab", { name: "closed" }).click();
+    await expect(page.getByText(retCode), "listed under closed");
+    await shot("21-returns-list");
+  });
+
+  await step("Typed return code on Scan opens the return", async () => {
+    await page.getByRole("link", { name: "scan", exact: true }).click();
+    await page.fill("#scan-code", retCode.toLowerCase());
+    await page.getByRole("button", { name: "Look up" }).click();
+    await page.waitForURL(`**/r/${retCode}`);
+  });
+
   await step("Export backup includes records, stickers, photos", async () => {
     await page.getByRole("link", { name: "Backup and restore" }).click();
     const dl = page.waitForEvent("download");
@@ -371,9 +536,13 @@ try {
     await d.saveAs(backup);
     const zip = await JSZip.loadAsync(await import("node:fs").then((fs) => fs.readFileSync(backup)));
     const names = Object.keys(zip.files);
-    for (const n of ["packages.json", "packages.csv", `stickers/${mintedCode}.png`, `photos/${mintedCode}.jpg`, "stickers/AB-778899.png"]) {
+    for (const n of ["packages.json", "packages.csv", `stickers/${mintedCode}.png`, `photos/${mintedCode}.jpg`, "stickers/AB-778899.png", "moves.json", "returns.json", "returns.csv"]) {
       if (!names.includes(n)) throw new Error(`backup missing ${n}: ${names.join(", ")}`);
     }
+    const rj = JSON.parse(await zip.file("returns.json").async("string"));
+    if (!rj.returns.some((x) => x.code === retCode && x.status === "closed")) throw new Error("returns.json missing the return");
+    const mj = JSON.parse(await zip.file("moves.json").async("string"));
+    if (mj.moves.filter((x) => x.code === locCode).length !== 2) throw new Error("moves.json missing location history");
     await shot("12-more");
   });
 
@@ -391,9 +560,16 @@ try {
     await page.getByRole("link", { name: "Backup and restore" }).click();
     const chooser = page.waitForEvent("filechooser");
     await page.getByRole("button", { name: "Choose backup zip" }).click();
+    // Lose the returns and the history first, so restore has to bring them back.
+    returnsRows.length = 0;
+    moves.length = 0;
     await (await chooser).setFiles(backup);
     await page.getByRole("button", { name: "Restore", exact: true }).click();
-    await expect(page.getByText(/Restored 2 packages/), "restored toast");
+    await expect(page.getByText(/Restored \d+ packages/), "restored toast");
+    const back = returnsRows.find((x) => x.code === retCode);
+    if (!back || back.status !== "closed" || back.type !== "vendor") throw new Error("return not restored");
+    const hist = moves.filter((x) => x.package_code === locCode);
+    if (hist.length !== 2 || hist[1].to_location !== "Conex 2") throw new Error(`location history not restored: ${JSON.stringify(hist)}`);
     const r = rows.find((x) => x.code === mintedCode);
     if (!r || !r.photo_path || !r.thumb_path || !r.barcode_path) throw new Error("restore incomplete");
     if (r.job_name !== "Maple St Remodel – Phase 2" || r.color_tag !== "Blue") throw new Error("restore fields wrong");

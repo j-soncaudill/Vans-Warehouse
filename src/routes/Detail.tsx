@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
-import { ArrowLeft, Camera, Pencil, Trash2, Undo2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Camera, MapPin, Pencil, Trash2, Undo2 } from "lucide-react";
+import { LocationPicker } from "@/components/LocationPicker";
 import { ColorChip, DamageChip } from "@/components/Package";
 import { PackageForm } from "@/components/PackageForm";
 import { PhotoCamera, PhotoViewer } from "@/components/PhotoCamera";
@@ -9,9 +10,10 @@ import { Button, Confirm, Overlay, btn, errorText, toast } from "@/components/ui
 import { normalizeCode } from "@/lib/codes";
 import { formFromPkg, type FormValues } from "@/lib/form";
 import { notifyChanged, useLiveQuery } from "@/lib/live";
-import { checkOut, editPackage, getPackage, removePackage, replacePhoto, returnToFloor, type Pkg } from "@/lib/packages";
+import { listMoves } from "@/lib/locations";
+import { checkOut, editPackage, getPackage, movePackage, removePackage, replacePhoto, returnToFloor, type Pkg } from "@/lib/packages";
 import { photoUrl, type CapturedPhoto } from "@/lib/photo";
-import { stamp } from "@/lib/time";
+import { ago, stamp } from "@/lib/time";
 import { Decode } from "@/components/motion";
 
 function Row({ label, value }: { label: string; value: ReactNode }) {
@@ -64,6 +66,8 @@ function Entry({ pkg }: { pkg: Pkg }) {
   const [form, setForm] = useState<FormValues>(() => formFromPkg(pkg));
   const [busy, setBusy] = useState(false);
   const [checkout, setCheckout] = useState(false);
+  const [moving, setMoving] = useState(false);
+  const moves = useLiveQuery(`moves:${pkg.code}`, () => listMoves(pkg.code));
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [camera, setCamera] = useState(false);
   const [viewer, setViewer] = useState(false);
@@ -147,6 +151,18 @@ function Entry({ pkg }: { pkg: Pkg }) {
         </div>
       </div>
 
+      <section aria-label="Location" className="flex items-center gap-3 rounded-[12px] border border-line bg-panel px-3.5 py-3">
+        <MapPin className="size-5 shrink-0 text-cyan" strokeWidth={2} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <span className="text-[11px] text-faint lowercase">last known location</span>
+          <span className="truncate font-sans text-[17px] font-semibold text-white">{pkg.lastLocation ?? "Not set"}</span>
+          {pkg.locationAt ? <span className="text-[12px] text-dim">marked {ago(pkg.locationAt)}</span> : null}
+        </div>
+        <Button className="w-auto! shrink-0 px-4" disabled={busy} onClick={() => setMoving(true)}>
+          Move
+        </Button>
+      </section>
+
       {full && !imgBroken ? (
         <button type="button" onClick={() => setViewer(true)} aria-label="Open full photo" className="block overflow-hidden rounded-[12px] border border-line bg-black">
           <img src={full} alt={`Photo of ${pkg.jobName}`} onError={() => setImgBroken(true)} className="mx-auto max-h-[60vh] w-full object-contain" />
@@ -182,6 +198,39 @@ function Entry({ pkg }: { pkg: Pkg }) {
         {!onFloor ? <Row label="Taken by" value={`${pkg.checkedOutTo ?? ""} · ${stamp(pkg.checkedOutAt)}`} /> : null}
       </dl>
 
+      {moves.data && moves.data.length ? (
+        <section aria-label="Location history" className="flex flex-col gap-2">
+          <span className="section-label">location history</span>
+          <ol className="m-0 flex list-none flex-col p-0">
+            {moves.data.map((m, i) => (
+              <li key={m.id} className="relative flex gap-3 pb-3 pl-1">
+                <span aria-hidden className="relative mt-1.5 flex flex-col items-center">
+                  <span className={i === 0 ? "size-2 rounded-full bg-cyan shadow-[0_0_8px_var(--color-cyan)]" : "size-2 rounded-full border border-line bg-raised"} />
+                  {i < moves.data!.length - 1 ? <span className="mt-1 w-px flex-1 bg-line" /> : null}
+                </span>
+                <span className="flex min-w-0 flex-col">
+                  <span className="flex flex-wrap items-center gap-1.5 text-[14px]">
+                    {m.from ? (
+                      <>
+                        <span className="text-dim">{m.from}</span>
+                        <ArrowRight aria-label="to" className="size-3.5 text-faint" />
+                      </>
+                    ) : (
+                      <span className="text-dim">received at</span>
+                    )}
+                    <span className={i === 0 ? "text-white" : "text-ink"}>{m.to}</span>
+                  </span>
+                  <span className="text-[12px] text-faint">
+                    {stamp(m.at)}
+                    {m.by ? ` · ${m.by}` : ""}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
+
       <section aria-label="Sticker" className="flex flex-col gap-3">
         <span className="section-label">sticker</span>
         <StickerPreview info={pkg} />
@@ -209,6 +258,19 @@ function Entry({ pkg }: { pkg: Pkg }) {
               if (ok) {
                 setCheckout(false);
               }
+            })
+          }
+        />
+      ) : null}
+
+      {moving ? (
+        <MoveSheet
+          pkg={pkg}
+          busy={busy}
+          onCancel={() => setMoving(false)}
+          onConfirm={(to, who) =>
+            void act(() => movePackage(pkg.code, to, who), `Marked at ${to}.`).then((ok) => {
+              if (ok) setMoving(false);
             })
           }
         />
@@ -287,6 +349,59 @@ function CheckoutSheet({
         <span className="flex-1" />
         <Button big variant="primary" type="submit" disabled={busy || !who.trim()}>
           {busy ? "Saving…" : "Check out"}
+        </Button>
+      </form>
+    </Overlay>
+  );
+}
+
+function MoveSheet({
+  pkg,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  pkg: Pkg;
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: (to: string, who: string) => void;
+}) {
+  const [to, setTo] = useState("");
+  const [who, setWho] = useState("");
+  const same = to.trim() !== "" && to.trim() === (pkg.lastLocation ?? "");
+  const ready = to.trim() && who.trim() && !same;
+  return (
+    <Overlay title="Move" onClose={onCancel} closeLabel="Cancel">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (ready) onConfirm(to.trim(), who.trim());
+        }}
+        className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-4 overflow-y-auto px-4 pt-4 pb-[max(env(safe-area-inset-bottom),16px)]"
+      >
+        <p className="text-[15px] text-dim">
+          {pkg.jobName} · <span className="code text-cyan">{pkg.code}</span>
+        </p>
+        <p className="text-[13px] text-faint">now at {pkg.lastLocation ?? "unknown"}</p>
+        <h2 className="m-0 font-sans text-[28px] leading-tight font-bold tracking-[-0.02em]">Moved to:</h2>
+        <LocationPicker id="move-to" value={to} onChange={setTo} />
+        {same ? <p className="text-[13px] text-danger">It's already marked there.</p> : null}
+        <label htmlFor="moved-by" className="mt-2 font-sans text-[20px] leading-tight font-bold tracking-[-0.02em]">
+          Moved by:
+        </label>
+        <input
+          id="moved-by"
+          required
+          maxLength={80}
+          autoComplete="off"
+          className="field h-14 text-[17px]"
+          placeholder="Sign your name"
+          value={who}
+          onChange={(e) => setWho(e.target.value)}
+        />
+        <span className="flex-1" />
+        <Button big variant="primary" type="submit" disabled={busy || !ready}>
+          {busy ? "Saving…" : "Save location"}
         </Button>
       </form>
     </Overlay>

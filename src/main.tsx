@@ -15,6 +15,7 @@ import { DetailPage } from "@/routes/Detail";
 import { FloorPage, OutPage } from "@/routes/Lists";
 import { MorePage } from "@/routes/More";
 import { ReceivePage } from "@/routes/Receive";
+import { ReturnDetailPage, ReturnNewPage, ReturnsPage } from "@/routes/Returns";
 import { ScanPage } from "@/routes/Scan";
 import "@fontsource/geist-sans/latin-500.css";
 import "@fontsource/geist-sans/latin-600.css";
@@ -103,8 +104,19 @@ const detailRoute = createRoute({
   },
 });
 
+const returnsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/returns", component: ReturnsPage });
+const returnNewRoute = createRoute({ getParentRoute: () => rootRoute, path: "/returns/new", component: ReturnNewPage });
+const returnDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/r/$code",
+  component: function ReturnDetail() {
+    const { code } = returnDetailRoute.useParams();
+    return <ReturnDetailPage key={code} code={code} />;
+  },
+});
+
 const router = createRouter({
-  routeTree: rootRoute.addChildren([floorRoute, outRoute, scanRoute, receiveRoute, detailRoute, moreRoute]),
+  routeTree: rootRoute.addChildren([floorRoute, outRoute, scanRoute, receiveRoute, detailRoute, moreRoute, returnsRoute, returnNewRoute, returnDetailRoute]),
   scrollRestoration: true,
   // The demo runs inside a claude.ai frame where only the hash is ours.
   ...(IS_DEMO ? { history: createHashHistory() } : {}),

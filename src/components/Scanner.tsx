@@ -36,8 +36,7 @@ async function decodeFile(file: File): Promise<string | null> {
   document.body.appendChild(host);
   try {
     const reader = makeReader(host.id);
-    const text = await reader.scanFile(file, false);
-    return pickCode(text);
+    return await reader.scanFile(file, false);
   } catch {
     return null;
   } finally {
@@ -56,15 +55,21 @@ export function Scanner({
   onScan,
   onClose,
   startTyping = false,
+  raw = false,
+  hint = "point at a barcode or QR code",
 }: {
   title?: string;
   onScan: (code: string) => void;
   onClose: () => void;
   startTyping?: boolean;
+  /** Hand back the scanned text as-is (for the returns station QR), with no typing. */
+  raw?: boolean;
+  hint?: string;
 }) {
   const readerRef = useRef<Html5Qrcode | null>(null);
   const doneRef = useRef(false);
   const onScanRef = useRef(onScan);
+  const rawRef = useRef(raw);
   onScanRef.current = onScan;
   const [cam, setCam] = useState<CamState>("starting");
   const [locked, setLocked] = useState(false);
@@ -82,8 +87,8 @@ export function Scanner({
     const reader = makeReader(REGION_ID);
     readerRef.current = reader;
 
-    const finish = (raw: string) => {
-      const code = pickCode(raw);
+    const finish = (text: string) => {
+      const code = rawRef.current ? text.trim() || null : pickCode(text);
       if (!code || doneRef.current) return;
       doneRef.current = true;
       navigator.vibrate?.(60);
@@ -140,7 +145,7 @@ export function Scanner({
             ? "Camera permission is off. Allow the camera for this site in the browser settings, or type the code."
             : "Could not start the camera. Type the code, or use a photo of the barcode.",
         );
-        setTyping(true);
+        if (!rawRef.current) setTyping(true);
       }
     })();
 
@@ -201,7 +206,8 @@ export function Scanner({
   async function onFile(file: File | undefined) {
     if (!file) return;
     setReading(true);
-    const code = await decodeFile(file);
+    const text = await decodeFile(file);
+    const code = text == null ? null : raw ? text.trim() || null : pickCode(text);
     setReading(false);
     if (code) {
       doneRef.current = true;
@@ -229,7 +235,7 @@ export function Scanner({
         ) : null}
         <div className="absolute inset-x-0 bottom-0 px-4 pb-4 text-center">
           {cam === "starting" ? <p className="text-[13px] text-cyan">starting camera…</p> : null}
-          {cam === "live" ? <p className="inline-block rounded-md bg-black/75 px-2.5 py-1 text-[12px] text-cyan">point at a barcode or QR code</p> : null}
+          {cam === "live" ? <p className="inline-block rounded-md bg-black/75 px-2.5 py-1 text-[12px] text-cyan">{hint}</p> : null}
           {cam === "failed" ? <p className="mx-auto max-w-md rounded-md bg-black/80 px-3 py-2 text-[14px] text-ink">{camError}</p> : null}
         </div>
       </div>
@@ -270,10 +276,18 @@ export function Scanner({
             ) : null}
           </form>
         ) : (
-          <div className={cx("mx-auto grid max-w-lg gap-2", torch !== null ? "grid-cols-2" : "grid-cols-1")}>
-            <Button onClick={() => setTyping(true)}>
-              <Keyboard className="size-[18px]" /> Type code
-            </Button>
+          <div className={cx("mx-auto grid max-w-lg gap-2", torch !== null && !raw ? "grid-cols-2" : "grid-cols-1")}>
+            {raw ? (
+              cam === "failed" ? (
+                <Button onClick={() => fileRef.current?.click()} disabled={reading}>
+                  <ImageUp className="size-[18px]" /> {reading ? "Reading…" : "Take a photo of the QR"}
+                </Button>
+              ) : null
+            ) : (
+              <Button onClick={() => setTyping(true)}>
+                <Keyboard className="size-[18px]" /> Type code
+              </Button>
+            )}
             {torch !== null ? (
               <Button variant={torch ? "primary" : "plain"} onClick={() => void toggleTorch()} aria-pressed={torch}>
                 <Flashlight className="size-[18px]" /> {torch ? "Light on" : "Light"}

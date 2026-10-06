@@ -1,4 +1,5 @@
 import { Check } from "lucide-react";
+import { LocationPicker } from "@/components/LocationPicker";
 import { Field, YesNoBlank, cx } from "@/components/ui";
 import { COLOR_HEX, COLOR_TAGS, type FormValues } from "@/lib/form";
 
@@ -6,9 +7,12 @@ import { COLOR_HEX, COLOR_TAGS, type FormValues } from "@/lib/form";
 export function PackageForm({
   values,
   onChange,
+  withLocation = false,
 }: {
   values: FormValues;
   onChange: (patch: Partial<FormValues>) => void;
+  /** Receive only. Later changes go through Move so the history stays complete. */
+  withLocation?: boolean;
 }) {
   const text = (key: keyof FormValues, id: string, label: string, opts: { placeholder?: string; max?: number; mono?: boolean } = {}) => (
     <Field label={label} htmlFor={id} hint="optional">
@@ -38,6 +42,11 @@ export function PackageForm({
           onChange={(e) => onChange({ jobName: e.target.value })}
         />
       </Field>
+      {withLocation ? (
+        <Field label="Last known location" htmlFor="f-location" hint="required">
+          <LocationPicker id="f-location" value={values.location} onChange={(location) => onChange({ location })} />
+        </Field>
+      ) : null}
       {text("poNumber", "f-po", "PO number", { placeholder: "PO #", max: 60, mono: true })}
       {text("vendor", "f-vendor", "Vendor", { placeholder: "Supplier", max: 200 })}
       <div className="grid grid-cols-2 gap-2.5">

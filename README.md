@@ -11,10 +11,21 @@ check them out to a job. Every phone sees the same live list.
   Job is required; everything else is optional. Box photo from the in-app
   camera. Ends on the sticker with Save and Print.
 - **Checked out**: what left the floor, who took it, when.
+- **Locations**: every box has a last known location (Warehouse, Metal shop,
+  Conex 1–4, or anything typed under Other). Receive sets it; **Move** on the
+  entry changes it and asks who moved it. The entry shows the full history.
+  Lists filter and search by place.
+- **Returns**: a returns-only flow. At the warehouse, tap returns → **Start a
+  return**, scan the returns station QR posted there, pick a type, and write
+  the code it gives on the item. Codes: `VVR-####` return to vendor,
+  `VRS-####` return to stock, `VWR-####` warranty, `VRR-####` not sure.
+  Photo, name, vendor, job and note are optional. The office changes the
+  type (the code stays the same) and closes returns out. Scanning or typing
+  a return code anywhere opens it.
 - **Entry**: check out (asks who took it), return to floor, edit, retake
   photo (until checkout), save/print sticker, remove (row + sticker + photos).
-- **Menu (☰)**: export backup, restore backup, database/storage check, lock
-  this phone.
+- **Backup & setup**: export backup, restore backup, database/storage check,
+  the returns station poster, lock this phone.
 
 Stack: Vite, React, TanStack Router, Tailwind CSS v4, Supabase JS. The build
 is a static single-page app for Cloudflare Pages: no Worker, no server.
@@ -44,7 +55,16 @@ on conflict (key) do update set value = excluded.value;
 
 ## Database: the SQL to run
 
-One file: [`supabase/schema.sql`](supabase/schema.sql).
+**Already running with real data?** Run only
+[`supabase/migrations/002_locations_returns.sql`](supabase/migrations/002_locations_returns.sql).
+It adds `last_location`/`location_at` to `packages`, the `package_moves` and
+`returns` tables, the returns station token in `settings`, and realtime for
+the new tables. It never drops anything, and it is safe to run twice. The
+last query prints `2, 2, 1` when it worked. Until it is run, the app shows a
+"One database update" screen with the SQL to copy.
+
+**Fresh install** (wipes everything): [`supabase/schema.sql`](supabase/schema.sql),
+which already includes the update.
 
 Supabase → **SQL Editor** → **New query** → paste the whole file → **Run**.
 
@@ -66,12 +86,23 @@ There is no Supabase Auth and no user accounts. The anon key is in the page
 and the PIN gate is a shop-floor lock, not real security: anyone with the
 site URL and some skill can read the list. Do not store personal data.
 
+Returns station poster: Backup & setup → **Returns station** → **Save poster
+to print**. Starting a return requires scanning it, so the person has to be at
+the warehouse. To retire a printed poster (say a photo of it got passed
+around), give the station a new token and print a fresh one:
+
+```sql
+update public.settings set value = encode(extensions.gen_random_bytes(9), 'hex')
+where key = 'return_station_token';
+```
+
 Storage layout:
 
 ```
 barcodes/<code>.png                       sticker
 package-photos/<code>/<stamp>.jpg         full photo
 package-photos/<code>/<stamp>-t.jpg       thumbnail
+package-photos/returns/<code>/<stamp>.jpg return photo (+ -t.jpg thumbnail)
 ```
 
 ## Run it locally
@@ -141,7 +172,12 @@ packages.json      every record (restore reads this)
 packages.csv       the same, for a spreadsheet
 stickers/<code>.png
 photos/<code>.jpg
+moves.json         location history
+returns.json       every return (returns.csv for a spreadsheet)
+return-photos/<code>.jpg
 ```
 
 ☰ → **Restore** merges a backup into the live list by code: same code is
 overwritten, nothing else is deleted. Thumbnails are rebuilt from the photos.
+Each restored box gets exactly the location history in the zip. Returns merge
+by code the same way. Older backups without returns or history still restore.
