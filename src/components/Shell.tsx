@@ -9,7 +9,7 @@ import { useChangeVersion, useRealtime, type LiveStatus } from "@/lib/live";
 import { Decode, Ticker } from "@/components/motion";
 import { isReturnCode } from "@/lib/codes";
 import { getPackage } from "@/lib/packages";
-import { IS_DEMO } from "@/lib/supabase";
+import { DEMO_UI } from "@/lib/supabase";
 
 export function Brand({ large }: { large?: boolean }) {
   return (
@@ -85,7 +85,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col">
-      {IS_DEMO ? (
+      {DEMO_UI ? (
         <p className="grad-cyan px-4 py-1 text-center text-[12px] text-cyan-ink">demo · sample data · nothing is saved</p>
       ) : null}
       <header className="sticky top-0 z-30 flex items-center gap-3 bg-[#071216]/80 px-4 pt-[max(env(safe-area-inset-top),10px)] pb-2 backdrop-blur-md">

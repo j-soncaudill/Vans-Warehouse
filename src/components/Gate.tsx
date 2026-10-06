@@ -4,7 +4,7 @@ import { Brand } from "@/components/Shell";
 import { BackButton, Button, cx } from "@/components/ui";
 import { chooseField, currentRole, lock, unlock, type Role } from "@/lib/pin";
 import { RoleContext } from "@/lib/role";
-import { IS_DEMO, probeSchema, type SchemaState } from "@/lib/supabase";
+import { DEMO_UI, probeSchema, type SchemaState } from "@/lib/supabase";
 import schemaSql from "../../supabase/schema.sql?raw";
 import upgradeSql from "../../supabase/migrations/002_locations_returns.sql?raw";
 
@@ -231,7 +231,7 @@ export function Gate({ children }: { children: ReactNode }) {
             setMsg("");
           }}
         />
-        {IS_DEMO ? <p className="text-[13px] text-dim">demo pin: <span className="text-cyan">0000</span></p> : null}
+        {DEMO_UI ? <p className="text-[13px] text-dim">demo pin: <span className="text-cyan">0000</span></p> : null}
         {msg ? <p className="text-[13px] text-danger">{msg}</p> : null}
         <Button big variant="primary" type="submit" disabled={busy || !pin.trim()}>
           {busy ? "Checking…" : "Unlock"}

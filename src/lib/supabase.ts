@@ -2,6 +2,8 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { DEMO_URL, demoFetch, seedDemo } from "@/lib/demo";
 
 export const IS_DEMO: boolean = typeof __DEMO__ === "boolean" && __DEMO__;
+/** Preview-only notes and limits. Off in the user-guide build, which looks like the live site. */
+export const DEMO_UI: boolean = IS_DEMO && !(typeof __MANUAL__ === "boolean" && __MANUAL__);
 
 export const BARCODES_BUCKET = "barcodes";
 export const PHOTOS_BUCKET = "package-photos";

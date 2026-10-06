@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Download, Printer } from "lucide-react";
 import { Button, cx, errorText, toast } from "@/components/ui";
-import { IS_DEMO } from "@/lib/supabase";
+import { DEMO_UI } from "@/lib/supabase";
 import { printSticker, renderSticker, saveSticker, type StickerInfo } from "@/lib/sticker";
 
 /**
@@ -41,7 +41,7 @@ export function StickerPreview({ info, print }: { info: StickerInfo; print?: boo
 
 export function StickerButtons({ info, primary }: { info: StickerInfo; primary?: boolean }) {
   const [busy, setBusy] = useState<"" | "save" | "print">("");
-  if (IS_DEMO) {
+  if (DEMO_UI) {
     return <p className="rounded-[var(--radius-box)] border border-dashed border-line px-4 py-3 text-[13px] text-dim">Save and Print work on the live site. This preview blocks downloads and printing.</p>;
   }
   async function run(kind: "save" | "print") {

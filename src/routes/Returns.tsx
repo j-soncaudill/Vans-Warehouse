@@ -9,7 +9,7 @@ import { BackButton, Button, Confirm, Field, Overlay, btn, cx, errorText, toast 
 import { RETURN_TYPES, normalizeCode, returnTypeInfo, type ReturnType } from "@/lib/codes";
 import { notifyChanged, useLiveQuery } from "@/lib/live";
 import { photoUrl, type CapturedPhoto } from "@/lib/photo";
-import { IS_DEMO } from "@/lib/supabase";
+import { DEMO_UI } from "@/lib/supabase";
 import {
   closeReturn,
   detailsFrom,
@@ -194,7 +194,7 @@ type Step = { kind: "demo" } | { kind: "scan" } | { kind: "wrong" } | { kind: "t
 
 export function ReturnNewPage() {
   const navigate = useNavigate();
-  const [step, setStep] = useState<Step>(IS_DEMO ? { kind: "demo" } : { kind: "scan" });
+  const [step, setStep] = useState<Step>(DEMO_UI ? { kind: "demo" } : { kind: "scan" });
   const [scanKey, setScanKey] = useState(0);
   const [who, setWho] = useState("");
   const [busy, setBusy] = useState(false);

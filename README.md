@@ -202,3 +202,10 @@ Backup & setup → **Restore** merges a backup into the live list by code: same 
 overwritten, nothing else is deleted. Thumbnails are rebuilt from the photos.
 Each restored box gets exactly the location history in the zip. Returns merge
 by code the same way. Older backups without returns or history still restore.
+
+## User guide
+
+`docs/Floorcast-User-Guide.pdf` is the printable manual for the crew and
+administrators. Rebuild it after app changes with `npm run manual`: it builds
+the app in "manual" mode (the demo's sample data, without the preview notes),
+takes fresh screenshots with callouts, and prints the PDF.

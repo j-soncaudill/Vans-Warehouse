@@ -10,7 +10,7 @@ import { buildBackup, restoreBackup } from "@/lib/backup";
 import { notifyChanged } from "@/lib/live";
 import { stationPayload, stationToken } from "@/lib/returns";
 import { downloadBlob, renderAppPoster, renderStationPoster } from "@/lib/sticker";
-import { BARCODES_BUCKET, IS_DEMO, PHOTOS_BUCKET, probeSchema, sb } from "@/lib/supabase";
+import { BARCODES_BUCKET, DEMO_UI, PHOTOS_BUCKET, probeSchema, sb } from "@/lib/supabase";
 
 type Check = { label: string; ok: boolean; detail: string };
 
@@ -112,8 +112,8 @@ function AdminMore({ onSwitch }: { onSwitch: () => void }) {
 
       <Section title="Export backup">
         <p className="text-[15px] text-dim">One zip with every record (JSON + CSV), every sticker, and every photo.</p>
-        {IS_DEMO ? <p className="text-[15px] text-dim">Downloads are blocked in this preview. Export works on the live site.</p> : null}
-        <Button big variant="primary" disabled={!!exporting || IS_DEMO} onClick={() => void doExport()}>
+        {DEMO_UI ? <p className="text-[15px] text-dim">Downloads are blocked in this preview. Export works on the live site.</p> : null}
+        <Button big variant="primary" disabled={!!exporting || DEMO_UI} onClick={() => void doExport()}>
           <Archive className="size-5" /> {exporting ? `Packing ${exporting}` : "Export backup"}
         </Button>
       </Section>
@@ -234,8 +234,8 @@ function StationPoster() {
       <div className="overflow-hidden rounded-[12px] border border-line bg-white">
         {url ? <img src={url} alt="Returns station poster with QR code" className="mx-auto block max-h-[60vh] w-auto" /> : <div className="aspect-[17/22] w-full" />}
       </div>
-      {IS_DEMO ? <p className="text-[13px] text-faint">Downloads are blocked in this preview. Save the poster from the live site.</p> : null}
-      <Button variant="primary" disabled={!blob || IS_DEMO} onClick={() => blob && downloadBlob(blob, "returns-station-poster.png")}>
+      {DEMO_UI ? <p className="text-[13px] text-faint">Downloads are blocked in this preview. Save the poster from the live site.</p> : null}
+      <Button variant="primary" disabled={!blob || DEMO_UI} onClick={() => blob && downloadBlob(blob, "returns-station-poster.png")}>
         <Download className="size-[18px]" /> Save poster to print
       </Button>
     </>
@@ -270,8 +270,8 @@ function AppPoster() {
       <div className="overflow-hidden rounded-[12px] border border-line bg-white">
         {img ? <img src={img} alt="Poster with a QR code that opens Floorcast" className="mx-auto block max-h-[60vh] w-auto" /> : <div className="aspect-[17/22] w-full" />}
       </div>
-      {IS_DEMO ? <p className="text-[13px] text-faint">Downloads are blocked in this preview. Save the poster from the live site.</p> : null}
-      <Button variant="primary" disabled={!blob || IS_DEMO} onClick={() => blob && downloadBlob(blob, "floorcast-app-poster.png")}>
+      {DEMO_UI ? <p className="text-[13px] text-faint">Downloads are blocked in this preview. Save the poster from the live site.</p> : null}
+      <Button variant="primary" disabled={!blob || DEMO_UI} onClick={() => blob && downloadBlob(blob, "floorcast-app-poster.png")}>
         <Download className="size-[18px]" /> Save poster to print
       </Button>
     </>

@@ -24,7 +24,9 @@ function pagesFiles(): Plugin {
 }
 
 export default defineConfig(({ mode }) => {
-  const demo = mode === "demo";
+  // "manual" is the demo build without the preview notes, for user-guide screenshots.
+  const manual = mode === "manual";
+  const demo = mode === "demo" || manual;
   const env = loadEnv(mode, root, "");
   // The demo build never sees the real PIN or Supabase keys.
   const pin = demo ? "0000" : (env.VITE_SHOP_PIN ?? "").trim();
@@ -42,13 +44,14 @@ export default defineConfig(({ mode }) => {
     define: {
       __SHOP_PIN_HASH__: JSON.stringify(pinHash),
       __DEMO__: JSON.stringify(demo),
+      __MANUAL__: JSON.stringify(manual),
     },
     resolve: {
       alias: { "@": path.join(root, "src") },
     },
     plugins: [tailwindcss(), react(), ...(demo ? [] : [pagesFiles()])],
     build: {
-      outDir: demo ? path.join(root, "dist-demo") : distDir,
+      outDir: manual ? path.join(root, "dist-manual") : demo ? path.join(root, "dist-demo") : distDir,
       emptyOutDir: true,
       assetsDir: "",
       // Inline the logo and any other small asset so dist stays four files.
