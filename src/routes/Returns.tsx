@@ -195,6 +195,7 @@ export function ReturnNewPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>(IS_DEMO ? { kind: "demo" } : { kind: "scan" });
   const [scanKey, setScanKey] = useState(0);
+  const [who, setWho] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function onScan(text: string) {
@@ -207,7 +208,7 @@ export function ReturnNewPage() {
   async function pick(type: ReturnType) {
     setBusy(true);
     try {
-      const ret = await startReturn(type);
+      const ret = await startReturn(type, who);
       notifyChanged();
       navigator.vibrate?.([40, 60, 40]);
       setStep({ kind: "made", ret });
@@ -280,13 +281,31 @@ export function ReturnNewPage() {
   if (step.kind === "type") {
     return (
       <div className="flex flex-col gap-4">
-        <PageTitle>What kind of return?</PageTitle>
+        <PageTitle>Start a return</PageTitle>
+        <label htmlFor="r-who" className="font-sans text-[22px] leading-tight font-bold tracking-[-0.02em] text-white">
+          Who's returning it?
+        </label>
+        <input
+          id="r-who"
+          autoFocus
+          required
+          maxLength={80}
+          autoComplete="off"
+          className="field h-14 text-[17px]"
+          placeholder="Sign your name"
+          value={who}
+          onChange={(e) => setWho(e.target.value)}
+        />
+        <div className="mt-2 flex items-baseline justify-between gap-3">
+          <span className="font-sans text-[22px] leading-tight font-bold tracking-[-0.02em] text-white">What kind of return?</span>
+        </div>
+        {!who.trim() ? <p className="-mt-2 text-[13px] text-faint">Enter your name first.</p> : null}
         <div className="flex flex-col gap-2.5">
           {RETURN_TYPES.map((t, i) => (
             <button
               key={t.type}
               type="button"
-              disabled={busy}
+              disabled={busy || !who.trim()}
               onClick={() => void pick(t.type)}
               className="vw-press vw-row flex min-h-[72px] items-center gap-4 rounded-[14px] border border-line bg-panel px-4 text-left disabled:opacity-50"
               style={{ "--i": i } as CSSProperties}
@@ -311,23 +330,29 @@ export function ReturnNewPage() {
 }
 
 function ReturnMade({ ret }: { ret: Ret }) {
+  const navigate = useNavigate();
   const [details, setDetails] = useState<ReturnDetails>(() => detailsFrom(ret));
   const [current, setCurrent] = useState(ret);
   const [camera, setCamera] = useState(false);
   const [busy, setBusy] = useState(false);
   const thumb = photoUrl(current.thumbPath);
   const info = returnTypeInfo(ret.type);
+  const start = detailsFrom(ret);
+  const changed = details.vendor !== start.vendor || details.jobName !== start.jobName || details.notes !== start.notes;
 
-  async function save(e: FormEvent) {
+  /** One button: save anything optional that was filled in, then back to the list. */
+  async function done(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
     try {
-      setCurrent(await saveReturnDetails(ret.code, details));
-      notifyChanged();
+      if (changed) {
+        await saveReturnDetails(ret.code, details);
+        notifyChanged();
+      }
       toast("Saved.");
+      await navigate({ to: "/returns" });
     } catch (err) {
       toast(errorText(err, "That did not save."), "error");
-    } finally {
       setBusy(false);
     }
   }
@@ -345,9 +370,10 @@ function ReturnMade({ ret }: { ret: Ret }) {
       <div className="vw-pop flex flex-col items-center gap-2 rounded-[16px] border border-cyan/50 bg-[radial-gradient(circle_at_50%_0%,rgb(45_174_196/0.18),transparent_70%)] px-4 py-8">
         <Decode text={ret.code} ms={700} className="code text-[clamp(44px,15vw,72px)] leading-none font-bold tracking-[0.06em] text-white" />
         <span className="text-[13px] text-dim">with a sharpie, big and clear</span>
+        {ret.returnedBy ? <span className="text-[13px] text-faint">returned by {ret.returnedBy}</span> : null}
       </div>
 
-      <form onSubmit={(e) => void save(e)} className="flex flex-col gap-4">
+      <form onSubmit={(e) => void done(e)} className="flex flex-col gap-4">
         <span className="section-label">optional · helps whoever processes it</span>
         {thumb ? (
           <div className="flex items-center gap-3">
@@ -361,20 +387,11 @@ function ReturnMade({ ret }: { ret: Ret }) {
             <Camera className="size-[18px]" /> Add a photo
           </Button>
         )}
-        <DetailsFields details={details} onChange={(p) => setDetails((d) => ({ ...d, ...p }))} />
-        <Button variant="primary" type="submit" disabled={busy}>
-          {busy ? "Saving…" : "Save details"}
+        <DetailsFields details={details} onChange={(p) => setDetails((d) => ({ ...d, ...p }))} showName={false} />
+        <Button big variant="primary" type="submit" disabled={busy}>
+          {busy ? "Saving…" : "Done"}
         </Button>
       </form>
-
-      <div className="flex flex-col gap-2">
-        <Link to="/returns" className={btn("plain", true)}>
-          Done
-        </Link>
-        <Link to="/r/$code" params={{ code: ret.code }} className={btn("ghost")}>
-          Open this return
-        </Link>
-      </div>
 
       {camera ? (
         <PhotoCamera
@@ -399,15 +416,33 @@ function ReturnMade({ ret }: { ret: Ret }) {
   );
 }
 
-function DetailsFields({ details, onChange }: { details: ReturnDetails; onChange: (p: Partial<ReturnDetails>) => void }) {
-  const input = (key: keyof ReturnDetails, id: string, label: string, placeholder: string, max = 120) => (
-    <Field label={label} htmlFor={id} hint="optional">
-      <input id={id} className="field" maxLength={max} autoComplete="off" placeholder={placeholder} value={details[key]} onChange={(e) => onChange({ [key]: e.target.value })} />
+function DetailsFields({
+  details,
+  onChange,
+  showName = true,
+}: {
+  details: ReturnDetails;
+  onChange: (p: Partial<ReturnDetails>) => void;
+  /** The name is asked before the code is made; later edits show it as required. */
+  showName?: boolean;
+}) {
+  const input = (key: keyof ReturnDetails, id: string, label: string, placeholder: string, max = 120, required = false) => (
+    <Field label={label} htmlFor={id} hint={required ? "required" : "optional"}>
+      <input
+        id={id}
+        className="field"
+        required={required}
+        maxLength={max}
+        autoComplete="off"
+        placeholder={placeholder}
+        value={details[key]}
+        onChange={(e) => onChange({ [key]: e.target.value })}
+      />
     </Field>
   );
   return (
     <>
-      {input("returnedBy", "r-by", "Returned by", "Your name", 80)}
+      {showName ? input("returnedBy", "r-by", "Returned by", "Sign your name", 80, true) : null}
       <div className="grid grid-cols-2 gap-2.5">
         {input("vendor", "r-vendor", "Vendor", "If you know it", 200)}
         {input("jobName", "r-job", "From job", "Job name")}
@@ -562,7 +597,7 @@ function ReturnEntry({ ret }: { ret: Ret }) {
           className="flex flex-col gap-4"
         >
           <DetailsFields details={details} onChange={(p) => setDetails((d) => ({ ...d, ...p }))} />
-          <Button variant="primary" type="submit" disabled={busy}>
+          <Button variant="primary" type="submit" disabled={busy || !details.returnedBy.trim()}>
             {busy ? "Saving…" : "Save details"}
           </Button>
           <Button variant="ghost" disabled={busy} onClick={() => setEditing(false)}>

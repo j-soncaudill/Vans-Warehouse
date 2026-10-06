@@ -475,19 +475,26 @@ try {
         await p2.getByRole("link", { name: "returns", exact: true }).click();
         await p2.getByRole("link", { name: "Start a return" }).click();
         await p2.getByText("What kind of return?").first().waitFor({ timeout: 15000 });
+        const stock = p2.getByRole("button", { name: /Return to stock/ });
+        if (!(await stock.isDisabled())) throw new Error("return type allowed before a name");
+        await p2.fill("#r-who", "Marco");
         await p2.screenshot({ path: path.join(shots, "18-return-types.png") });
-        await p2.getByRole("button", { name: /Return to stock/ }).click();
+        await stock.click();
         await p2.getByText("Write this on the item").first().waitFor();
         await p2.waitForTimeout(900);
         await p2.screenshot({ path: path.join(shots, "19-return-code.png") });
         const made = returnsRows[returnsRows.length - 1];
         if (!made || !/^VRS-\d{4}$/.test(made.code) || made.type !== "stock" || made.status !== "open") throw new Error(`return wrong: ${JSON.stringify(made)}`);
+        if (made.returned_by !== "Marco") throw new Error("name not saved with the new code");
         retCode = made.code;
         await p2.getByLabel(retCode).first().waitFor();
-        await p2.fill("#r-by", "Marco");
-        await p2.getByRole("button", { name: "Save details" }).click();
-        await p2.getByText("Saved.").first().waitFor();
-        if (made.returned_by !== "Marco") throw new Error("return details not saved");
+        for (const gone of ["Open this return", "Save details"]) {
+          if (await p2.getByText(gone).count()) throw new Error(`"${gone}" should be gone`);
+        }
+        await p2.fill("#r-vendor", "Ferguson");
+        await p2.getByRole("button", { name: "Done" }).click();
+        await p2.waitForURL(`**/returns`);
+        if (made.vendor !== "Ferguson") throw new Error("Done did not save the optional details");
       } finally {
         await b2.close();
       }

@@ -98,11 +98,13 @@ async function patchReturn(code: string, patch: Record<string, unknown>): Promis
   return mapReturn(data as RetRow);
 }
 
-/** Mints a code for the type and saves an open return. Nothing else is needed. */
-export async function startReturn(type: ReturnType): Promise<Ret> {
+/** Mints a code for the type and saves an open return with who brought it back. */
+export async function startReturn(type: ReturnType, returnedBy: string): Promise<Ret> {
+  const who = returnedBy.trim().slice(0, 80);
+  if (!who) throw new Error("Enter who's returning it.");
   for (let i = 0; i < 20; i += 1) {
     const code = mintReturnCode(type);
-    const { data, error } = await sb().from("returns").insert({ code, type, status: "open" }).select(COLUMNS).single();
+    const { data, error } = await sb().from("returns").insert({ code, type, status: "open", returned_by: who }).select(COLUMNS).single();
     if (!error) return mapReturn(data as RetRow);
     if (error.code !== "23505") fail(error, "Could not start the return.");
   }
@@ -115,7 +117,8 @@ export function detailsFrom(r: Ret): ReturnDetails {
   return { returnedBy: r.returnedBy ?? "", vendor: r.vendor ?? "", jobName: r.jobName ?? "", notes: r.notes ?? "" };
 }
 
-export function saveReturnDetails(code: string, d: ReturnDetails): Promise<Ret> {
+export async function saveReturnDetails(code: string, d: ReturnDetails): Promise<Ret> {
+  if (!d.returnedBy.trim()) throw new Error("Enter who's returning it.");
   return patchReturn(code, {
     returned_by: text(d.returnedBy, 80),
     vendor: text(d.vendor, 200),
