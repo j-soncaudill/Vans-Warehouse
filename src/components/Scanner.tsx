@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import { Flashlight, ImageUp, Keyboard } from "lucide-react";
 import { Button, Overlay, cx } from "@/components/ui";
@@ -57,6 +57,8 @@ export function Scanner({
   startTyping = false,
   raw = false,
   hint = "point at a barcode or QR code",
+  continuous = false,
+  footer,
 }: {
   title?: string;
   onScan: (code: string) => void;
@@ -65,11 +67,17 @@ export function Scanner({
   /** Hand back the scanned text as-is (for the returns station QR), with no typing. */
   raw?: boolean;
   hint?: string;
+  /** Keep the camera open and report every new code (batch scanning). */
+  continuous?: boolean;
+  /** Shown above the buttons, e.g. "3 boxes · Done" while scanning several. */
+  footer?: ReactNode;
 }) {
   const readerRef = useRef<Html5Qrcode | null>(null);
   const doneRef = useRef(false);
   const onScanRef = useRef(onScan);
   const rawRef = useRef(raw);
+  const continuousRef = useRef(continuous);
+  const lastRef = useRef<{ code: string; at: number }>({ code: "", at: 0 });
   onScanRef.current = onScan;
   const [cam, setCam] = useState<CamState>("starting");
   const [locked, setLocked] = useState(false);
@@ -90,6 +98,17 @@ export function Scanner({
     const finish = (text: string) => {
       const code = rawRef.current ? text.trim() || null : pickCode(text);
       if (!code || doneRef.current) return;
+      if (continuousRef.current) {
+        // The same sticker stays in view for a while; report it once.
+        const now = Date.now();
+        if (lastRef.current.code === code && now - lastRef.current.at < 2500) return;
+        lastRef.current = { code, at: now };
+        navigator.vibrate?.(40);
+        setLocked(true);
+        window.setTimeout(() => setLocked(false), 320);
+        onScanRef.current(code);
+        return;
+      }
       doneRef.current = true;
       navigator.vibrate?.(60);
       // Brackets snap onto the code and flash before moving on.
@@ -199,6 +218,11 @@ export function Scanner({
       setTypedError("Letters, numbers, dot or dash. At least 3 characters.");
       return;
     }
+    if (continuous) {
+      setTyped("");
+      onScanRef.current(code);
+      return;
+    }
     doneRef.current = true;
     onScanRef.current(code);
   }
@@ -242,6 +266,7 @@ export function Scanner({
 
       <div className="bg-[linear-gradient(110deg,#0b262c_0%,#0a0a0c_50%,#2a0c0f_100%)] px-4 pt-0 pb-[max(env(safe-area-inset-bottom),14px)]">
         <div aria-hidden className="brand-rule mb-3" />
+        {footer ? <div className="mx-auto mb-2 max-w-lg">{footer}</div> : null}
         {typing ? (
           <form onSubmit={submitTyped} className="mx-auto flex max-w-lg flex-col gap-2">
             <label htmlFor="scan-typed" className="label">

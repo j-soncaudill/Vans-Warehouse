@@ -80,8 +80,8 @@ export function Shell({ children }: { children: ReactNode }) {
     },
     [navigate],
   );
-  // Receive keeps scans in its own code field.
-  useWedgeScanner(onWedge, path !== "/receive");
+  // Receive keeps scans in its own code field; Scan several adds them to its list.
+  useWedgeScanner(onWedge, path !== "/receive" && path !== "/scan/batch");
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col">

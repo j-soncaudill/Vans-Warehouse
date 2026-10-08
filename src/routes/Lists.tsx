@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, type CSSProperties } from "react";
 import { Link } from "@tanstack/react-router";
-import { History, MapPin, PackagePlus, X } from "lucide-react";
+import { History, ListChecks, MapPin, PackagePlus, X } from "lucide-react";
+import { BatchCheckoutSheet } from "@/components/BatchCheckout";
 import { PackageCard } from "@/components/Package";
 import { PageTitle } from "@/components/Shell";
 import { Button, btn, cx } from "@/components/ui";
@@ -23,6 +24,16 @@ function PackageList({ status }: { status: PkgStatus }) {
   const [color, setColor] = useState("");
   const [place, setPlace] = useState("");
   const [legacyOnly, setLegacyOnly] = useState(false);
+  // Batch check-out: tick boxes on the floor list, then check them all out at once.
+  const [picked, setPicked] = useState<Set<string> | null>(null);
+  const [batch, setBatch] = useState(false);
+  const toggle = (code: string) =>
+    setPicked((cur) => {
+      const next = new Set(cur ?? []);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
+      return next;
+    });
   const all = data ?? [];
   const shown = useMemo(
     () =>
@@ -54,6 +65,29 @@ function PackageList({ status }: { status: PkgStatus }) {
   return (
     <>
       <PageTitle count={data ? all.length : undefined}>{floor ? "On floor" : "Checked out"}</PageTitle>
+      {floor && all.length > 0 ? (
+        <div className="-mt-2 mb-3 flex items-center justify-end gap-2">
+          {picked ? (
+            <>
+              <span className="mr-auto text-[13px] text-dim">tap boxes to check out together</span>
+              <button type="button" onClick={() => setPicked(new Set(shown.map((p) => p.code)))} className="vw-press min-h-10 rounded-[8px] border border-line bg-panel px-3 text-[13px] text-dim lowercase">
+                all {shown.length}
+              </button>
+              <button type="button" onClick={() => setPicked(null)} className="vw-press min-h-10 rounded-[8px] border border-line bg-panel px-3 text-[13px] text-ink lowercase">
+                cancel
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setPicked(new Set())}
+              className="vw-press flex min-h-10 items-center gap-1.5 rounded-[8px] border border-line bg-panel px-3 text-[13px] text-cyan lowercase"
+            >
+              <ListChecks aria-hidden className="size-4" /> select
+            </button>
+          )}
+        </div>
+      ) : null}
 
       {all.length > 0 ? (
         <div className="mb-4 flex flex-col gap-3">
@@ -168,11 +202,32 @@ function PackageList({ status }: { status: PkgStatus }) {
         <ul className="flex flex-col border-t border-hair">
           {shown.map((p, i) => (
             <li key={p.id} className={isNew(p.id) ? "vw-new" : "vw-row"} style={{ "--i": i } as CSSProperties}>
-              <PackageCard pkg={p} />
+              <PackageCard pkg={p} select={picked ? { on: picked.has(p.code), toggle: () => toggle(p.code) } : undefined} />
             </li>
           ))}
         </ul>
       )}
+
+      {picked && picked.size > 0 ? (
+        <div className="fixed inset-x-0 bottom-[calc(92px+env(safe-area-inset-bottom))] z-40 px-4">
+          <div className="mx-auto max-w-2xl">
+            <Button big variant="primary" onClick={() => setBatch(true)}>
+              Check out {picked.size} {picked.size === 1 ? "box" : "boxes"}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+      {batch && picked ? (
+        <BatchCheckoutSheet
+          pkgs={all.filter((p) => picked.has(p.code))}
+          onCancel={() => setBatch(false)}
+          onDone={() => {
+            setBatch(false);
+            setPicked(null);
+            reload();
+          }}
+        />
+      ) : null}
     </>
   );
 }

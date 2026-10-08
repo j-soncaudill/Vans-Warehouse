@@ -541,6 +541,53 @@ try {
     await shot("17c-legacy-entry");
   });
 
+  await step("Batch check-out from the floor list skips a box another phone took", async () => {
+    await page.getByRole("link", { name: "floor", exact: true }).click();
+    await page.getByRole("button", { name: "select", exact: true }).click();
+    await page.getByRole("checkbox", { name: /Select Old copper/ }).click();
+    await page.getByRole("checkbox", { name: /Select Loc Test/ }).click();
+    await expect(page.getByRole("button", { name: "Check out 2 boxes" }), "batch bar");
+    await shot("17d-batch-select");
+    await page.getByRole("button", { name: "Check out 2 boxes" }).click();
+    await page.fill("#batch-by", "Crew 2");
+    // Meanwhile another phone takes Loc Test.
+    const taken = rows.find((x) => x.code === locCode);
+    Object.assign(taken, { status: "checked_out", checked_out_to: "Truck 7", checked_out_at: new Date().toISOString() });
+    await page.getByRole("dialog").getByRole("button", { name: "Check out 2 boxes" }).click();
+    await expect(page.getByText("1 box checked out, 1 skipped"), "batch result");
+    await expect(page.getByText(/already out to Truck 7/), "skip reason");
+    await shot("17e-batch-result");
+    if (rows.find((x) => x.code === legacyCode)?.checked_out_to !== "Crew 2") throw new Error("batch did not check out the legacy box");
+    if (taken.checked_out_to !== "Truck 7") throw new Error("batch overwrote another phone's check out");
+    await page.getByRole("dialog").getByRole("button", { name: "Done" }).last().click();
+    await page.getByRole("button", { name: "select", exact: true }).waitFor();
+  });
+
+  await step("Scan several: camera and typed codes build a list, then one check out", async () => {
+    await page.goto(`http://localhost:${PORT}/scan/batch`);
+    if (liveQr) {
+      await expect(page.getByText(/Added Oak Ave/), "camera read added a box");
+      await shot("17f-batch-scanning");
+      await page.getByRole("button", { name: /^Done · 1$/ }).click();
+    } else {
+      await page.getByRole("button", { name: "Close" }).click();
+      await page.fill("#batch-code", "AB-778899");
+      await page.getByRole("button", { name: "Add", exact: true }).click();
+    }
+    await page.fill("#batch-code", locCode);
+    await page.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(page.getByText(/already out to Truck 7/), "already-out note");
+    await page.fill("#batch-code", "ZZ-000000");
+    await page.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(page.getByText("ZZ-000000 is not in the warehouse."), "unknown note");
+    await expect(page.getByRole("button", { name: "Remove AB-778899 from the list" }), "listed");
+    await page.getByRole("button", { name: "Check out 1 box" }).click();
+    await page.fill("#batch-by", "Crew 3");
+    await page.getByRole("dialog").getByRole("button", { name: "Check out 1 box" }).click();
+    await page.waitForURL("**/out");
+    if (rows.find((x) => x.code === "AB-778899")?.checked_out_to !== "Crew 3") throw new Error("scan-several check out not saved");
+  });
+
   await step("Returns: a QR that isn't the station is rejected", async () => {
     await page.getByRole("link", { name: "returns", exact: true }).click();
     await page.getByRole("link", { name: "Start a return" }).click();

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Camera, ChevronRight, MapPin } from "lucide-react";
+import { Camera, Check, ChevronRight, MapPin } from "lucide-react";
 import { PhotoViewer } from "@/components/PhotoCamera";
 import { cx } from "@/components/ui";
 import { colorHex } from "@/lib/form";
@@ -59,7 +59,8 @@ export function LegacyChip() {
   return <span className="text-[12px] text-amber">legacy</span>;
 }
 
-export function PackageCard({ pkg }: { pkg: Pkg }) {
+/** A row on the floor / out list. With `select`, tapping it ticks it for a batch check-out. */
+export function PackageCard({ pkg, select }: { pkg: Pkg; select?: { on: boolean; toggle: () => void } }) {
   const out = pkg.status === "checked_out";
   const line = out
     ? pkg.lastLocation
@@ -68,10 +69,7 @@ export function PackageCard({ pkg }: { pkg: Pkg }) {
     : [pkg.vendor?.toLowerCase(), pkg.poNumber ? `po ${pkg.poNumber}` : null];
   const when = out ? ago(pkg.checkedOutAt) : pkg.legacy ? receivedText(pkg) : ago(pkg.receivedAt);
   const hex = colorHex(pkg.colorTag);
-  return (
-    <div className="flex items-center gap-3.5 border-b border-hair py-3">
-      <Thumb pkg={pkg} />
-      <Link to="/p/$code" params={{ code: pkg.code }} className="group flex min-w-0 flex-1 items-center gap-2 transition-opacity duration-150 active:opacity-70">
+  const body = (
         <span className="flex min-w-0 flex-1 flex-col gap-[3px]">
           <span className="flex items-baseline justify-between gap-2">
             <span className="truncate font-sans text-[17px] font-semibold text-white">{pkg.jobName}</span>
@@ -91,8 +89,36 @@ export function PackageCard({ pkg }: { pkg: Pkg }) {
           </span>
           {line.some(Boolean) ? <span className="truncate text-[12px] text-dim">{line.filter(Boolean).join(" · ")}</span> : null}
         </span>
+  );
+  return (
+    <div className="flex items-center gap-3.5 border-b border-hair py-3">
+      <Thumb pkg={pkg} />
+      {select ? (
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={select.on}
+          aria-label={`Select ${pkg.jobName} ${pkg.code}`}
+          onClick={select.toggle}
+          className="group flex min-w-0 flex-1 items-center gap-2 text-left"
+        >
+          {body}
+          <span
+            aria-hidden
+            className={cx(
+              "flex size-6 shrink-0 items-center justify-center rounded-[6px] border-2",
+              select.on ? "border-cyan bg-cyan text-cyan-ink" : "border-line bg-panel",
+            )}
+          >
+            {select.on ? <Check className="size-4" strokeWidth={3.2} /> : null}
+          </span>
+        </button>
+      ) : (
+      <Link to="/p/$code" params={{ code: pkg.code }} className="group flex min-w-0 flex-1 items-center gap-2 transition-opacity duration-150 active:opacity-70">
+        {body}
         <ChevronRight className="size-4 shrink-0 text-faint transition-transform duration-200 group-active:translate-x-1" />
       </Link>
+      )}
     </div>
   );
 }

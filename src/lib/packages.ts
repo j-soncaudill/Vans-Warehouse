@@ -241,6 +241,27 @@ export async function checkOut(code: string, takenBy: string): Promise<Pkg> {
   return pkg;
 }
 
+export type BatchResult = { done: Pkg[]; skipped: Array<{ code: string; jobName: string; reason: string }> };
+
+/** Checks several boxes out to one person. Boxes someone else already took are skipped, not overwritten. */
+export async function checkOutMany(pkgs: Array<Pick<Pkg, "code" | "jobName">>, takenBy: string, onEach?: (done: number) => void): Promise<BatchResult> {
+  const who = takenBy.trim().slice(0, 80);
+  if (!who) throw new Error("Enter who it was checked out by.");
+  const result: BatchResult = { done: [], skipped: [] };
+  let n = 0;
+  for (const p of pkgs) {
+    try {
+      result.done.push(await checkOut(p.code, who));
+    } catch {
+      const now = await getPackage(p.code).catch(() => null);
+      const reason = !now ? "removed" : now.status === "checked_out" ? `already out to ${now.checkedOutTo ?? "someone"}` : "did not save";
+      result.skipped.push({ code: p.code, jobName: p.jobName, reason });
+    }
+    onEach?.((n += 1));
+  }
+  return result;
+}
+
 /** Records where the box is now, plus a history entry. Works on the floor or checked out. */
 export async function movePackage(code: string, to: string, movedBy: string): Promise<Pkg> {
   const place = cleanLocation(to);
