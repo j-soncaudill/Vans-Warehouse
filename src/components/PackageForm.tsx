@@ -38,7 +38,7 @@ function LegacySwitch({ values, onChange }: { values: FormValues; onChange: (pat
             value={values.legacyMonth}
             onChange={(e) => onChange({ legacyMonth: e.target.value })}
           />
-          <span className="mt-1 block text-[12px] text-faint">Leave blank if nobody knows; today is used.</span>
+          <span className="mt-1 block text-[12px] text-faint">Leave blank if nobody knows; it's saved as date unknown.</span>
         </Field>
       ) : null}
     </div>

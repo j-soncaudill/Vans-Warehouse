@@ -73,7 +73,7 @@ function makeRow(item: Record<string, unknown>): Row {
     packing_slip_received: null, quantities: null, damaged: null, color_tag: null, notes: null,
     status: "on_floor", received_at: now, checked_out_to: null, checked_out_at: null,
     barcode_path: null, photo_path: null, thumb_path: null, last_location: null, location_at: null,
-    legacy: false, slip_photo_path: null, slip_thumb_path: null, created_at: now, updated_at: now,
+    legacy: false, arrival_unknown: false, slip_photo_path: null, slip_thumb_path: null, created_at: now, updated_at: now,
     ...item,
   } as unknown as Row;
 }
@@ -256,7 +256,7 @@ export async function seedDemo() {
     { code: "VW-EX9K2R", job_name: "Example: Harbor clinic", po_number: "40198", vendor: "Graybar", delivered_by: "Vendor truck", received_by: "Luis", pm: "Ana", packing_slip_received: false, quantities: "1 pallet wire", damaged: true, color_tag: "Red", notes: "Corner crushed, photo taken", received_at: at(26), photo: ["GRAYBAR", "#9c7a4e"] },
     { code: "012345678905", job_name: "Example: Oak Ave tenant", vendor: "Home Depot Pro", color_tag: "Green", received_at: at(70), photo: null },
     { code: "VW-EXL9Q4", job_name: "Example: Copper stub-outs", vendor: "Ferguson", color_tag: "Orange", notes: "From the old shelf count", received_at: at(24 * 240), legacy: true, photo: ["COPPER", "#a07b4c"] },
-    { code: "VW-EXL2M8", job_name: "Unknown, check with PM", notes: "No paperwork. Grey totes, fittings.", received_at: at(1), legacy: true, photo: null },
+    { code: "VW-EXL2M8", job_name: "Unknown, check with PM", notes: "No paperwork. Grey totes, fittings.", received_at: at(1), legacy: true, arrival_unknown: true, photo: null },
     { code: "VW-EX3H8T", job_name: "Example: Ridge school", po_number: "40150", vendor: "Rexel", received_by: "Dana", color_tag: "Yellow", received_at: at(120), status: "checked_out", checked_out_to: "Truck 3", checked_out_at: at(5), photo: ["REXEL", "#a98552"] },
   ];
   const places: Record<string, Array<[string, number, string]>> = {

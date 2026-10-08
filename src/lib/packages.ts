@@ -38,6 +38,8 @@ export type Pkg = {
   legacy: boolean;
   slipPhotoPath: string | null;
   slipThumbPath: string | null;
+  /** Legacy box whose arrival nobody knows; receivedAt is just when it was logged. */
+  arrivalUnknown: boolean;
 };
 
 export type PkgRow = {
@@ -67,10 +69,11 @@ export type PkgRow = {
   legacy?: boolean | null;
   slip_photo_path?: string | null;
   slip_thumb_path?: string | null;
+  arrival_unknown?: boolean | null;
 };
 
 const COLUMNS =
-  "id, code, job_name, po_number, vendor, delivered_by, received_by, pm, packing_slip_received, quantities, damaged, color_tag, notes, status, received_at, checked_out_to, checked_out_at, barcode_path, photo_path, thumb_path, last_location, location_at, updated_at, legacy, slip_photo_path, slip_thumb_path";
+  "id, code, job_name, po_number, vendor, delivered_by, received_by, pm, packing_slip_received, quantities, damaged, color_tag, notes, status, received_at, checked_out_to, checked_out_at, barcode_path, photo_path, thumb_path, last_location, location_at, updated_at, legacy, slip_photo_path, slip_thumb_path, arrival_unknown";
 
 export function mapRow(r: PkgRow): Pkg {
   return {
@@ -100,6 +103,7 @@ export function mapRow(r: PkgRow): Pkg {
     legacy: r.legacy === true,
     slipPhotoPath: r.slip_photo_path ?? null,
     slipThumbPath: r.slip_thumb_path ?? null,
+    arrivalUnknown: r.arrival_unknown === true,
   };
 }
 
@@ -260,7 +264,7 @@ export async function editPackage(code: string, values: FormValues): Promise<Pkg
   const pkg = await update(code, formToRow(values), "on_floor");
   if (!pkg) throw new Error("It was checked out or removed. Reload and try again.");
   // The sticker shows the job and received date, so redraw it when either changes.
-  if (before && (before.jobName !== pkg.jobName || before.legacy !== pkg.legacy || before.receivedAt !== pkg.receivedAt)) {
+  if (before && (before.jobName !== pkg.jobName || before.legacy !== pkg.legacy || before.receivedAt !== pkg.receivedAt || before.arrivalUnknown !== pkg.arrivalUnknown)) {
     await uploadSticker(pkg);
   }
   return pkg;

@@ -53,7 +53,7 @@ describe("backup", () => {
         packingSlip: null, quantities: "1\n2", damaged: null, colorTag: null, notes: null, status: "on_floor",
         receivedAt: "2026-01-01T00:00:00Z", checkedOutTo: null, checkedOutAt: null,
       lastLocation: null,
-      locationAt: null, legacy: false, stickerFile: null, photoFile: null, slipPhotoFile: null,
+      locationAt: null, legacy: false, arrivalUnknown: false, stickerFile: null, photoFile: null, slipPhotoFile: null,
       },
     ]);
     expect(csv).toContain('"A, ""B"""');
@@ -87,14 +87,19 @@ describe("legacy boxes", () => {
   });
   it("saves the flag, and the month only for legacy boxes", () => {
     const base = { ...emptyForm(), jobName: "Old stock" };
-    expect(formToRow({ ...base, legacy: true, legacyMonth: "2025-03" })).toMatchObject({ legacy: true, received_at: "2025-03-15T12:00:00.000Z" });
-    expect(formToRow({ ...base, legacy: true, legacyMonth: "" })).not.toHaveProperty("received_at");
+    expect(formToRow({ ...base, legacy: true, legacyMonth: "2025-03" })).toMatchObject({ legacy: true, arrival_unknown: false, received_at: "2025-03-15T12:00:00.000Z" });
+    // No month: "date unknown", and received_at stays when it was logged.
+    const unknown = formToRow({ ...base, legacy: true, legacyMonth: "" });
+    expect(unknown).toMatchObject({ legacy: true, arrival_unknown: true });
+    expect(unknown).not.toHaveProperty("received_at");
     const plain = formToRow({ ...base, legacy: false, legacyMonth: "2025-03" });
     expect(plain.legacy).toBe(false);
+    expect(plain.arrival_unknown).toBe(false);
     expect(plain).not.toHaveProperty("received_at");
   });
   it("shows a legacy date as an approximate month", () => {
     expect(receivedText({ receivedAt: "2025-03-15T12:00:00Z", legacy: true })).toMatch(/^~Mar 2025$/);
+    expect(receivedText({ receivedAt: "2026-10-08T12:00:00Z", legacy: true, arrivalUnknown: true })).toBe("date unknown");
   });
   it("restores the flag, and treats older backups as not legacy", () => {
     expect(recordToRow({ code: "VW-AAAAAA", jobName: "J", legacy: true })).toMatchObject({ legacy: true });

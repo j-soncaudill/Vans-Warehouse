@@ -157,6 +157,23 @@ body::before {
 }
 
 /* Our own clear button replaces the browser one on search fields. */
+/* iOS Safari gives date/month inputs a fixed minimum width; keep them inside their box. */
+input[type="month"],
+input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+input[type="month"]::-webkit-date-and-time-value,
+input[type="date"]::-webkit-date-and-time-value {
+  text-align: left;
+  margin: 0;
+}
+
 input[type="search"]::-webkit-search-cancel-button {
   -webkit-appearance: none;
   display: none;

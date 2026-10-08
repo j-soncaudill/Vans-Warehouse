@@ -30,7 +30,8 @@ export function monthYear(value: string | null | undefined): string {
 }
 
 /** When it was received, as precise as we know it. */
-export function receivedText(pkg: { receivedAt: string; legacy?: boolean }): string {
+export function receivedText(pkg: { receivedAt: string; legacy?: boolean; arrivalUnknown?: boolean }): string {
+  if (pkg.legacy && pkg.arrivalUnknown) return "date unknown";
   return pkg.legacy ? `~${monthYear(pkg.receivedAt)}` : stamp(pkg.receivedAt);
 }
 

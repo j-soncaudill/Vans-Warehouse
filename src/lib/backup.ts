@@ -39,6 +39,7 @@ export const CSV_COLUMNS = [
   "lastLocation",
   "locationAt",
   "legacy",
+  "arrivalUnknown",
   "stickerFile",
   "photoFile",
   "slipPhotoFile",
@@ -115,6 +116,7 @@ export async function buildBackup(onProgress?: (done: number, total: number) => 
       lastLocation: p.lastLocation,
       locationAt: p.locationAt,
       legacy: p.legacy,
+      arrivalUnknown: p.arrivalUnknown,
       stickerFile,
       photoFile,
       slipPhotoFile,
@@ -176,6 +178,7 @@ export function recordToRow(raw: unknown) {
     location_at: date(r.locationAt),
     // Older backups have no legacy field; those boxes are not legacy.
     legacy: bool(r.legacy) === true,
+    arrival_unknown: bool(r.legacy) === true && bool(r.arrivalUnknown) === true,
   };
 }
 
@@ -248,7 +251,7 @@ export async function restoreBackup(file: File, onProgress?: (done: number, tota
     if (!stickerBlob && item && typeof (item as { barcodePng?: unknown }).barcodePng === "string") {
       stickerBlob = dataUrlToBlob((item as { barcodePng: string }).barcodePng);
     }
-    if (!stickerBlob) stickerBlob = await renderSticker({ code, jobName: row.job_name, receivedAt: row.received_at, legacy: row.legacy }).catch(() => null);
+    if (!stickerBlob) stickerBlob = await renderSticker({ code, jobName: row.job_name, receivedAt: row.received_at, legacy: row.legacy, arrivalUnknown: row.arrival_unknown }).catch(() => null);
     if (stickerBlob) {
       const path = stickerPath(code);
       const up = await sb()

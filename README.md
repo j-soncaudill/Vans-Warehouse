@@ -97,6 +97,11 @@ packing slip photo columns, the `push_subscriptions` and `alert_state` tables
 `alerts_prune` functions phones call, and the `alert_box_days` (30) and
 `alert_return_days` (14) settings. Safe to run twice; prints `2, 2, 3`.
 
+Then [`supabase/migrations/005_arrival_unknown.sql`](supabase/migrations/005_arrival_unknown.sql):
+`packages.arrival_unknown` for legacy boxes whose arrival date nobody knows
+(the month left blank). It also marks legacy boxes already saved that way.
+Safe to run twice.
+
 **Fresh install** (wipes everything): [`supabase/schema.sql`](supabase/schema.sql),
 which already includes the update.
 

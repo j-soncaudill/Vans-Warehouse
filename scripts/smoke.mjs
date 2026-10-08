@@ -89,8 +89,8 @@ async function rest(route, req, url) {
   const method = req.method();
   const now = () => new Date().toISOString();
   if (method === "GET" || method === "HEAD") {
-    if (table === "packages" && !legacyColumn && /\blegacy\b/.test(url.searchParams.get("select") ?? "")) {
-      return route.fulfill({ status: 400, contentType: "application/json", body: JSON.stringify({ code: "42703", message: "column packages.legacy does not exist" }) });
+    if (table === "packages" && !legacyColumn && /\barrival_unknown\b/.test(url.searchParams.get("select") ?? "")) {
+      return route.fulfill({ status: 400, contentType: "application/json", body: JSON.stringify({ code: "42703", message: "column packages.arrival_unknown does not exist" }) });
     }
     let out = [...filterRows(url, list)];
     const [col, dir] = (url.searchParams.get("order") ?? "").split(",")[0].split(".");
@@ -279,15 +279,16 @@ let mintedCode = "";
 let locCode = "";
 let retCode = "";
 try {
-  await step("Missing legacy column: the app asks for update 003 only", async () => {
+  await step("Missing date-unknown column: the app asks for update 005 only", async () => {
     await page.goto(`http://localhost:${PORT}/`);
     await expect(page.getByText("One database update"), "update screen");
-    await expect(page.getByText(/adds legacy boxes/), "names what it adds");
+    await expect(page.getByText(/adds "date unknown" for legacy boxes/), "names what it adds");
     await page.getByRole("button", { name: "Show SQL" }).click();
     const sql = await page.locator("textarea").inputValue();
-    if (!sql.includes("add column if not exists legacy")) throw new Error("update SQL is not 003");
+    if (!sql.includes("add column if not exists arrival_unknown")) throw new Error("update SQL is not 005");
+    if (sql.includes("add column if not exists legacy ")) throw new Error("update SQL repeats 003");
     if (sql.includes("create table if not exists public.returns")) throw new Error("update SQL repeats 002");
-    await shot("00a-update-003");
+    await shot("00a-update-005");
     legacyColumn = true;
     await page.getByRole("button", { name: /check again/ }).click();
     await expect(page.getByText("Who's using this phone?"), "app opens once updated");
@@ -573,10 +574,26 @@ try {
     if ((await page.locator("#f-legacy").getAttribute("aria-checked")) !== "true") throw new Error("Receive another dropped legacy");
     if ((await page.inputValue("#f-legacy-month")) !== "2025-03") throw new Error("Receive another dropped the month");
     if ((await page.locator("#f-location").getByRole("radio", { name: "Conex 3" }).getAttribute("aria-checked")) !== "true") throw new Error("Receive another dropped the place");
-    await page.locator("#f-legacy").click();
+    // Nobody knows when this one came in: blank month = "date unknown", not today.
+    await page.fill("#f-legacy-month", "");
+    await page.fill("#f-job", "Mystery fittings");
+    const box = await page.locator("#f-legacy-month").boundingBox();
+    const card = await page.locator("#f-legacy-month").locator("xpath=ancestor::div[contains(@class,'rounded')][1]").boundingBox();
+    if (box && card && box.x + box.width > card.x + card.width + 1) throw new Error("month field runs past its card");
+    await page.getByRole("button", { name: "Receive to floor" }).click();
+    await expect(page.getByText("put this sticker on the box"), "unknown-date legacy received");
+    const mystery = rows.find((x) => x.job_name === "Mystery fittings");
+    if (!mystery || mystery.legacy !== true || mystery.arrival_unknown !== true || String(mystery.received_at).startsWith("2025-03")) throw new Error(`date-unknown row wrong: ${JSON.stringify(mystery)}`);
+    await page.getByRole("link", { name: "Open this entry" }).click();
+    await expect(page.getByText(/date unknown · here before Floorcast/), "date unknown on entry");
+    await shot("17h-date-unknown");
+    await page.getByRole("link", { name: "receive", exact: true }).click();
+    await page.getByRole("button", { name: "Receive another" }).click().catch(() => undefined);
+    await page.locator("#f-legacy").waitFor();
+    if ((await page.locator("#f-legacy").getAttribute("aria-checked")) === "true") await page.locator("#f-legacy").click();
     if (!(await page.locator("#f-po").isVisible())) throw new Error("fields did not come back with legacy off");
     await page.getByRole("link", { name: "floor", exact: true }).click();
-    const chip = page.getByRole("button", { name: "Legacy only, 1" });
+    const chip = page.getByRole("button", { name: "Legacy only, 2" });
     await expect(chip, "legacy chip with count");
     await chip.click();
     await expect(page.getByText("Old copper"), "legacy row");
@@ -584,7 +601,7 @@ try {
     await expect(page.locator("main").getByText("legacy", { exact: true }), "legacy badge on row");
     await shot("17b-legacy-filter");
     await page.getByRole("link", { name: /Old copper/ }).click();
-    await expect(page.getByText(/~Mar 2025/), "approximate date on entry");
+    await expect(page.getByText(/~Mar 2025/).first(), "approximate date on entry");
     await shot("17c-legacy-entry");
   });
 
@@ -642,6 +659,7 @@ try {
     await expect(page.getByRole("heading", { name: "Longest on the floor" }), "floor section");
     await expect(page.getByText("Crew 2").first(), "checked out group shows who");
     await expect(page.getByText("VVR-0420"), "old return listed at 14 days");
+    await expect(page.getByText("Mystery fittings"), "date-unknown box listed in reports");
     await shot("17g-reports");
     await page.fill("#return-days", "30");
     await page.getByText("VVR-0420").waitFor({ state: "detached" });

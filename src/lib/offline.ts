@@ -195,6 +195,7 @@ export function pendingPkg(op: ReceiveOp): Pkg {
     locationAt: op.at,
     updatedAt: op.at,
     legacy: v.legacy,
+    arrivalUnknown: v.legacy && !v.legacyMonth,
     slipPhotoPath: null,
     slipThumbPath: null,
   };

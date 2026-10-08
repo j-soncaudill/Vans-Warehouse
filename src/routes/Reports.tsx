@@ -52,7 +52,14 @@ export function ReportsPage() {
   const now = Date.now();
 
   const [pkgs, rets] = data ?? [[], []];
-  const floor = useMemo(() => pkgs.filter((p) => p.status === "on_floor").sort((a, b) => Date.parse(a.receivedAt) - Date.parse(b.receivedAt)), [pkgs]);
+  // Oldest first; legacy boxes with no known arrival date go last.
+  const floor = useMemo(
+    () =>
+      pkgs
+        .filter((p) => p.status === "on_floor")
+        .sort((a, b) => Number(a.arrivalUnknown) - Number(b.arrivalUnknown) || Date.parse(a.receivedAt) - Date.parse(b.receivedAt)),
+    [pkgs],
+  );
   const groups = useMemo(() => groupByJob(pkgs.filter((p) => p.status === "checked_out")), [pkgs]);
   const oldReturns = useMemo(
     () => rets.filter((r) => daysSince(r.createdAt, now) >= returnDays).sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)),
@@ -92,7 +99,14 @@ export function ReportsPage() {
                 return (
                   <li key={p.code} className="border-b border-hair">
                     <Link to="/p/$code" params={{ code: p.code }} className="flex items-center gap-3 py-2.5 active:opacity-70">
-                      <Days n={n} warn={n >= 30} />
+                      {p.arrivalUnknown ? (
+                        <span className="flex w-14 shrink-0 flex-col items-end text-[11px] leading-tight text-faint">
+                          <span className="font-sans text-[22px] font-bold text-dim">?</span>
+                          days
+                        </span>
+                      ) : (
+                        <Days n={n} warn={n >= 30} />
+                      )}
                       <span className="flex min-w-0 flex-1 flex-col">
                         <span className="truncate font-sans text-[16px] font-semibold text-white">{p.jobName}</span>
                         <span className="flex flex-wrap items-center gap-x-2 text-[12px] text-dim">
