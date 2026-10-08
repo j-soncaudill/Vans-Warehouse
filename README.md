@@ -28,13 +28,29 @@ check them out to a job. Every phone sees the same live list.
   photo (until checkout), save/print sticker, remove (row + sticker + photos).
 - **Backup & setup**: export backup, restore backup, database/storage check,
   the "Open the app" poster, the returns station poster, lock this phone.
+- **Packing slip photo**: a second, sharper photo on Receive; Administrators
+  can add or replace it from the box's page. Included in backups.
+- **Batch check-out**: **Select** on the floor list, or **Scan several** on
+  the Scan tab (camera stays open; handheld scanners work too), then one name
+  checks them all out. Boxes another phone took meanwhile are skipped.
+- **Reports** (Administrators, chart icon in the header): longest on the
+  floor, checked out by job, open returns older than N days.
+- **Admin alerts**: a 7 AM Eastern push summary on Administrator phones
+  (setup below).
+- **Offline**: with no signal, Floorcast still opens, shows the list as last
+  seen, and lets you receive, move and check out. Those sync by themselves
+  when signal returns; if another phone changed the same box first, its
+  change wins and yours shows under "Couldn't sync". Edits, removal,
+  returns, backups and reports need signal.
 - **Open the app poster**: a QR of the site's own address. Post it anywhere;
   scanning it with a phone camera opens Floorcast. The app ships a web
   manifest and icons, so **Add to Home Screen** gives it a Floorcast icon and
   opens it full screen like an installed app.
 
 Stack: Vite, React, TanStack Router, Tailwind CSS v4, Supabase JS. The build
-is a static single-page app for Cloudflare Pages: no Worker, no server.
+is a static single-page app for Cloudflare Pages, plus a service worker
+(`sw.js`, offline + alerts). The only server code is the small daily alerts
+job in `supabase/functions/daily-alerts`, on Supabase's free plan.
 
 ## Environment variables
 

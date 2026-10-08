@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Bell, BellOff } from "lucide-react";
 import { Button, Overlay, cx, errorText, toast } from "@/components/ui";
+import { DEMO_UI } from "@/lib/supabase";
 import { ALERT_NOTES, alertStatus, disableAlerts, enableAlerts, finishAlertsSetup, sendTestAlert, type AlertStatus } from "@/lib/alerts";
 
 /** Right after an admin unlocks: one tap to allow the daily alerts (a tap is needed for the permission prompt). */
@@ -103,6 +104,7 @@ export function AlertsSection() {
   }
 
   if (!status) return <p className="text-[14px] text-dim">Checking…</p>;
+  if (DEMO_UI) return <p className="text-[14px] text-dim">Alerts work on the live site, on Administrator phones.</p>;
   const usable = status === "on" || status === "off";
   return (
     <div className="flex flex-col gap-3">
