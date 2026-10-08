@@ -33,6 +33,8 @@ export type Pkg = {
   updatedAt: string | null;
   /** Here before Floorcast; receivedAt is approximate. */
   legacy: boolean;
+  slipPhotoPath: string | null;
+  slipThumbPath: string | null;
 };
 
 export type PkgRow = {
@@ -60,10 +62,12 @@ export type PkgRow = {
   location_at: string | null;
   updated_at: string | null;
   legacy?: boolean | null;
+  slip_photo_path?: string | null;
+  slip_thumb_path?: string | null;
 };
 
 const COLUMNS =
-  "id, code, job_name, po_number, vendor, delivered_by, received_by, pm, packing_slip_received, quantities, damaged, color_tag, notes, status, received_at, checked_out_to, checked_out_at, barcode_path, photo_path, thumb_path, last_location, location_at, updated_at, legacy";
+  "id, code, job_name, po_number, vendor, delivered_by, received_by, pm, packing_slip_received, quantities, damaged, color_tag, notes, status, received_at, checked_out_to, checked_out_at, barcode_path, photo_path, thumb_path, last_location, location_at, updated_at, legacy, slip_photo_path, slip_thumb_path";
 
 export function mapRow(r: PkgRow): Pkg {
   return {
@@ -91,6 +95,8 @@ export function mapRow(r: PkgRow): Pkg {
     locationAt: r.location_at ?? null,
     updatedAt: r.updated_at,
     legacy: r.legacy === true,
+    slipPhotoPath: r.slip_photo_path ?? null,
+    slipThumbPath: r.slip_thumb_path ?? null,
   };
 }
 
@@ -133,6 +139,7 @@ export async function receivePackage(
   values: FormValues,
   existingCode: string | null,
   photo: CapturedPhoto | null,
+  slip: CapturedPhoto | null = null,
 ): Promise<ReceiveResult> {
   const row = formToRow(values);
   const location = cleanLocation(values.location);
@@ -175,6 +182,15 @@ export async function receivePackage(
       warnings.push(err instanceof Error ? err.message : "Photo did not upload.");
     }
   }
+  if (slip) {
+    try {
+      const paths = await uploadPhoto(code, slip, "slip");
+      patch.slip_photo_path = paths.photoPath;
+      patch.slip_thumb_path = paths.thumbPath;
+    } catch (err) {
+      warnings.push(err instanceof Error ? `Packing slip: ${err.message}` : "Packing slip photo did not upload.");
+    }
+  }
   if (Object.keys(patch).length) pkg = (await update(code, patch)) ?? pkg;
   return { pkg, warnings };
 }
@@ -202,6 +218,18 @@ export async function replacePhoto(code: string, photo: CapturedPhoto): Promise<
     throw new Error("Photos are locked after checkout.");
   }
   await removePhotoFiles(code, [paths.photoPath, paths.thumbPath]).catch(() => undefined);
+  return pkg;
+}
+
+/** Adds or replaces the packing slip photo (Administrators). Works on the floor or checked out. */
+export async function replaceSlipPhoto(code: string, photo: CapturedPhoto): Promise<Pkg> {
+  const paths = await uploadPhoto(code, photo, "slip");
+  const pkg = await update(code, { slip_photo_path: paths.photoPath, slip_thumb_path: paths.thumbPath });
+  if (!pkg) {
+    await sb().storage.from(PHOTOS_BUCKET).remove([paths.photoPath, paths.thumbPath]);
+    throw new Error("That package is gone.");
+  }
+  await removePhotoFiles(code, [paths.photoPath, paths.thumbPath], "slip").catch(() => undefined);
   return pkg;
 }
 
@@ -245,4 +273,5 @@ export async function removePackage(code: string): Promise<void> {
     .remove([current?.barcodePath || stickerPath(code)])
     .catch(() => undefined);
   await removePhotoFiles(code).catch(() => undefined);
+  await removePhotoFiles(code, [], "slip").catch(() => undefined);
 }

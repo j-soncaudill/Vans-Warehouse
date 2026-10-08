@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Camera, ImageUp, RotateCcw } from "lucide-react";
 import { Button, Overlay, errorText } from "@/components/ui";
-import { photoFromFile, photoFromVideo, type CapturedPhoto } from "@/lib/photo";
+import { photoFromFile, photoFromVideo, type CapturedPhoto, type PhotoKind } from "@/lib/photo";
 
 /**
  * Full-screen box-photo camera. The shot is shrunk to ~1280px JPEG plus a
@@ -11,10 +11,13 @@ export function PhotoCamera({
   onUse,
   onClose,
   saving,
+  kind = "box",
 }: {
   onUse: (photo: CapturedPhoto) => void | Promise<void>;
   onClose: () => void;
   saving?: boolean;
+  /** "slip" keeps more detail so the packing slip stays readable. */
+  kind?: PhotoKind;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -81,7 +84,7 @@ export function PhotoCamera({
     if (!v) return;
     setBusy(true);
     try {
-      setShot(await photoFromVideo(v));
+      setShot(await photoFromVideo(v, kind));
       navigator.vibrate?.(30);
     } catch (err) {
       setError(errorText(err, "Could not take the photo."));
@@ -94,7 +97,7 @@ export function PhotoCamera({
     if (!file) return;
     setBusy(true);
     try {
-      setShot(await photoFromFile(file));
+      setShot(await photoFromFile(file, kind));
     } catch (err) {
       setError(errorText(err, "Could not read that photo."));
     } finally {
@@ -103,7 +106,7 @@ export function PhotoCamera({
   }
 
   return (
-    <Overlay title="Box photo" onClose={onClose} dark>
+    <Overlay title={kind === "slip" ? "Packing slip photo" : "Box photo"} onClose={onClose} dark>
       <div className="relative min-h-0 flex-1 overflow-hidden bg-black">
         <video
           ref={videoRef}

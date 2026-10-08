@@ -296,6 +296,12 @@ try {
     await page.getByRole("button", { name: "Take photo", exact: true }).click();
     await page.getByRole("button", { name: "Use photo", exact: true }).click();
     await expect(page.getByRole("img", { name: "Box photo" }), "photo preview");
+    await page.getByRole("button", { name: "Photo of packing slip" }).click();
+    await page.waitForFunction(() => document.querySelector("video")?.readyState >= 2);
+    await expect(page.getByText("Packing slip photo").first(), "slip camera title");
+    await page.getByRole("button", { name: "Take photo", exact: true }).click();
+    await page.getByRole("button", { name: "Use photo", exact: true }).click();
+    await expect(page.getByRole("img", { name: "Packing slip photo" }), "slip preview");
     await page.getByRole("button", { name: "Receive to floor" }).click();
     await expect(page.getByText("On the floor"), "receive done");
     mintedCode = rows[0].code;
@@ -304,6 +310,8 @@ try {
     if (!r.photo_path || !r.thumb_path || !r.barcode_path) throw new Error(`files missing ${JSON.stringify(r)}`);
     if (r.packing_slip_received !== true || r.damaged !== false || r.color_tag !== "Blue" || r.vendor !== "Ferguson") throw new Error("fields wrong");
     if (!files.has(`package-photos/${r.photo_path}`) || !files.has(`barcodes/${r.barcode_path}`)) throw new Error("storage missing");
+    if (!/^slips\//.test(r.slip_photo_path ?? "") || !files.has(`package-photos/${r.slip_photo_path}`)) throw new Error(`slip photo missing: ${r.slip_photo_path}`);
+    if (r.photo_path.startsWith("slips/")) throw new Error("box photo stored with slips");
     await page.waitForTimeout(400);
     await shot("05-received-sticker");
   });
@@ -366,6 +374,18 @@ try {
     await expect(page.getByText("Photo saved."), "retake saved");
     if (rows[0].photo_path === oldPhoto) throw new Error("photo path unchanged");
     if (files.has(`package-photos/${oldPhoto}`)) throw new Error("old photo not cleaned up");
+    if (!files.has(`package-photos/${rows[0].slip_photo_path}`)) throw new Error("retaking the box photo deleted the slip photo");
+    const oldSlip = rows[0].slip_photo_path;
+    await page.getByRole("button", { name: "Open packing slip photo" }).click();
+    await expect(page.getByRole("dialog").getByRole("img"), "slip full size");
+    await page.getByRole("button", { name: "Close" }).click();
+    await page.getByRole("button", { name: "Replace slip photo" }).click();
+    await page.waitForFunction(() => document.querySelector("video")?.readyState >= 2);
+    await page.getByRole("button", { name: "Take photo", exact: true }).click();
+    await page.getByRole("button", { name: "Use photo", exact: true }).click();
+    await expect(page.getByText("Slip photo saved."), "slip replaced");
+    if (rows[0].slip_photo_path === oldSlip || files.has(`package-photos/${oldSlip}`)) throw new Error("slip photo not replaced cleanly");
+    if (!files.has(`package-photos/${rows[0].photo_path}`)) throw new Error("replacing the slip deleted the box photo");
   });
 
   await step("Scan page: typed unknown code goes to Receive with that code", async () => {
@@ -637,7 +657,7 @@ try {
     await d.saveAs(backup);
     const zip = await JSZip.loadAsync(await import("node:fs").then((fs) => fs.readFileSync(backup)));
     const names = Object.keys(zip.files);
-    for (const n of ["packages.json", "packages.csv", `stickers/${mintedCode}.png`, `photos/${mintedCode}.jpg`, "stickers/AB-778899.png", "moves.json", "returns.json", "returns.csv"]) {
+    for (const n of ["packages.json", "packages.csv", `stickers/${mintedCode}.png`, `photos/${mintedCode}.jpg`, `slip-photos/${mintedCode}.jpg`, "stickers/AB-778899.png", "moves.json", "returns.json", "returns.csv"]) {
       if (!names.includes(n)) throw new Error(`backup missing ${n}: ${names.join(", ")}`);
     }
     const pj = JSON.parse(await zip.file("packages.json").async("string"));
@@ -675,6 +695,7 @@ try {
     if (hist.length !== 2 || hist[1].to_location !== "Conex 2") throw new Error(`location history not restored: ${JSON.stringify(hist)}`);
     const r = rows.find((x) => x.code === mintedCode);
     if (!r || !r.photo_path || !r.thumb_path || !r.barcode_path) throw new Error("restore incomplete");
+    if (!r.slip_photo_path || !files.has(`package-photos/${r.slip_photo_path}`)) throw new Error("restore lost the slip photo");
     if (r.job_name !== "Maple St Remodel – Phase 2" || r.color_tag !== "Blue") throw new Error("restore fields wrong");
   });
 
@@ -695,7 +716,7 @@ try {
       await f.getByRole("button", { name: "Check out" }).waitFor();
       await f.getByRole("button", { name: "Move" }).waitFor();
       await f.getByRole("button", { name: "Print" }).waitFor();
-      for (const gone of ["Edit details", "Remove", "Retake photo"]) {
+      for (const gone of ["Edit details", "Remove", "Retake photo", "Replace slip photo", "Add slip photo"]) {
         if (await f.getByRole("button", { name: gone }).count()) throw new Error(`field sees ${gone}`);
       }
       await f.screenshot({ path: path.join(shots, "23-field-entry.png") });

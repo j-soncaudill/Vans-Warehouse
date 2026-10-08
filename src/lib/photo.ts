@@ -6,7 +6,12 @@ export const PHOTO_QUALITY = 0.72;
 export const THUMB_EDGE = 320;
 const THUMB_QUALITY = 0.7;
 
+/** Packing slips keep more pixels so the print stays readable. */
+export const SLIP_MAX_EDGE = 2000;
+const SLIP_QUALITY = 0.8;
+
 export type CapturedPhoto = { full: Blob; thumb: Blob };
+export type PhotoKind = "box" | "slip";
 
 type Source = { image: CanvasImageSource; width: number; height: number };
 
@@ -25,14 +30,15 @@ function canvas(width: number, height: number) {
   return { c, ctx };
 }
 
-/** Long edge scaled down to PHOTO_MAX_EDGE, JPEG. */
-async function fullFrom(src: Source): Promise<Blob> {
-  const scale = Math.min(1, PHOTO_MAX_EDGE / Math.max(src.width, src.height));
+/** Long edge scaled down to PHOTO_MAX_EDGE (SLIP_MAX_EDGE for slips), JPEG. */
+async function fullFrom(src: Source, kind: PhotoKind = "box"): Promise<Blob> {
+  const edge = kind === "slip" ? SLIP_MAX_EDGE : PHOTO_MAX_EDGE;
+  const scale = Math.min(1, edge / Math.max(src.width, src.height));
   const w = Math.max(1, Math.round(src.width * scale));
   const h = Math.max(1, Math.round(src.height * scale));
   const { c, ctx } = canvas(w, h);
   ctx.drawImage(src.image, 0, 0, w, h);
-  return toJpeg(c, PHOTO_QUALITY);
+  return toJpeg(c, kind === "slip" ? SLIP_QUALITY : PHOTO_QUALITY);
 }
 
 /** Square center crop. Every thumbnail in the app uses this one crop. */
@@ -45,10 +51,10 @@ async function thumbFrom(src: Source): Promise<Blob> {
   return toJpeg(c, THUMB_QUALITY);
 }
 
-export async function photoFromVideo(video: HTMLVideoElement): Promise<CapturedPhoto> {
+export async function photoFromVideo(video: HTMLVideoElement, kind: PhotoKind = "box"): Promise<CapturedPhoto> {
   const src = { image: video, width: video.videoWidth, height: video.videoHeight };
   if (!src.width || !src.height) throw new Error("Camera is not ready yet.");
-  return { full: await fullFrom(src), thumb: await thumbFrom(src) };
+  return { full: await fullFrom(src, kind), thumb: await thumbFrom(src) };
 }
 
 async function loadBitmap(file: Blob): Promise<Source & { close: () => void }> {
@@ -71,10 +77,10 @@ async function loadBitmap(file: Blob): Promise<Source & { close: () => void }> {
   }
 }
 
-export async function photoFromFile(file: Blob): Promise<CapturedPhoto> {
+export async function photoFromFile(file: Blob, kind: PhotoKind = "box"): Promise<CapturedPhoto> {
   const src = await loadBitmap(file);
   try {
-    return { full: await fullFrom(src), thumb: await thumbFrom(src) };
+    return { full: await fullFrom(src, kind), thumb: await thumbFrom(src) };
   } finally {
     src.close();
   }
@@ -90,10 +96,11 @@ export function photoUrl(path: string | null | undefined): string | null {
  * Each capture gets a fresh file name so phones never show a cached old photo
  * after a retake. Layout: <code>/<stamp>.jpg and <code>/<stamp>-t.jpg
  */
-export async function uploadPhoto(code: string, photo: CapturedPhoto): Promise<{ photoPath: string; thumbPath: string }> {
+export async function uploadPhoto(code: string, photo: CapturedPhoto, kind: PhotoKind = "box"): Promise<{ photoPath: string; thumbPath: string }> {
   const stamp = Date.now().toString(36);
-  const photoPath = `${code}/${stamp}.jpg`;
-  const thumbPath = `${code}/${stamp}-t.jpg`;
+  const dir = photoDir(code, kind);
+  const photoPath = `${dir}/${stamp}.jpg`;
+  const thumbPath = `${dir}/${stamp}-t.jpg`;
   const bucket = sb().storage.from(PHOTOS_BUCKET);
   const opts = { contentType: "image/jpeg", cacheControl: "31536000", upsert: true };
   const a = await bucket.upload(photoPath, photo.full, opts);
@@ -106,10 +113,16 @@ export async function uploadPhoto(code: string, photo: CapturedPhoto): Promise<{
   return { photoPath, thumbPath };
 }
 
-export async function removePhotoFiles(code: string, keep: string[] = []): Promise<void> {
+/** Box photos live in <code>/, packing slips in slips/<code>/, so replacing one never touches the other. */
+export function photoDir(code: string, kind: PhotoKind = "box"): string {
+  return kind === "slip" ? `slips/${code}` : code;
+}
+
+export async function removePhotoFiles(code: string, keep: string[] = [], kind: PhotoKind = "box"): Promise<void> {
   const bucket = sb().storage.from(PHOTOS_BUCKET);
-  const { data } = await bucket.list(code, { limit: 100 });
-  const paths = (data ?? []).map((f) => `${code}/${f.name}`).filter((p) => !keep.includes(p));
+  const dir = photoDir(code, kind);
+  const { data } = await bucket.list(dir, { limit: 100 });
+  const paths = (data ?? []).filter((f) => f.id !== null).map((f) => `${dir}/${f.name}`).filter((p) => !keep.includes(p));
   if (paths.length) await bucket.remove(paths);
 }
 
@@ -146,19 +159,22 @@ export function dataUrlToBlob(dataUrl: string): Blob | null {
   return new Blob([bytes], { type: m[1] });
 }
 
-export async function savePhotoDraft(photo: CapturedPhoto | null) {
+const draftKey = (kind: PhotoKind) => (kind === "slip" ? `${DRAFT_KEY}.slip` : DRAFT_KEY);
+
+export async function savePhotoDraft(photo: CapturedPhoto | null, kind: PhotoKind = "box") {
+  const DRAFT = draftKey(kind);
   try {
-    if (!photo) return sessionStorage.removeItem(DRAFT_KEY);
+    if (!photo) return sessionStorage.removeItem(DRAFT);
     const value = JSON.stringify({ full: await blobToDataUrl(photo.full), thumb: await blobToDataUrl(photo.thumb) });
-    sessionStorage.setItem(DRAFT_KEY, value);
+    sessionStorage.setItem(DRAFT, value);
   } catch {
     /* storage full or blocked: the photo still lives in memory */
   }
 }
 
-export function loadPhotoDraft(): CapturedPhoto | null {
+export function loadPhotoDraft(kind: PhotoKind = "box"): CapturedPhoto | null {
   try {
-    const raw = sessionStorage.getItem(DRAFT_KEY);
+    const raw = sessionStorage.getItem(draftKey(kind));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as { full?: string; thumb?: string };
     const full = parsed.full ? dataUrlToBlob(parsed.full) : null;

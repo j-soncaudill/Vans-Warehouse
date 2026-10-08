@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Camera, ScanLine, Trash2 } from "lucide-react";
+import { Camera, FileText, ScanLine, Trash2 } from "lucide-react";
 import { PackageForm } from "@/components/PackageForm";
 import { PhotoCamera } from "@/components/PhotoCamera";
 import { Scanner } from "@/components/Scanner";
@@ -12,7 +12,7 @@ import { CODE_PREFIX, normalizeCode } from "@/lib/codes";
 import { emptyForm, type FormValues } from "@/lib/form";
 import { notifyChanged } from "@/lib/live";
 import { receivePackage, type Pkg } from "@/lib/packages";
-import { loadPhotoDraft, savePhotoDraft, type CapturedPhoto } from "@/lib/photo";
+import { loadPhotoDraft, savePhotoDraft, type CapturedPhoto, type PhotoKind } from "@/lib/photo";
 
 const FORM_KEY = "vw.receive.form";
 
@@ -40,9 +40,8 @@ export function ReceivePage({ code: incoming }: { code?: string }) {
   const [mode, setMode] = useState<"new" | "existing">(incoming ? "existing" : "new");
   const [existing, setExisting] = useState(incoming ? normalizeCode(incoming) : "");
   const [photo, setPhoto] = useState<CapturedPhoto | null>(() => loadPhotoDraft());
-  const [preview, setPreview] = useState<string | null>(null);
+  const [slip, setSlip] = useState<CapturedPhoto | null>(() => loadPhotoDraft("slip"));
   const [scanner, setScanner] = useState(false);
-  const [camera, setCamera] = useState(false);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<{ pkg: Pkg; warnings: string[] } | null>(null);
   const jobRef = useRef<HTMLDivElement>(null);
@@ -55,13 +54,6 @@ export function ReceivePage({ code: incoming }: { code?: string }) {
   }, [incoming]);
 
   useEffect(() => saveForm(values), [values]);
-
-  useEffect(() => {
-    if (!photo) return setPreview(null);
-    const url = URL.createObjectURL(photo.thumb);
-    setPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [photo]);
 
   const patch = (p: Partial<FormValues>) => setValues((v) => ({ ...v, ...p }));
 
@@ -82,10 +74,11 @@ export function ReceivePage({ code: incoming }: { code?: string }) {
     }
     setBusy(true);
     try {
-      const result = await receivePackage(values, mode === "existing" ? existing : null, photo);
+      const result = await receivePackage(values, mode === "existing" ? existing : null, photo, slip);
       notifyChanged();
       saveForm(null);
       await savePhotoDraft(null);
+      await savePhotoDraft(null, "slip");
       setDone(result);
       window.scrollTo(0, 0);
       for (const w of result.warnings) toast(w, "error");
@@ -101,6 +94,7 @@ export function ReceivePage({ code: incoming }: { code?: string }) {
     // During a legacy sweep the next box is usually legacy too, from the same spot.
     setValues((v) => (v.legacy ? { ...emptyForm(), legacy: true, legacyMonth: v.legacyMonth, location: v.location } : emptyForm()));
     setPhoto(null);
+    setSlip(null);
     setMode("new");
     setExisting("");
     void navigate({ to: "/receive", search: {} });
@@ -205,32 +199,8 @@ export function ReceivePage({ code: incoming }: { code?: string }) {
           <PackageForm values={values} onChange={patch} withLocation />
         </div>
 
-        <section aria-label="Box photo" className="flex flex-col gap-2.5">
-          <span className="section-label">box photo</span>
-          {preview ? (
-            <div className="flex items-center gap-3">
-              <img src={preview} alt="Box photo" className="size-24 rounded-[8px] border border-line object-cover" />
-              <div className="flex flex-1 flex-col gap-2">
-                <Button onClick={() => setCamera(true)}>
-                  <Camera className="size-[18px]" /> Retake
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setPhoto(null);
-                    void savePhotoDraft(null);
-                  }}
-                >
-                  <Trash2 className="size-[18px]" /> Remove
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <Button onClick={() => setCamera(true)}>
-              <Camera className="size-[18px]" /> Open camera
-            </Button>
-          )}
-        </section>
+        <PhotoField kind="box" photo={photo} onChange={setPhoto} />
+        <PhotoField kind="slip" photo={slip} onChange={setSlip} />
 
         <Button big variant="primary" type="submit" disabled={busy || !values.location.trim()}>
           {busy ? "Saving…" : "Receive to floor"}
@@ -248,16 +218,55 @@ export function ReceivePage({ code: incoming }: { code?: string }) {
           }}
         />
       ) : null}
+    </>
+  );
+}
+
+/** Box photo or packing slip photo: take, retake, remove. Kept as a draft until saved. */
+function PhotoField({ kind, photo, onChange }: { kind: PhotoKind; photo: CapturedPhoto | null; onChange: (p: CapturedPhoto | null) => void }) {
+  const [camera, setCamera] = useState(false);
+  const [preview, setPreview] = useState<string | null>(null);
+  const slip = kind === "slip";
+  useEffect(() => {
+    if (!photo) return setPreview(null);
+    const url = URL.createObjectURL(photo.thumb);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [photo]);
+  const set = (p: CapturedPhoto | null) => {
+    onChange(p);
+    void savePhotoDraft(p, kind);
+  };
+  return (
+    <section aria-label={slip ? "Packing slip photo" : "Box photo"} className="flex flex-col gap-2.5">
+      <span className="section-label">{slip ? "packing slip photo" : "box photo"}</span>
+      {preview ? (
+        <div className="flex items-center gap-3">
+          <img src={preview} alt={slip ? "Packing slip photo" : "Box photo"} className="size-24 rounded-[8px] border border-line object-cover" />
+          <div className="flex flex-1 flex-col gap-2">
+            <Button onClick={() => setCamera(true)}>
+              <Camera className="size-[18px]" /> {slip ? "Retake slip" : "Retake"}
+            </Button>
+            <Button variant="ghost" onClick={() => set(null)}>
+              <Trash2 className="size-[18px]" /> {slip ? "Remove slip" : "Remove"}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button onClick={() => setCamera(true)}>
+          {slip ? <FileText className="size-[18px]" /> : <Camera className="size-[18px]" />} {slip ? "Photo of packing slip" : "Open camera"}
+        </Button>
+      )}
       {camera ? (
         <PhotoCamera
+          kind={kind}
           onClose={() => setCamera(false)}
           onUse={(p) => {
-            setPhoto(p);
-            void savePhotoDraft(p);
+            set(p);
             setCamera(false);
           }}
         />
       ) : null}
-    </>
+    </section>
   );
 }

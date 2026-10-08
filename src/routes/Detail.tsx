@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
-import { ArrowRight, Camera, MapPin, Pencil, Trash2, Undo2 } from "lucide-react";
+import { ArrowRight, Camera, FileText, MapPin, Pencil, Trash2, Undo2 } from "lucide-react";
 import { LocationPicker } from "@/components/LocationPicker";
 import { ColorChip, DamageChip, LegacyChip } from "@/components/Package";
 import { PackageForm } from "@/components/PackageForm";
@@ -11,7 +11,7 @@ import { normalizeCode } from "@/lib/codes";
 import { formFromPkg, type FormValues } from "@/lib/form";
 import { notifyChanged, useLiveQuery } from "@/lib/live";
 import { listMoves } from "@/lib/locations";
-import { checkOut, editPackage, getPackage, movePackage, removePackage, replacePhoto, returnToFloor, type Pkg } from "@/lib/packages";
+import { checkOut, editPackage, getPackage, movePackage, removePackage, replacePhoto, replaceSlipPhoto, returnToFloor, type Pkg } from "@/lib/packages";
 import { photoUrl, type CapturedPhoto } from "@/lib/photo";
 import { ago, receivedText, stamp } from "@/lib/time";
 import { useIsAdmin } from "@/lib/role";
@@ -73,6 +73,10 @@ function Entry({ pkg }: { pkg: Pkg }) {
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [camera, setCamera] = useState(false);
   const [viewer, setViewer] = useState(false);
+  const [slipCamera, setSlipCamera] = useState(false);
+  const [slipViewer, setSlipViewer] = useState(false);
+  const slipFull = photoUrl(pkg.slipPhotoPath);
+  const slipThumb = photoUrl(pkg.slipThumbPath);
   const [imgBroken, setImgBroken] = useState(false);
   const full = photoUrl(pkg.photoPath);
 
@@ -205,6 +209,35 @@ function Entry({ pkg }: { pkg: Pkg }) {
         {!onFloor ? <Row label="Taken by" value={`${pkg.checkedOutTo ?? ""} · ${stamp(pkg.checkedOutAt)}`} /> : null}
       </dl>
 
+      {slipFull || admin ? (
+        <section aria-label="Packing slip" className="flex flex-col gap-2">
+          <span className="section-label">packing slip</span>
+          <div className="flex items-center gap-3">
+            {slipFull ? (
+              <button
+                type="button"
+                onClick={() => setSlipViewer(true)}
+                aria-label="Open packing slip photo"
+                className="vw-press size-24 shrink-0 overflow-hidden rounded-[8px] border border-line bg-black"
+              >
+                <img src={slipThumb ?? slipFull} alt="Packing slip" className="size-full object-cover" />
+              </button>
+            ) : (
+              <span className="flex size-24 shrink-0 items-center justify-center rounded-[8px] border border-dashed border-line text-center text-[11px] text-faint">
+                no slip photo
+              </span>
+            )}
+            {admin ? (
+              <Button className="flex-1" onClick={() => setSlipCamera(true)} disabled={busy}>
+                <FileText className="size-[18px]" /> {slipFull ? "Replace slip photo" : "Add slip photo"}
+              </Button>
+            ) : (
+              <span className="text-[13px] text-dim">Tap to read it full size.</span>
+            )}
+          </div>
+        </section>
+      ) : null}
+
       {moves.data && moves.data.length ? (
         <section aria-label="Location history" className="flex flex-col gap-2">
           <span className="section-label">location history</span>
@@ -313,6 +346,19 @@ function Entry({ pkg }: { pkg: Pkg }) {
         />
       ) : null}
       {viewer && full ? <PhotoViewer src={full} alt={pkg.jobName} onClose={() => setViewer(false)} /> : null}
+      {slipCamera && admin ? (
+        <PhotoCamera
+          kind="slip"
+          saving={busy}
+          onClose={() => setSlipCamera(false)}
+          onUse={(p: CapturedPhoto) =>
+            act(() => replaceSlipPhoto(pkg.code, p), "Slip photo saved.").then((ok) => {
+              if (ok) setSlipCamera(false);
+            })
+          }
+        />
+      ) : null}
+      {slipViewer && slipFull ? <PhotoViewer src={slipFull} alt={`Packing slip for ${pkg.jobName}`} onClose={() => setSlipViewer(false)} /> : null}
     </article>
   );
 }

@@ -14,6 +14,7 @@ import { BARCODES_BUCKET, PHOTOS_BUCKET, sb } from "@/lib/supabase";
  *   packages.csv    same records for a spreadsheet
  *   stickers/<code>.png
  *   photos/<code>.jpg   full compressed photo
+ *   slip-photos/<code>.jpg  packing slip photo
  *   moves.json      location history, oldest first
  *   returns.json    every return (and returns.csv)
  *   return-photos/<code>.jpg
@@ -40,11 +41,13 @@ export const CSV_COLUMNS = [
   "legacy",
   "stickerFile",
   "photoFile",
+  "slipPhotoFile",
 ] as const;
 
-export type BackupRecord = Omit<Pkg, "id" | "barcodePath" | "photoPath" | "thumbPath" | "updatedAt"> & {
+export type BackupRecord = Omit<Pkg, "id" | "barcodePath" | "photoPath" | "thumbPath" | "updatedAt" | "slipPhotoPath" | "slipThumbPath"> & {
   stickerFile: string | null;
   photoFile: string | null;
+  slipPhotoFile: string | null;
 };
 
 export function csvCell(value: unknown): string {
@@ -85,10 +88,13 @@ export async function buildBackup(onProgress?: (done: number, total: number) => 
     let sticker = await download(BARCODES_BUCKET, p.barcodePath);
     if (!sticker) sticker = await renderSticker(p).catch(() => null);
     const photo = await download(PHOTOS_BUCKET, p.photoPath);
+    const slip = await download(PHOTOS_BUCKET, p.slipPhotoPath);
     const stickerFile = sticker ? `stickers/${p.code}.png` : null;
     const photoFile = photo ? `photos/${p.code}.jpg` : null;
+    const slipPhotoFile = slip ? `slip-photos/${p.code}.jpg` : null;
     if (sticker && stickerFile) zip.file(stickerFile, sticker);
     if (photo && photoFile) zip.file(photoFile, photo);
+    if (slip && slipPhotoFile) zip.file(slipPhotoFile, slip);
     records.push({
       code: p.code,
       jobName: p.jobName,
@@ -111,6 +117,7 @@ export async function buildBackup(onProgress?: (done: number, total: number) => 
       legacy: p.legacy,
       stickerFile,
       photoFile,
+      slipPhotoFile,
     });
     onProgress?.((i += 1), packages.length);
   }
@@ -217,6 +224,7 @@ export async function restoreBackup(file: File, onProgress?: (done: number, tota
   const stickers = fileByCode(zip, "stickers", /\.png$/i);
   for (const [k, v] of fileByCode(zip, "barcodes", /\.png$/i)) if (!stickers.has(k)) stickers.set(k, v);
   const photos = fileByCode(zip, "photos", /\.jpe?g$/i);
+  const slipPhotos = fileByCode(zip, "slip-photos", /\.jpe?g$/i);
 
   let restored = 0;
   const restoredCodes = new Set<string>();
@@ -267,6 +275,18 @@ export async function restoreBackup(file: File, onProgress?: (done: number, tota
         files += 1;
       } catch {
         /* row is restored; photo can be retaken */
+      }
+    }
+    const slipEntry = slipPhotos.get(code);
+    if (slipEntry) {
+      try {
+        const captured = await photoFromFile(new Blob([await slipEntry.async("blob")], { type: "image/jpeg" }), "slip");
+        const paths = await uploadPhoto(code, captured, "slip");
+        patch.slip_photo_path = paths.photoPath;
+        patch.slip_thumb_path = paths.thumbPath;
+        files += 1;
+      } catch {
+        /* row is restored; slip photo can be retaken */
       }
     }
     if (Object.keys(patch).length) await sb().from("packages").update(patch).eq("code", code);

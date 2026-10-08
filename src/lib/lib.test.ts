@@ -53,7 +53,7 @@ describe("backup", () => {
         packingSlip: null, quantities: "1\n2", damaged: null, colorTag: null, notes: null, status: "on_floor",
         receivedAt: "2026-01-01T00:00:00Z", checkedOutTo: null, checkedOutAt: null,
       lastLocation: null,
-      locationAt: null, legacy: false, stickerFile: null, photoFile: null,
+      locationAt: null, legacy: false, stickerFile: null, photoFile: null, slipPhotoFile: null,
       },
     ]);
     expect(csv).toContain('"A, ""B"""');

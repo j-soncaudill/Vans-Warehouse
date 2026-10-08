@@ -73,7 +73,7 @@ function makeRow(item: Record<string, unknown>): Row {
     packing_slip_received: null, quantities: null, damaged: null, color_tag: null, notes: null,
     status: "on_floor", received_at: now, checked_out_to: null, checked_out_at: null,
     barcode_path: null, photo_path: null, thumb_path: null, last_location: null, location_at: null,
-    legacy: false, created_at: now, updated_at: now,
+    legacy: false, slip_photo_path: null, slip_thumb_path: null, created_at: now, updated_at: now,
     ...item,
   } as unknown as Row;
 }
@@ -216,6 +216,34 @@ function boxPhoto(label: string, tone: string): Promise<{ full: Blob; thumb: Blo
   return Promise.all([enc(c, 0.72), enc(t, 0.7)]).then(([full, thumb]) => ({ full, thumb }));
 }
 
+/** A paper packing slip on a clipboard, for the demo's slip photo. */
+function slipPhoto(po: string, vendor: string): Promise<{ full: Blob; thumb: Blob }> {
+  const c = document.createElement("canvas");
+  c.width = 1200;
+  c.height = 1600;
+  const g = c.getContext("2d")!;
+  g.fillStyle = "#5b4a36";
+  g.fillRect(0, 0, 1200, 1600);
+  g.fillStyle = "#f6f4ee";
+  g.fillRect(120, 140, 960, 1340);
+  g.fillStyle = "#111";
+  g.font = "bold 64px sans-serif";
+  g.fillText("PACKING SLIP", 180, 270);
+  g.font = "36px sans-serif";
+  g.fillText(vendor, 180, 350);
+  g.fillText(`PO ${po}`, 180, 410);
+  g.font = "30px monospace";
+  const lines = ["QTY  ITEM", " 14  1/2in copper tee", "  6  3/4in ball valve", "  2  cartons fittings"];
+  lines.forEach((l, i) => g.fillText(l, 180, 540 + i * 60));
+  g.fillRect(180, 470, 840, 3);
+  const t = document.createElement("canvas");
+  t.width = t.height = 320;
+  t.getContext("2d")!.drawImage(c, 0, 200, 1200, 1200, 0, 0, 320, 320);
+  const enc = (cv: HTMLCanvasElement, q: number) =>
+    new Promise<Blob>((r) => cv.toBlob((b) => r(b ?? new Blob()), "image/jpeg", q));
+  return Promise.all([enc(c, 0.8), enc(t, 0.7)]).then(([full, thumb]) => ({ full, thumb }));
+}
+
 let seeded = false;
 
 export async function seedDemo() {
@@ -254,6 +282,13 @@ export async function seedDemo() {
       row.thumb_path = `${row.code}/ex-t.jpg`;
       files.set(`package-photos/${row.photo_path}`, p.full);
       files.set(`package-photos/${row.thumb_path}`, p.thumb);
+    }
+    if (row.code === "VW-EX4M7P") {
+      const sp = await slipPhoto("40211", "Ferguson");
+      row.slip_photo_path = `slips/${row.code}/ex.jpg`;
+      row.slip_thumb_path = `slips/${row.code}/ex-t.jpg`;
+      files.set(`package-photos/${row.slip_photo_path}`, sp.full);
+      files.set(`package-photos/${row.slip_thumb_path}`, sp.thumb);
     }
     rows.push(row);
   }
