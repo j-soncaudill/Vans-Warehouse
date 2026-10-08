@@ -268,7 +268,12 @@ export function useOnline() {
 }
 
 export function errorText(err: unknown, fallback: string) {
-  return err instanceof Error && err.message ? err.message : fallback;
+  // Things that can't be saved for later (edits, removal, returns, backups) need signal.
+  const msg = err instanceof Error ? err.message : "";
+  if (/failed to fetch|load failed|networkerror|network request failed/i.test(msg) || (!msg && typeof navigator !== "undefined" && !navigator.onLine)) {
+    return "No signal. This needs a connection; try again when you're back online.";
+  }
+  return msg || fallback;
 }
 
 /** The one back button used across the app: big, bordered, easy to spot. */

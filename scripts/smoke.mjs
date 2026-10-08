@@ -36,6 +36,12 @@ function filterRows(url, list = rows) {
   let out = list;
   for (const [k, v] of url.searchParams) {
     if (["select", "order", "limit", "on_conflict", "columns"].includes(k)) continue;
+    if (k === "or") {
+      // Only the form the app uses: (col.is.null,col.lt."value")
+      const m = /^\((\w+)\.is\.null,(\w+)\.lt\."?([^"]+)"?\)$/.exec(v);
+      if (m) out = out.filter((r) => r[m[1]] == null || String(r[m[2]]) < m[3]);
+      continue;
+    }
     const m = /^eq\.(.*)$/.exec(v);
     if (m) out = out.filter((r) => String(r[k]) === decodeURIComponent(m[1]));
   }
@@ -800,6 +806,68 @@ try {
     if (!r || !r.photo_path || !r.thumb_path || !r.barcode_path) throw new Error("restore incomplete");
     if (!r.slip_photo_path || !files.has(`package-photos/${r.slip_photo_path}`)) throw new Error("restore lost the slip photo");
     if (r.job_name !== "Maple St Remodel – Phase 2" || r.color_tag !== "Blue") throw new Error("restore fields wrong");
+  });
+
+  await step("Offline: opens with no signal; receive, move, check out sync later; another phone wins", async () => {
+    // A box another phone will also grab while we're offline.
+    const shelf = newRow("packages", { code: "VW-SHELF1", job_name: "Shelf Box", last_location: "Warehouse", location_at: new Date().toISOString() });
+    rows.push(shelf);
+    await page.goto(`http://localhost:${PORT}/`);
+    await expect(page.getByText("Shelf Box"), "list loaded while online");
+    await page.goto(`http://localhost:${PORT}/p/${mintedCode}`);
+    await expect(page.getByRole("button", { name: "Check out" }), "box page loaded online");
+
+    await ctx.setOffline(true);
+    await page.reload();
+    await expect(page.getByText(/^offline/), "offline bar");
+    await expect(page.getByRole("button", { name: "Check out" }), "box page opens offline");
+
+    // Move offline.
+    const moveAt = new Date().toISOString();
+    await page.getByRole("button", { name: "Move", exact: true }).click();
+    await page.locator("#move-to").getByRole("radio", { name: "Conex 1" }).click();
+    await page.fill("#moved-by", "Dana");
+    await page.getByRole("dialog").getByRole("button", { name: /save location/i }).click();
+    await expect(page.getByText("1 change waiting to sync"), "move queued");
+
+    // Check out offline.
+    await page.getByRole("link", { name: "floor", exact: true }).click();
+    await page.getByRole("link", { name: /Shelf Box/ }).click();
+    await page.getByRole("button", { name: "Check out" }).click();
+    await page.fill("#taken-by", "Off Truck");
+    await page.getByRole("dialog").getByRole("button", { name: "Check out" }).click();
+    await expect(page.getByText("2 changes waiting to sync"), "check out queued");
+
+    // Receive offline.
+    await page.getByRole("link", { name: "receive", exact: true }).click();
+    await page.fill("#f-job", "Offline Box");
+    await page.locator("#f-location").getByRole("radio", { name: "Conex 4" }).click();
+    await page.getByRole("button", { name: "Receive to floor" }).click();
+    await expect(page.getByText("put this sticker on the box"), "offline receive done");
+    await expect(page.getByText(/No signal: saved on this phone/), "queued toast");
+    await expect(page.getByText("3 changes waiting to sync"), "receive queued");
+    await shot("23a-offline-queued");
+    if (rows.some((r) => r.job_name === "Offline Box")) throw new Error("offline receive reached the server while offline");
+
+    // Meanwhile another phone checks Shelf Box out, and moves our box after our move.
+    Object.assign(shelf, { status: "checked_out", checked_out_to: "Truck 9", checked_out_at: new Date().toISOString() });
+    const minted = rows.find((r) => r.code === mintedCode);
+    Object.assign(minted, { last_location: "Metal shop", location_at: new Date(Date.now() + 60_000).toISOString() });
+
+    await ctx.setOffline(false);
+    await page.getByText(/waiting to sync|syncing/).first().waitFor({ state: "detached", timeout: 15000 });
+    await expect(page.getByText("1 change couldn't sync · tap to see"), "conflict reported");
+    const off = rows.find((r) => r.job_name === "Offline Box");
+    if (!off || off.last_location !== "Conex 4" || !off.barcode_path) throw new Error(`offline receive did not sync: ${JSON.stringify(off)}`);
+    if (shelf.checked_out_to !== "Truck 9") throw new Error("offline check out overwrote another phone");
+    const hist = moves.filter((m) => m.package_code === mintedCode && m.to_location === "Conex 1");
+    if (!hist.length || hist[0].moved_at < moveAt.slice(0, 16)) throw new Error("offline move missing from history, or wrong time");
+    if (minted.last_location !== "Metal shop") throw new Error("an older offline move replaced a newer place");
+    await page.getByRole("button", { name: /couldn't sync/ }).click();
+    await expect(page.getByText(/already checked out to Truck 9/), "conflict detail");
+    await shot("23b-offline-conflict");
+    await page.getByRole("button", { name: "Clear all" }).click();
+    if (await page.getByText(/waiting to sync|couldn't sync/).count()) throw new Error("sync bar still showing");
   });
 
   await step("Field phone: no PIN, check out only, no edits, no backup page", async () => {

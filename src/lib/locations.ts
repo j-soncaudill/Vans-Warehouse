@@ -1,3 +1,5 @@
+import * as offline from "@/lib/offline";
+import type { MoveOp } from "@/lib/offline";
 import { sb } from "@/lib/supabase";
 
 /** One-tap places. Anything else is typed in under "Other". */
@@ -23,13 +25,28 @@ export function moveRow(code: string, from: string | null, to: string, by: strin
 }
 
 export async function listMoves(code: string): Promise<Move[]> {
+  await offline.loaded;
+  // Offline: the history as last seen, plus moves made on this phone since.
+  const local = () => {
+    const pending = offline
+      .pendingFor(code)
+      .filter((o): o is MoveOp => o.kind === "move")
+      .map((o, i) => ({ id: -1 - i, from: o.from, to: o.to, by: o.by, at: o.at }));
+    return [...pending, ...(offline.cachedMoves(code) ?? [])].sort((a, b) => b.at.localeCompare(a.at));
+  };
+  if (offline.isOffline()) return local();
   const { data, error } = await sb()
     .from("package_moves")
     .select("id, package_code, from_location, to_location, moved_by, moved_at")
     .eq("package_code", code)
     .order("moved_at", { ascending: false });
-  if (error) throw new Error(error.message || "Could not load the location history.");
-  return ((data ?? []) as MoveRow[]).map((r) => ({ id: Number(r.id), from: r.from_location, to: r.to_location, by: r.moved_by, at: r.moved_at }));
+  if (error) {
+    if (offline.isNetworkError(error)) return local();
+    throw new Error(error.message || "Could not load the location history.");
+  }
+  const list = ((data ?? []) as MoveRow[]).map((r) => ({ id: Number(r.id), from: r.from_location, to: r.to_location, by: r.moved_by, at: r.moved_at }));
+  offline.rememberMoves(code, list);
+  return list;
 }
 
 export async function listAllMoves(): Promise<Array<Move & { code: string }>> {

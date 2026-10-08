@@ -4,6 +4,7 @@ import { Brand } from "@/components/Shell";
 import { BackButton, Button, cx } from "@/components/ui";
 import { chooseField, currentRole, lock, unlock, type Role } from "@/lib/pin";
 import { RoleContext } from "@/lib/role";
+import { rememberSchemaReady, schemaWasReady } from "@/lib/offline";
 import { disableAlerts, dropAlertsIfNotAdmin, pruneOldPinAlerts, resetAlertsDefault } from "@/lib/alerts";
 import { DEMO_UI, probeSchema, type SchemaState } from "@/lib/supabase";
 import schemaSql from "../../supabase/schema.sql?raw";
@@ -74,7 +75,12 @@ export function Gate({ children }: { children: ReactNode }) {
 
   const check = () => {
     setSchema("checking");
-    void probeSchema().then(setSchema);
+    void probeSchema().then((s) => {
+      // No signal, but this phone has opened Floorcast before: go straight in (offline mode).
+      if (s === "offline" && schemaWasReady()) return setSchema("ready");
+      if (s === "ready") rememberSchemaReady();
+      setSchema(s);
+    });
   };
   useEffect(check, []);
   useEffect(() => {

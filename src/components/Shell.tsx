@@ -4,6 +4,7 @@ import { ArrowRight, ChartColumn, DatabaseBackup, HardHat, LayoutGrid, Plus, Sca
 import { Confirm, cx, errorText, toast, useOnline } from "@/components/ui";
 import { useRole } from "@/lib/role";
 import { AlertsPrompt } from "@/components/Alerts";
+import { OfflineBar } from "@/components/OfflineBar";
 import logo from "@/assets/vans-logo.png";
 import { useWedgeScanner } from "@/lib/hid";
 import { useChangeVersion, useRealtime, type LiveStatus } from "@/lib/live";
@@ -128,6 +129,7 @@ export function Shell({ children }: { children: ReactNode }) {
           </button>
         )}
       </header>
+      <OfflineBar />
       {freshAdmin && doneFreshAdmin ? <AlertsPrompt onDone={doneFreshAdmin} /> : null}
       {askSwitch ? (
         <Confirm

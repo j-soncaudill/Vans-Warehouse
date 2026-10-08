@@ -82,6 +82,7 @@ export function ReceivePage({ code: incoming }: { code?: string }) {
       setDone(result);
       window.scrollTo(0, 0);
       for (const w of result.warnings) toast(w, "error");
+      if (result.queued) toast("No signal: saved on this phone. It syncs by itself when you're back online.");
     } catch (err) {
       toast(errorText(err, "Receive failed."), "error");
     } finally {
