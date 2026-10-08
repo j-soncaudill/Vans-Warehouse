@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Archive, Download, Lock, ShieldCheck, Upload } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useRole } from "@/lib/role";
+import { AlertsSection } from "@/components/Alerts";
 import { CopySql } from "@/components/Gate";
 import { UPGRADES, neededUpgrades, upgradeSql } from "@/lib/upgrades";
 import { PageTitle } from "@/components/Shell";
@@ -176,6 +177,10 @@ function AdminMore({ onSwitch }: { onSwitch: () => void }) {
 
       <Section title="Returns station">
         <StationPoster />
+      </Section>
+
+      <Section title="Alerts">
+        <AlertsSection />
       </Section>
 
       <Section title="This phone">

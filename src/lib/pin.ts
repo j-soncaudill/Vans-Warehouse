@@ -42,6 +42,15 @@ export async function isUnlocked(): Promise<boolean> {
   return (await acceptedHashes()).includes(stored);
 }
 
+/** The PIN hash this phone unlocked with (alerts remember it, so a PIN change drops them). */
+export function storedPinHash(): string | null {
+  try {
+    return localStorage.getItem(KEY);
+  } catch {
+    return null;
+  }
+}
+
 /** Admin while the stored PIN hash is still valid; field if chosen; otherwise ask. */
 export async function currentRole(): Promise<Role | null> {
   if (await isUnlocked()) return "admin";

@@ -1,7 +1,13 @@
 import { createContext, useContext } from "react";
 import type { Role } from "@/lib/pin";
 
-export type RoleState = { role: Role; switchRole: () => void };
+export type RoleState = {
+  role: Role;
+  switchRole: () => void;
+  /** True right after an admin typed the PIN: the app offers to turn alerts on. */
+  freshAdmin?: boolean;
+  doneFreshAdmin?: () => void;
+};
 
 export const RoleContext = createContext<RoleState>({ role: "field", switchRole: () => undefined });
 

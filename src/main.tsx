@@ -67,6 +67,11 @@ for (const type of ["pointerup", "pointercancel", "dragstart"]) document.addEven
 window.addEventListener("scroll", release, { passive: true, capture: true });
 window.addEventListener("blur", release);
 
+// The service worker delivers admin alerts (and, later, keeps the app working offline).
+if (!IS_DEMO && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => void navigator.serviceWorker.register("/sw.js").catch(() => undefined));
+}
+
 const rootRoute = createRootRoute({
   component: () => (
     <>

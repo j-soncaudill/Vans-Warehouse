@@ -1,9 +1,10 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { HardHat, Lock, ShieldCheck } from "lucide-react";
 import { Brand } from "@/components/Shell";
 import { BackButton, Button, cx } from "@/components/ui";
 import { chooseField, currentRole, lock, unlock, type Role } from "@/lib/pin";
 import { RoleContext } from "@/lib/role";
+import { disableAlerts, dropAlertsIfNotAdmin, pruneOldPinAlerts, resetAlertsDefault } from "@/lib/alerts";
 import { DEMO_UI, probeSchema, type SchemaState } from "@/lib/supabase";
 import schemaSql from "../../supabase/schema.sql?raw";
 import { neededUpgrades, upgradeSql } from "@/lib/upgrades";
@@ -64,6 +65,8 @@ export function Gate({ children }: { children: ReactNode }) {
   const [schema, setSchema] = useState<SchemaState | "checking">("checking");
   const [role, setRole] = useState<Role | null | undefined>(undefined);
   const [askPin, setAskPin] = useState(false);
+  const [freshAdmin, setFreshAdmin] = useState(false);
+  const doneFreshAdmin = useCallback(() => setFreshAdmin(false), []);
   const [pin, setPin] = useState("");
   const [shake, setShake] = useState(false);
   const [msg, setMsg] = useState("");
@@ -75,7 +78,12 @@ export function Gate({ children }: { children: ReactNode }) {
   };
   useEffect(check, []);
   useEffect(() => {
-    if (schema === "ready") void currentRole().then(setRole);
+    if (schema === "ready")
+      void currentRole().then((r) => {
+        setRole(r);
+        // Field phones, and admin phones whose PIN stopped working, never keep alerts.
+        void dropAlertsIfNotAdmin(r === "admin");
+      });
   }, [schema]);
 
   if (schema === "checking" || (schema === "ready" && role === undefined)) {
@@ -149,13 +157,14 @@ export function Gate({ children }: { children: ReactNode }) {
 
   if (role) {
     const switchRole = () => {
+      void disableAlerts(false);
       lock();
       setPin("");
       setMsg("");
       setAskPin(false);
       setRole(null);
     };
-    return <RoleContext.Provider value={{ role, switchRole }}>{children}</RoleContext.Provider>;
+    return <RoleContext.Provider value={{ role, switchRole, freshAdmin: role === "admin" && freshAdmin, doneFreshAdmin }}>{children}</RoleContext.Provider>;
   }
 
   if (!askPin) {
@@ -171,6 +180,7 @@ export function Gate({ children }: { children: ReactNode }) {
             body="Receive, scan, check out. No PIN."
             onClick={() => {
               chooseField();
+              void dropAlertsIfNotAdmin(false);
               setRole("field");
             }}
           />
@@ -191,7 +201,13 @@ export function Gate({ children }: { children: ReactNode }) {
     setMsg("");
     const r = await unlock(pin).catch(() => "wrong" as const);
     setBusy(false);
-    if (r === "ok") setRole("admin");
+    if (r === "ok") {
+      // Alerts default back to on with every admin unlock; phones on an older PIN are dropped.
+      resetAlertsDefault();
+      void pruneOldPinAlerts();
+      setFreshAdmin(true);
+      setRole("admin");
+    }
     else if (r === "unset") setMsg("No shop PIN is set for this build. Set VITE_SHOP_PIN and rebuild.");
     else {
       setMsg("Wrong PIN.");

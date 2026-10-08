@@ -75,6 +75,12 @@ floor before Floorcast (existing boxes start as not legacy). It is safe to run
 twice and prints `1` when it worked. The app's update screen shows only the
 updates a database is still missing.
 
+Then [`supabase/migrations/004_slips_alerts.sql`](supabase/migrations/004_slips_alerts.sql):
+packing slip photo columns, the `push_subscriptions` and `alert_state` tables
+(no anon access), the `alerts_subscribe` / `alerts_unsubscribe` /
+`alerts_prune` functions phones call, and the `alert_box_days` (30) and
+`alert_return_days` (14) settings. Safe to run twice; prints `2, 2, 3`.
+
 **Fresh install** (wipes everything): [`supabase/schema.sql`](supabase/schema.sql),
 which already includes the update.
 
@@ -123,6 +129,38 @@ package-photos/<code>/<stamp>.jpg         full photo
 package-photos/<code>/<stamp>-t.jpg       thumbnail
 package-photos/returns/<code>/<stamp>.jpg return photo (+ -t.jpg thumbnail)
 ```
+
+## Admin alerts (daily push, free)
+
+Administrator phones can get one summary at 7 AM Eastern: boxes sitting 30+
+days in Warehouse or Metal shop (a Conex never counts) and returns open 14+
+days. It is standard Web Push from a small Supabase Edge Function on the free
+plan, run by Supabase Cron. No paid push service, no extra keys to copy: the
+function uses the database key Supabase gives it, and makes its own signing
+keys on first run. Change the day counts in the `settings` table.
+
+One-time setup:
+
+1. Run update 004 (above) if you haven't.
+2. Supabase → **Edge Functions** → **Deploy a new function** → **Via Editor**.
+   Name it `daily-alerts`, replace the sample code with all of
+   [`supabase/functions/daily-alerts/index.ts`](supabase/functions/daily-alerts/index.ts),
+   and **Deploy function**.
+3. Open the function's **Details / Settings** and turn **off** "Enforce JWT
+   verification" (the scheduler calls it without a login). This is safe: it
+   sends the summary at most once a day, only at 7 AM New York time, and a test
+   alert only to a phone that is already signed up.
+4. Supabase → **Integrations** → **Cron** → enable it if asked → **Jobs** →
+   **Create job**: name `daily-alerts`, schedule `0 11,12 * * *` (11:00 and
+   12:00 UTC; the function picks the one that is 7 AM in New York), type
+   **Supabase Edge Function**, function `daily-alerts`, method POST, body `{}`.
+5. On an Administrator phone: Backup & setup → Alerts → **Finish alerts setup**
+   (only shown the first time), then turn **Alerts** on and tap **Send a test
+   alert**. On iPhone, open Floorcast from its Home Screen icon first.
+
+Every admin unlock offers alerts again (they default back to on). Switching a
+phone to Field or Switch role removes it; changing the shop PIN removes every
+phone registered under the old PIN the next time an admin unlocks.
 
 ## Run it locally
 

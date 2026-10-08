@@ -3,6 +3,7 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { ArrowRight, ChartColumn, DatabaseBackup, HardHat, LayoutGrid, Plus, ScanLine, Undo2 } from "lucide-react";
 import { Confirm, cx, errorText, toast, useOnline } from "@/components/ui";
 import { useRole } from "@/lib/role";
+import { AlertsPrompt } from "@/components/Alerts";
 import logo from "@/assets/vans-logo.png";
 import { useWedgeScanner } from "@/lib/hid";
 import { useChangeVersion, useRealtime, type LiveStatus } from "@/lib/live";
@@ -61,7 +62,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const path = useRouterState({ select: (s) => s.location.pathname });
   const active = TABS.findIndex((t) => tabOn(t, path));
-  const { role, switchRole } = useRole();
+  const { role, switchRole, freshAdmin, doneFreshAdmin } = useRole();
   const [askSwitch, setAskSwitch] = useState(false);
 
   const onWedge = useCallback(
@@ -127,6 +128,7 @@ export function Shell({ children }: { children: ReactNode }) {
           </button>
         )}
       </header>
+      {freshAdmin && doneFreshAdmin ? <AlertsPrompt onDone={doneFreshAdmin} /> : null}
       {askSwitch ? (
         <Confirm
           title="Switch role?"

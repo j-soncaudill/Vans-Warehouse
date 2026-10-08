@@ -26,6 +26,9 @@ const TABLES = { packages: rows, package_moves: moves, returns: returnsRows };
 const BY_CODE = new Set(["packages", "returns"]);
 const STATION_TOKEN = "smoke-station-token";
 const files = new Map(); // "bucket/path" -> { body, type }
+// Admin alert calls the phones make (database functions and the daily-alerts job).
+const alertCalls = [];
+const ALERTS_PUBLIC_KEY = "BP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A8";
 // Starts as a database without update 003, so the app has to ask for it.
 let legacyColumn = false;
 
@@ -67,8 +70,12 @@ async function rest(route, req, url) {
     }
     return route.fulfill({ status, contentType: "application/json", body: JSON.stringify(data) });
   };
+  if (url.pathname.includes("/rpc/")) {
+    alertCalls.push({ fn: table, args: JSON.parse(req.postData() ?? "{}") });
+    return route.fulfill({ status: 204, body: "" });
+  }
   if (table === "settings") {
-    const all = [{ key: "return_station_token", value: STATION_TOKEN }];
+    const all = [{ key: "return_station_token", value: STATION_TOKEN }, { key: "alerts_public_key", value: ALERTS_PUBLIC_KEY }];
     return reply(filterRows(url, all));
   }
   const list = TABLES[table];
@@ -195,6 +202,32 @@ const browser = await chromium.launch({
   args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream", ...(liveQr ? [`--use-file-for-fake-video-capture=${fakeVideo}`] : [])],
 });
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, permissions: ["camera"], acceptDownloads: true });
+// Headless Chromium has no push service; stand one in so the app can subscribe.
+const fakePush = ({ permission = "default", ua } = {}) => {
+  const perm = { value: permission };
+  const key = "__fakePushSub";
+  const make = (endpoint) => ({
+    endpoint,
+    toJSON: () => ({ endpoint, keys: { p256dh: "BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4", auth: "BTBZMqHH6r4Tts7J_aSIgg" } }),
+    unsubscribe: async () => (localStorage.removeItem(key), true),
+  });
+  Object.defineProperty(Notification, "permission", { get: () => perm.value });
+  Notification.requestPermission = async () => (perm.value = perm.value === "default" ? "granted" : perm.value);
+  PushManager.prototype.subscribe = async function () {
+    localStorage.setItem(key, "https://push.example/phone-1");
+    return make("https://push.example/phone-1");
+  };
+  PushManager.prototype.getSubscription = async function () {
+    const ep = localStorage.getItem(key);
+    return ep ? make(ep) : null;
+  };
+  if (ua) Object.defineProperty(navigator, "userAgent", { get: () => ua });
+};
+await ctx.addInitScript(fakePush);
+await ctx.route(/\/functions\/v1\/daily-alerts/, (route, req) => {
+  alertCalls.push({ fn: "daily-alerts", args: JSON.parse(req.postData() ?? "{}") });
+  return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, sent: 1 }) });
+});
 const page = await ctx.newPage();
 const errors = [];
 page.on("pageerror", (e) => errors.push(String(e)));
@@ -266,6 +299,14 @@ try {
     await expect(page.getByText("Wrong PIN."), "wrong pin");
     await page.fill("#pin", PIN);
     await page.getByRole("button", { name: "Unlock" }).click();
+    // Right after an admin unlock: offer the daily alerts.
+    await expect(page.getByText("Get a morning alert when things are waiting?"), "alerts prompt");
+    await shot("01b-alerts-prompt");
+    await page.getByRole("button", { name: "Allow alerts" }).click();
+    await expect(page.getByText("Alerts are on for this phone."), "alerts on");
+    const sub = alertCalls.find((c) => c.fn === "alerts_subscribe");
+    if (!sub || sub.args.p_endpoint !== "https://push.example/phone-1" || !/^[0-9a-f]{64}$/.test(sub.args.p_pin_hash)) throw new Error(`subscribe call wrong: ${JSON.stringify(sub)}`);
+    if (!alertCalls.some((c) => c.fn === "alerts_prune" && c.args.p_pin_hash === sub.args.p_pin_hash)) throw new Error("old-PIN phones were not pruned");
     await expect(page.getByText("Floor is empty"), "empty floor");
     await expect(page.getByText("live", { exact: true }), "realtime live");
     await shot("02-floor-empty");
@@ -773,6 +814,7 @@ try {
       await f.getByRole("button", { name: /Field/ }).click();
       await f.getByRole("link", { name: "floor", exact: true }).waitFor();
       if (await f.locator("#pin").count()) throw new Error("field asked for a PIN");
+      if (await f.getByText("Get a morning alert when things are waiting?").count()) throw new Error("field phone was offered alerts");
       if (await f.getByRole("link", { name: "Backup and restore" }).count()) throw new Error("field sees backup link");
       if (await f.getByRole("link", { name: "Reports" }).count()) throw new Error("field sees reports link");
       await f.goto(`http://localhost:${PORT}/p/${mintedCode}`);
@@ -809,10 +851,55 @@ try {
     }
   });
 
-  await step("Switch role returns to the chooser", async () => {
+  await step("Alerts switch in Backup & setup: test alert, off, on", async () => {
     await page.getByRole("link", { name: "Backup and restore" }).click();
+    const sw = page.getByRole("switch", { name: "Alerts" });
+    await expect(sw, "alerts switch");
+    if ((await sw.getAttribute("aria-checked")) !== "true") throw new Error("alerts not on after the unlock prompt");
+    await page.getByRole("button", { name: "Send a test alert" }).click();
+    await expect(page.getByText(/Test alert sent/), "test sent");
+    const t = alertCalls.find((c) => c.fn === "daily-alerts");
+    if (!t || t.args.test !== true || t.args.endpoint !== "https://push.example/phone-1") throw new Error(`test call wrong: ${JSON.stringify(t)}`);
+    await shot("21b-alerts-section");
+    await sw.click();
+    await expect(page.getByText("Alerts are off for this phone."), "alerts off");
+    if (!alertCalls.some((c) => c.fn === "alerts_unsubscribe")) throw new Error("turning alerts off did not unsubscribe");
+    await sw.click();
+    await expect(page.getByText("Alerts are on for this phone."), "alerts on again");
+  });
+
+  await step("Switch role returns to the chooser and drops this phone's alerts", async () => {
+    const before = alertCalls.filter((c) => c.fn === "alerts_unsubscribe").length;
     await page.getByRole("button", { name: "Switch role" }).click();
     await expect(page.getByText("Who's using this phone?"), "chooser");
+    await page.waitForFunction(() => !localStorage.getItem("__fakePushSub"));
+    if (alertCalls.filter((c) => c.fn === "alerts_unsubscribe").length <= before) throw new Error("switching role kept alerts");
+  });
+
+  await step("Alert notes: blocked in settings, and iPhone not on the Home Screen", async () => {
+    for (const [opts, note] of [
+      [{ permission: "denied" }, "Alerts are blocked in this phone's settings."],
+      [{ ua: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1" }, "add Floorcast to the Home Screen"],
+    ]) {
+      const c = await browser.newContext({ viewport: { width: 390, height: 844 } });
+      try {
+        await c.addInitScript(fakePush, opts);
+        await c.route(/\/rest\/v1\//, (route, req) => rest(route, req, new URL(req.url())));
+        await c.route(/\/storage\/v1\//, (route, req) => storage(route, req, new URL(req.url())));
+        await c.routeWebSocket(/\/realtime\/v1\//, () => undefined);
+        const p = await c.newPage();
+        p.on("pageerror", (e) => errors.push(String(e)));
+        await p.goto(`http://localhost:${PORT}/`);
+        await p.getByRole("button", { name: /Administrator/ }).click();
+        await p.fill("#pin", PIN);
+        await p.getByRole("button", { name: "Unlock" }).click();
+        await p.getByText(note).first().waitFor();
+        if (await p.getByRole("button", { name: "Allow alerts" }).count()) throw new Error("offered alerts where they can't work");
+        if (opts.ua) await p.screenshot({ path: path.join(shots, "21c-alerts-iphone-note.png") });
+      } finally {
+        await c.close();
+      }
+    }
   });
 
   if (errors.length) throw new Error(`page errors:\n${errors.join("\n")}`);
