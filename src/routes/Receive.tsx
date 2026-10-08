@@ -98,7 +98,8 @@ export function ReceivePage({ code: incoming }: { code?: string }) {
 
   function reset() {
     setDone(null);
-    setValues(emptyForm());
+    // During a legacy sweep the next box is usually legacy too, from the same spot.
+    setValues((v) => (v.legacy ? { ...emptyForm(), legacy: true, legacyMonth: v.legacyMonth, location: v.location } : emptyForm()));
     setPhoto(null);
     setMode("new");
     setExisting("");

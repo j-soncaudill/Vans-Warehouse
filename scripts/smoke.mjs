@@ -26,6 +26,8 @@ const TABLES = { packages: rows, package_moves: moves, returns: returnsRows };
 const BY_CODE = new Set(["packages", "returns"]);
 const STATION_TOKEN = "smoke-station-token";
 const files = new Map(); // "bucket/path" -> { body, type }
+// Starts as a database without update 003, so the app has to ask for it.
+let legacyColumn = false;
 
 function filterRows(url, list = rows) {
   let out = list;
@@ -51,7 +53,7 @@ function newRow(table, item) {
     packing_slip_received: null, quantities: null, damaged: null, color_tag: null, notes: null,
     status: "on_floor", received_at: now, checked_out_to: null, checked_out_at: null,
     barcode_path: null, photo_path: null, thumb_path: null, last_location: null, location_at: null,
-    created_at: now, updated_at: now, ...item,
+    legacy: false, created_at: now, updated_at: now, ...item,
   };
 }
 
@@ -74,6 +76,9 @@ async function rest(route, req, url) {
   const method = req.method();
   const now = () => new Date().toISOString();
   if (method === "GET" || method === "HEAD") {
+    if (table === "packages" && !legacyColumn && /\blegacy\b/.test(url.searchParams.get("select") ?? "")) {
+      return route.fulfill({ status: 400, contentType: "application/json", body: JSON.stringify({ code: "42703", message: "column packages.legacy does not exist" }) });
+    }
     let out = [...filterRows(url, list)];
     const [col, dir] = (url.searchParams.get("order") ?? "").split(",")[0].split(".");
     if (col) out.sort((a, b) => (String(a[col] ?? "") > String(b[col] ?? "") ? 1 : -1) * (dir === "desc" ? -1 : 1));
@@ -235,6 +240,20 @@ let mintedCode = "";
 let locCode = "";
 let retCode = "";
 try {
+  await step("Missing legacy column: the app asks for update 003 only", async () => {
+    await page.goto(`http://localhost:${PORT}/`);
+    await expect(page.getByText("One database update"), "update screen");
+    await expect(page.getByText(/adds legacy boxes/), "names what it adds");
+    await page.getByRole("button", { name: "Show SQL" }).click();
+    const sql = await page.locator("textarea").inputValue();
+    if (!sql.includes("add column if not exists legacy")) throw new Error("update SQL is not 003");
+    if (sql.includes("create table if not exists public.returns")) throw new Error("update SQL repeats 002");
+    await shot("00a-update-003");
+    legacyColumn = true;
+    await page.getByRole("button", { name: /check again/ }).click();
+    await expect(page.getByText("Who's using this phone?"), "app opens once updated");
+  });
+
   await step("PIN gate rejects wrong PIN, accepts right one", async () => {
     await page.goto(`http://localhost:${PORT}/`);
     await expect(page.getByText("Who's using this phone?"), "role chooser");
@@ -468,6 +487,40 @@ try {
     await shot("17-floor-locations");
   });
 
+  let legacyCode = "";
+  await step("Legacy box: quick entry with an arrival month, filter, badge", async () => {
+    await page.getByRole("link", { name: "receive", exact: true }).click();
+    await page.locator("#f-legacy").click();
+    if ((await page.locator("#f-legacy").getAttribute("aria-checked")) !== "true") throw new Error("legacy switch did not turn on");
+    if (await page.locator("#f-po").isVisible()) throw new Error("extra fields should fold away for legacy");
+    await page.fill("#f-legacy-month", "2025-03");
+    await page.fill("#f-job", "Old copper");
+    await page.locator("#f-location").getByRole("radio", { name: "Conex 3" }).click();
+    await shot("17a-legacy-receive");
+    await page.getByRole("button", { name: "Receive to floor" }).click();
+    await expect(page.getByText("put this sticker on the box"), "legacy received");
+    const r = rows.find((x) => x.job_name === "Old copper");
+    if (!r || r.legacy !== true || !String(r.received_at).startsWith("2025-03-15")) throw new Error(`legacy row wrong: ${JSON.stringify(r)}`);
+    legacyCode = r.code;
+    await page.getByRole("button", { name: "Receive another" }).click();
+    if ((await page.locator("#f-legacy").getAttribute("aria-checked")) !== "true") throw new Error("Receive another dropped legacy");
+    if ((await page.inputValue("#f-legacy-month")) !== "2025-03") throw new Error("Receive another dropped the month");
+    if ((await page.locator("#f-location").getByRole("radio", { name: "Conex 3" }).getAttribute("aria-checked")) !== "true") throw new Error("Receive another dropped the place");
+    await page.locator("#f-legacy").click();
+    if (!(await page.locator("#f-po").isVisible())) throw new Error("fields did not come back with legacy off");
+    await page.getByRole("link", { name: "floor", exact: true }).click();
+    const chip = page.getByRole("button", { name: "Legacy only, 1" });
+    await expect(chip, "legacy chip with count");
+    await chip.click();
+    await expect(page.getByText("Old copper"), "legacy row");
+    if (await page.getByText("Oak Ave").count()) throw new Error("legacy filter let other rows through");
+    await expect(page.locator("main").getByText("legacy", { exact: true }), "legacy badge on row");
+    await shot("17b-legacy-filter");
+    await page.getByRole("link", { name: /Old copper/ }).click();
+    await expect(page.getByText(/~Mar 2025/), "approximate date on entry");
+    await shot("17c-legacy-entry");
+  });
+
   await step("Returns: a QR that isn't the station is rejected", async () => {
     await page.getByRole("link", { name: "returns", exact: true }).click();
     await page.getByRole("link", { name: "Start a return" }).click();
@@ -587,6 +640,8 @@ try {
     for (const n of ["packages.json", "packages.csv", `stickers/${mintedCode}.png`, `photos/${mintedCode}.jpg`, "stickers/AB-778899.png", "moves.json", "returns.json", "returns.csv"]) {
       if (!names.includes(n)) throw new Error(`backup missing ${n}: ${names.join(", ")}`);
     }
+    const pj = JSON.parse(await zip.file("packages.json").async("string"));
+    if (!pj.packages.some((x) => x.code === legacyCode && x.legacy === true)) throw new Error("packages.json lost the legacy flag");
     const rj = JSON.parse(await zip.file("returns.json").async("string"));
     if (!rj.returns.some((x) => x.code === retCode && x.status === "closed")) throw new Error("returns.json missing the return");
     const mj = JSON.parse(await zip.file("moves.json").async("string"));

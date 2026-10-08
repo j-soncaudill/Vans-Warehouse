@@ -6,7 +6,7 @@ import { chooseField, currentRole, lock, unlock, type Role } from "@/lib/pin";
 import { RoleContext } from "@/lib/role";
 import { DEMO_UI, probeSchema, type SchemaState } from "@/lib/supabase";
 import schemaSql from "../../supabase/schema.sql?raw";
-import upgradeSql from "../../supabase/migrations/002_locations_returns.sql?raw";
+import { neededUpgrades, upgradeSql } from "@/lib/upgrades";
 
 function Screen({ children }: { children: ReactNode }) {
   return (
@@ -111,14 +111,15 @@ export function Gate({ children }: { children: ReactNode }) {
   }
 
   if (schema === "upgrade") {
+    const needed = neededUpgrades();
     return (
       <Screen>
         <h1 className="font-sans text-[28px] font-bold tracking-[-0.02em]">One database update</h1>
         <p className="mt-3 mb-6 text-[14px] text-dim">
-          This version adds locations and returns. In Supabase, open SQL Editor, paste this update, and press Run. It only adds new
+          This version adds {needed.map((u) => u.adds).join(" and ")}. In Supabase, open SQL Editor, paste this update, and press Run. It only adds new
           columns and tables. Every existing entry is kept.
         </p>
-        <CopySql sql={upgradeSql} label="Copy update SQL" />
+        <CopySql sql={upgradeSql(needed)} label="Copy update SQL" />
         <div className="mt-6">
           <Button big onClick={check}>
             I ran it, check again

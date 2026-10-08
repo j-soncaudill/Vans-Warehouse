@@ -4,8 +4,8 @@
 --
 -- WARNING: drops public.packages, public.package_moves, public.returns and
 -- public.settings and every row in them. To add locations and returns to a
--- database that already has real data, run migrations/002_locations_returns.sql
--- instead; it keeps everything.
+-- database that already has real data, run the files in migrations/ instead
+-- (002_locations_returns.sql, then 003_legacy.sql); they keep everything.
 -- Run it once to wipe the test data. Running it again wipes again.
 -- Files already in the storage buckets are not deleted by this script; the
 -- app removes a box's files when you tap Remove. To clear old files, empty
@@ -43,6 +43,7 @@ create table public.packages (
   thumb_path            text,               -- package-photos/<code>/<stamp>-t.jpg (320px square)
   last_location         text,               -- Warehouse, Metal shop, Conex 1-4, or typed
   location_at           timestamptz,
+  legacy                boolean not null default false, -- here before Floorcast; received_at is approximate
   created_at            timestamptz not null default now(),
   updated_at            timestamptz not null default now()
 );

@@ -6,7 +6,7 @@ import { cx } from "@/components/ui";
 import { colorHex } from "@/lib/form";
 import type { Pkg } from "@/lib/packages";
 import { photoUrl } from "@/lib/photo";
-import { ago } from "@/lib/time";
+import { ago, receivedText } from "@/lib/time";
 
 /** 1:1 center crop everywhere. Tap opens the full compressed photo. */
 export function Thumb({ pkg, size = 56 }: { pkg: Pkg; size?: number }) {
@@ -54,6 +54,11 @@ export function DamageChip() {
   return <span className="text-[12px] text-danger">!damaged</span>;
 }
 
+/** Here before Floorcast, so missing details are expected. */
+export function LegacyChip() {
+  return <span className="text-[12px] text-amber">legacy</span>;
+}
+
 export function PackageCard({ pkg }: { pkg: Pkg }) {
   const out = pkg.status === "checked_out";
   const line = out
@@ -61,7 +66,7 @@ export function PackageCard({ pkg }: { pkg: Pkg }) {
       ? [`taken from ${pkg.lastLocation}`, pkg.checkedOutTo ? `by ${pkg.checkedOutTo}` : null]
       : [pkg.checkedOutTo ? `taken by ${pkg.checkedOutTo}` : null]
     : [pkg.vendor?.toLowerCase(), pkg.poNumber ? `po ${pkg.poNumber}` : null];
-  const when = ago(out ? pkg.checkedOutAt : pkg.receivedAt);
+  const when = out ? ago(pkg.checkedOutAt) : pkg.legacy ? receivedText(pkg) : ago(pkg.receivedAt);
   const hex = colorHex(pkg.colorTag);
   return (
     <div className="flex items-center gap-3.5 border-b border-hair py-3">
@@ -76,6 +81,7 @@ export function PackageCard({ pkg }: { pkg: Pkg }) {
             <span className="text-cyan">{pkg.code}</span>
             {hex ? <span aria-label={`${pkg.colorTag} tag`} className="inline-block size-2 rounded-[2px]" style={{ background: hex }} /> : null}
             {pkg.damaged ? <DamageChip /> : null}
+            {pkg.legacy ? <LegacyChip /> : null}
             {pkg.lastLocation && !out ? (
               <span className="inline-flex items-center gap-1 text-[12px] text-dim">
                 <MapPin aria-hidden className="size-3" />

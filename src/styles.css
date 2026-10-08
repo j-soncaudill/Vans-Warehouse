@@ -16,6 +16,8 @@
   --color-cyan-ink: #021014;
   --color-brandred: #c52c2e;
   --color-danger: #ff6b6d;
+  /* Legacy boxes (here before Floorcast). */
+  --color-amber: #f2b33d;
 
   --font-sans: "Geist Sans", -apple-system, "SF Pro Text", system-ui, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;

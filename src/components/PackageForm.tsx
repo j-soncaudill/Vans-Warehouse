@@ -4,6 +4,47 @@ import { VendorPicker } from "@/components/VendorPicker";
 import { Field, YesNoBlank, cx } from "@/components/ui";
 import { COLOR_HEX, COLOR_TAGS, type FormValues } from "@/lib/form";
 
+type TextKey = "poNumber" | "deliveredBy" | "receivedBy" | "pm";
+
+const thisMonth = () => new Date().toISOString().slice(0, 7);
+
+/** "Legacy box": here before Floorcast. Its arrival month is a guess, and optional. */
+function LegacySwitch({ values, onChange }: { values: FormValues; onChange: (patch: Partial<FormValues>) => void }) {
+  return (
+    <div className={cx("flex flex-col gap-3 rounded-[var(--radius-box)] border px-3.5 py-3", values.legacy ? "border-amber/60 bg-amber/10" : "border-line bg-panel")}>
+      <button
+        id="f-legacy"
+        type="button"
+        role="switch"
+        aria-checked={values.legacy}
+        onClick={() => onChange({ legacy: !values.legacy, ...(values.legacy ? { legacyMonth: "" } : {}) })}
+        className="vw-press flex items-center gap-3 text-left"
+      >
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="text-[15px] text-ink">Legacy box</span>
+          <span className="text-[12px] text-dim">Here before Floorcast</span>
+        </span>
+        <span aria-hidden className={cx("relative h-7 w-12 shrink-0 rounded-full border transition-colors", values.legacy ? "border-amber bg-amber" : "border-line bg-raised")}>
+          <span className={cx("absolute top-[3px] size-5 rounded-full bg-white shadow transition-[left]", values.legacy ? "left-[23px]" : "left-[3px]")} />
+        </span>
+      </button>
+      {values.legacy ? (
+        <Field label="About when did it arrive?" htmlFor="f-legacy-month" hint="optional">
+          <input
+            id="f-legacy-month"
+            type="month"
+            className="field"
+            max={thisMonth()}
+            value={values.legacyMonth}
+            onChange={(e) => onChange({ legacyMonth: e.target.value })}
+          />
+          <span className="mt-1 block text-[12px] text-faint">Leave blank if nobody knows; today is used.</span>
+        </Field>
+      ) : null}
+    </div>
+  );
+}
+
 /** Every field the floor fills in by hand. Only Job is required. */
 export function PackageForm({
   values,
@@ -15,7 +56,7 @@ export function PackageForm({
   /** Receive only. Later changes go through Move so the history stays complete. */
   withLocation?: boolean;
 }) {
-  const text = (key: keyof FormValues, id: string, label: string, opts: { placeholder?: string; max?: number; mono?: boolean } = {}) => (
+  const text = (key: TextKey, id: string, label: string, opts: { placeholder?: string; max?: number; mono?: boolean } = {}) => (
     <Field label={label} htmlFor={id} hint="optional">
       <input
         id={id}
@@ -29,8 +70,7 @@ export function PackageForm({
     </Field>
   );
 
-  return (
-    <div className="flex flex-col gap-4">
+  const job = (
       <Field label="Job" htmlFor="f-job" hint="required">
         <input
           id="f-job"
@@ -43,6 +83,9 @@ export function PackageForm({
           onChange={(e) => onChange({ jobName: e.target.value })}
         />
       </Field>
+  );
+  const details = (
+    <>
       {text("poNumber", "f-po", "PO number", { placeholder: "PO #", max: 60, mono: true })}
       <Field label="Vendor" htmlFor="f-vendor" hint="optional">
         <VendorPicker id="f-vendor" value={values.vendor} onChange={(vendor) => onChange({ vendor })} />
@@ -73,7 +116,9 @@ export function PackageForm({
           <YesNoBlank id="f-damage" value={values.damaged} onChange={(v) => onChange({ damaged: v })} />
         </Field>
       </div>
-
+    </>
+  );
+  const color = (
       <Field label={values.colorTag ? `color tag · ${values.colorTag.toLowerCase()}` : "color tag"} htmlFor="f-color">
         <div id="f-color" role="radiogroup" className="grid grid-cols-8 gap-1.5">
           {COLOR_TAGS.map((tag) => {
@@ -100,12 +145,14 @@ export function PackageForm({
           })}
         </div>
       </Field>
-
-      {withLocation ? (
+  );
+  const location = withLocation ? (
         <Field label="Last known location" htmlFor="f-location" hint="required">
           <LocationPicker id="f-location" value={values.location} onChange={(location) => onChange({ location })} />
         </Field>
-      ) : null}
+      
+  ) : null;
+  const notes = (
       <Field label="Notes" htmlFor="f-notes" hint="optional">
         <textarea
           id="f-notes"
@@ -117,6 +164,37 @@ export function PackageForm({
           onChange={(e) => onChange({ notes: e.target.value })}
         />
       </Field>
+  );
+
+  // A legacy box (here before Floorcast) only needs job, place and photo; the rest folds away.
+  if (values.legacy) {
+    return (
+      <div className="flex flex-col gap-4">
+        <LegacySwitch values={values} onChange={onChange} />
+        {job}
+        {color}
+        {location}
+        <details className="vw-details group rounded-[var(--radius-box)] border border-line bg-panel/60">
+          <summary className="vw-press flex min-h-12 cursor-pointer list-none items-center justify-between px-3.5 text-[14px] text-dim lowercase">
+            more details <span className="text-[12px] text-faint">optional</span>
+          </summary>
+          <div className="flex flex-col gap-4 border-t border-hair px-3.5 pt-3.5 pb-4">
+            {details}
+            {notes}
+          </div>
+        </details>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <LegacySwitch values={values} onChange={onChange} />
+      {job}
+      {details}
+      {color}
+      {location}
+      {notes}
     </div>
   );
 }

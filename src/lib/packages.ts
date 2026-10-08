@@ -31,6 +31,8 @@ export type Pkg = {
   lastLocation: string | null;
   locationAt: string | null;
   updatedAt: string | null;
+  /** Here before Floorcast; receivedAt is approximate. */
+  legacy: boolean;
 };
 
 export type PkgRow = {
@@ -57,10 +59,11 @@ export type PkgRow = {
   last_location: string | null;
   location_at: string | null;
   updated_at: string | null;
+  legacy?: boolean | null;
 };
 
 const COLUMNS =
-  "id, code, job_name, po_number, vendor, delivered_by, received_by, pm, packing_slip_received, quantities, damaged, color_tag, notes, status, received_at, checked_out_to, checked_out_at, barcode_path, photo_path, thumb_path, last_location, location_at, updated_at";
+  "id, code, job_name, po_number, vendor, delivered_by, received_by, pm, packing_slip_received, quantities, damaged, color_tag, notes, status, received_at, checked_out_to, checked_out_at, barcode_path, photo_path, thumb_path, last_location, location_at, updated_at, legacy";
 
 export function mapRow(r: PkgRow): Pkg {
   return {
@@ -87,6 +90,7 @@ export function mapRow(r: PkgRow): Pkg {
     lastLocation: r.last_location ?? null,
     locationAt: r.location_at ?? null,
     updatedAt: r.updated_at,
+    legacy: r.legacy === true,
   };
 }
 
@@ -158,7 +162,7 @@ export async function receivePackage(
   if (moved.error) warnings.push("The location was saved, but its history entry was not.");
   const patch: Record<string, unknown> = {};
 
-  const barcodePath = await uploadSticker({ code, jobName: pkg.jobName, receivedAt: pkg.receivedAt });
+  const barcodePath = await uploadSticker(pkg);
   if (barcodePath) patch.barcode_path = barcodePath;
   else warnings.push("Sticker file did not upload. You can still save or print it.");
 
@@ -179,8 +183,9 @@ export async function editPackage(code: string, values: FormValues): Promise<Pkg
   const before = await getPackage(code);
   const pkg = await update(code, formToRow(values), "on_floor");
   if (!pkg) throw new Error("It was checked out or removed. Reload and try again.");
-  if (before && before.jobName !== pkg.jobName) {
-    await uploadSticker({ code: pkg.code, jobName: pkg.jobName, receivedAt: pkg.receivedAt });
+  // The sticker shows the job and received date, so redraw it when either changes.
+  if (before && (before.jobName !== pkg.jobName || before.legacy !== pkg.legacy || before.receivedAt !== pkg.receivedAt)) {
+    await uploadSticker(pkg);
   }
   return pkg;
 }

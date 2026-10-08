@@ -183,6 +183,40 @@ const role = (page, r, name, o = {}) => page.getByRole(r, { name, ...o });
       [role(page, "link", "Open this entry"), "Open the box's page"],
     ], { settle: 900 });
 
+    // ---------------------------------------------------- legacy boxes
+    await role(page, "button", "Receive another").click();
+    await page.locator("#f-legacy").click();
+    await page.locator("#f-legacy-month").fill("2025-03");
+    await page.locator("#f-job").fill("Copper fittings, shelf B");
+    await page.locator("#f-location").getByRole("radio", { name: "Conex 3" }).click();
+    await page.evaluate(() => scrollTo(0, 0));
+    await shot(page, "legacy-receive", [
+      [page.locator("#f-legacy"), "Legacy box switch"],
+      [page.locator("#f-legacy-month"), "About when it arrived (optional)"],
+      [page.locator("#f-job"), "Job name"],
+      [page.locator("#f-location"), "Where it sits now"],
+    ], { scrollTo: page.locator("#f-legacy") });
+    await shot(page, "legacy-receive-more", [
+      [page.locator("summary").filter({ hasText: "more details" }), "Everything else, folded away"],
+      [role(page, "button", "Receive to floor"), "Save it"],
+    ], { scrollTo: role(page, "button", "Receive to floor") });
+    await page.locator("#f-legacy").click();
+    await go(page, "#/");
+    const legacyChip = page.getByRole("button", { name: /^Legacy only/ });
+    await legacyChip.click();
+    await shot(page, "legacy-floor", [
+      [legacyChip, "Legacy filter, with its count"],
+      [page.locator("main").getByText("legacy", { exact: true }).first(), "Legacy tag on the row"],
+      [page.getByText(/^~\w{3} \d{4}$/).first(), "Approximate arrival month"],
+    ]);
+    await go(page, "#/p/VW-EXL9Q4");
+    await role(page, "button", "Check out").waitFor();
+    await page.evaluate(() => scrollTo(0, 0));
+    await shot(page, "legacy-entry", [
+      [page.getByText(/^recv ~/), "Approximate arrival month"],
+      [page.locator("main").getByText("legacy", { exact: true }).first(), "Legacy tag"],
+    ]);
+
     // ---------------------------------------------------- entry (admin)
     await go(page, "#/p/VW-EX4M7P");
     await role(page, "button", "Check out").waitFor();

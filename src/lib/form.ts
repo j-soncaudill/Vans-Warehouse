@@ -1,5 +1,6 @@
 import { DEFAULT_LOCATION } from "@/lib/locations";
 import type { Pkg } from "@/lib/packages";
+import { monthToIso } from "@/lib/time";
 
 /** Most-used vendors, in the order they show in the dropdown. */
 export const VENDORS = ["Etna", "Behler-Young", "Williams", "Ferguson"] as const;
@@ -39,6 +40,10 @@ export type FormValues = {
   notes: string;
   /** Receive only. After that, location changes go through Move. */
   location: string;
+  /** Here before Floorcast. */
+  legacy: boolean;
+  /** About when a legacy box arrived, "YYYY-MM"; "" = unknown (today is used). */
+  legacyMonth: string;
 };
 
 export function emptyForm(): FormValues {
@@ -55,6 +60,8 @@ export function emptyForm(): FormValues {
     colorTag: "",
     notes: "",
     location: DEFAULT_LOCATION,
+    legacy: false,
+    legacyMonth: "",
   };
 }
 
@@ -83,6 +90,8 @@ export function formFromPkg(pkg: Pkg): FormValues {
     colorTag: pkg.colorTag ?? "",
     notes: pkg.notes ?? "",
     location: pkg.lastLocation ?? "",
+    legacy: pkg.legacy,
+    legacyMonth: pkg.legacy ? pkg.receivedAt.slice(0, 7) : "",
   };
 }
 
@@ -95,7 +104,11 @@ const text = (value: string, max: number) => {
 export function formToRow(values: FormValues) {
   const job = values.jobName.trim();
   if (!job) throw new Error("Job is required.");
+  // A legacy box with a month gets that as its (approximate) received date.
+  const arrived = values.legacy ? monthToIso(values.legacyMonth) : null;
   return {
+    legacy: values.legacy,
+    ...(arrived ? { received_at: arrived } : {}),
     job_name: job.slice(0, 120),
     po_number: text(values.poNumber, 60),
     vendor: text(values.vendor, 200),

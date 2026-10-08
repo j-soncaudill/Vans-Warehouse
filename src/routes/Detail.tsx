@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { ArrowRight, Camera, MapPin, Pencil, Trash2, Undo2 } from "lucide-react";
 import { LocationPicker } from "@/components/LocationPicker";
-import { ColorChip, DamageChip } from "@/components/Package";
+import { ColorChip, DamageChip, LegacyChip } from "@/components/Package";
 import { PackageForm } from "@/components/PackageForm";
 import { PhotoCamera, PhotoViewer } from "@/components/PhotoCamera";
 import { StickerButtons, StickerPreview } from "@/components/Sticker";
@@ -13,7 +13,7 @@ import { notifyChanged, useLiveQuery } from "@/lib/live";
 import { listMoves } from "@/lib/locations";
 import { checkOut, editPackage, getPackage, movePackage, removePackage, replacePhoto, returnToFloor, type Pkg } from "@/lib/packages";
 import { photoUrl, type CapturedPhoto } from "@/lib/photo";
-import { ago, stamp } from "@/lib/time";
+import { ago, receivedText, stamp } from "@/lib/time";
 import { useIsAdmin } from "@/lib/role";
 import { Decode } from "@/components/motion";
 
@@ -129,7 +129,7 @@ function Entry({ pkg }: { pkg: Pkg }) {
       <div className="-mt-1 flex items-center gap-2">
         <BackButton onClick={back} />
         <span className="flex-1" />
-        <span className="text-[12px] text-faint">recv {stamp(pkg.receivedAt)}</span>
+        <span className="text-[12px] text-faint">recv {receivedText(pkg)}</span>
       </div>
 
       <div
@@ -153,6 +153,7 @@ function Entry({ pkg }: { pkg: Pkg }) {
         <div className="mt-2 flex flex-wrap items-center gap-4">
           <ColorChip tag={pkg.colorTag} large />
           {pkg.damaged ? <DamageChip /> : null}
+          {pkg.legacy ? <LegacyChip /> : null}
         </div>
       </div>
 
@@ -190,7 +191,7 @@ function Entry({ pkg }: { pkg: Pkg }) {
       ) : null}
 
       <dl className="m-0 border-t border-hair">
-        <Row label="Received" value={stamp(pkg.receivedAt)} />
+        <Row label="Received" value={pkg.legacy ? `${receivedText(pkg)} · here before Floorcast` : stamp(pkg.receivedAt)} />
         <Row label="PO number" value={pkg.poNumber && <span className="code">{pkg.poNumber}</span>} />
         <Row label="Vendor" value={pkg.vendor} />
         <Row label="Delivered by" value={pkg.deliveredBy} />

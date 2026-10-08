@@ -160,9 +160,10 @@ const body = [
         ["Move a box (update its last known location)", 1, 1],
         ["Save or print a sticker", 1, 1],
         ["Add a photo to a box that has none", 1, 1],
+        ["Mark a box as legacy while receiving it", 1, 1],
         ["Start a return at the returns station", 1, 1],
         ["Return a checked-out box to the floor", 0, 1],
-        ["Edit a box's details or retake its photo", 0, 1],
+        ["Edit a box's details or retake its photo, or change whether it's legacy", 0, 1],
         ["Remove a box", 0, 1],
         ["Close out, reopen, change type, edit or remove a return", 0, 1],
         ["Backup &amp; setup: export, restore, system check, posters", 0, 1],
@@ -240,6 +241,38 @@ const body = [
     })}
     ${tip("If you leave the Receive tab in the middle of an entry, what you typed is kept until you come back or save.")}
     ${tip("Receiving a code that's already in the warehouse is blocked, so nothing gets entered twice. Scan it instead to open the existing box.", "warn")}
+    `,
+  ),
+
+  chapter(
+    "legacy",
+    "Legacy boxes (here before Floorcast)",
+    "Boxes that were on the floor before Floorcast started go in once, with the <b>Legacy box</b> switch on Receive. Only the job name and where it sits are needed; the rest is optional. Field phones can do it, so the whole crew can help with the sweep.",
+    `
+    ${figure("legacy-receive", {
+      extra: {
+        1: "Turn it on for anything that was already here. It stays on for the next box when you tap <b>Receive another</b>, along with the month and place.",
+        2: "If anyone knows roughly when it came in, pick the month. Leave it blank if nobody knows; today is used.",
+        3: "What it's for. If nobody knows, use something searchable like “Unknown, check with PM”.",
+        4: "Where it's sitting right now.",
+      },
+    })}
+    ${figure("legacy-receive-more", {
+      extra: {
+        1: "PO, vendor, quantities, notes and the rest are tucked under <b>more details</b>. Fill in what you know; skip the rest.",
+        2: "Then take a photo, print the sticker and stick it on, as for any delivery.",
+      },
+    })}
+    <h3>Running the sweep</h3>
+    ${steps(
+      "Split the warehouse by place (Warehouse, Metal shop, Conex 1–4) and give each area a person or pair.",
+      "Turn on <b>Legacy box</b>, pick the place, and enter each box: job, photo, sticker. Add colored tape if it has a color tag.",
+      "Mark finished boxes (a dot of tape) so nobody enters one twice.",
+      "When an area is done, use the floor list's place filter to check the count against what's on the shelves.",
+    )}
+    ${pair("legacy-floor", "legacy-entry", "On the floor list: the <b>legacy</b> filter shows only old stock", "On a box's page: the tag and the approximate month")}
+    ${tip("The <b>legacy</b> chip makes PM claim days easy: filter to legacy, then search a job or a place. Missing details on a legacy box are expected; an Administrator can fill them in later with Edit details.")}
+    ${tip("Only an Administrator can turn legacy on or off for a box that's already in Floorcast, from <b>Edit details</b>.", "admin")}
     `,
   ),
 

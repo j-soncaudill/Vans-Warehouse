@@ -1,5 +1,6 @@
 import QRCode from "qrcode";
 import { BARCODES_BUCKET, sb } from "@/lib/supabase";
+import { monthYear } from "@/lib/time";
 
 const PAPER = "#ffffff";
 const INK = "#000000";
@@ -13,12 +14,12 @@ export function stickerPath(code: string) {
  * (about 74% of the height, so a phone reads it from arm's length), and the
  * code, received date and shop name on the right. No 1D barcode.
  */
-export type StickerInfo = { code: string; jobName: string; receivedAt?: string | null };
+export type StickerInfo = { code: string; jobName: string; receivedAt?: string | null; legacy?: boolean };
 
 const SANS = "'Geist Sans', -apple-system, 'Segoe UI', Arial, sans-serif";
 const MONO = "'Geist Mono', ui-monospace, Menlo, Consolas, monospace";
 
-export async function renderSticker({ code, jobName, receivedAt }: StickerInfo): Promise<Blob> {
+export async function renderSticker({ code, jobName, receivedAt, legacy }: StickerInfo): Promise<Blob> {
   await document.fonts?.ready.catch(() => undefined);
   const W = 800;
   const H = 600;
@@ -56,10 +57,11 @@ export async function renderSticker({ code, jobName, receivedAt }: StickerInfo):
   ctx.fillText(code, colX, 190, colW);
 
   ctx.font = `500 22px ${SANS}`;
-  ctx.fillText("Received", colX, 262, colW);
+  // Legacy boxes were here before Floorcast; their date is only a guess.
+  ctx.fillText(legacy ? "Legacy · arrived" : "Received", colX, 262, colW);
   ctx.font = `700 28px ${SANS}`;
   const day = receivedAt ? new Date(receivedAt) : new Date();
-  ctx.fillText(day.toLocaleDateString(), colX, 298, colW);
+  ctx.fillText(legacy ? `~${monthYear(day.toISOString())}` : day.toLocaleDateString(), colX, 298, colW);
 
   ctx.textAlign = "right";
   ctx.font = `700 22px ${SANS}`;

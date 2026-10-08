@@ -57,6 +57,10 @@ export function isColumnMissing(error: PgError): boolean {
 
 export type SchemaState = "unconfigured" | "missing" | "outdated" | "upgrade" | "ready" | "offline";
 
+/** Database updates (supabase/migrations) the last probe found missing, e.g. ["002", "003"]. */
+let missing: string[] = [];
+export const pendingUpgrades = () => missing;
+
 /** One cheap REST call to see whether schema.sql has been run. */
 export async function probeSchema(): Promise<SchemaState> {
   if (!isConfigured()) return "unconfigured";
@@ -70,12 +74,17 @@ export async function probeSchema(): Promise<SchemaState> {
     }
     // Locations and returns came later (migrations/002). Older databases
     // keep working once that migration runs; nothing is dropped.
-    const [loc, ret] = await Promise.all([
+    // Legacy boxes came after that (migrations/003).
+    const [loc, ret, legacy] = await Promise.all([
       sb().from("packages").select("last_location").limit(1),
       sb().from("returns").select("id").limit(1),
+      sb().from("packages").select("legacy").limit(1),
     ]);
-    if (isColumnMissing(loc.error) || isTableMissing(ret.error)) return "upgrade";
-    if (loc.error || ret.error) return "offline";
+    missing = [];
+    if (isColumnMissing(loc.error) || isTableMissing(ret.error)) missing.push("002");
+    if (isColumnMissing(legacy.error)) missing.push("003");
+    if (missing.length) return "upgrade";
+    if (loc.error || ret.error || legacy.error) return "offline";
     return "ready";
   } catch {
     return "offline";

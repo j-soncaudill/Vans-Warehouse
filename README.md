@@ -69,6 +69,12 @@ the new tables. It never drops anything, and it is safe to run twice. The
 last query prints `2, 2, 1` when it worked. Until it is run, the app shows a
 "One database update" screen with the SQL to copy.
 
+Then run [`supabase/migrations/003_legacy.sql`](supabase/migrations/003_legacy.sql).
+It adds one `legacy` yes/no column to `packages` for boxes that were on the
+floor before Floorcast (existing boxes start as not legacy). It is safe to run
+twice and prints `1` when it worked. The app's update screen shows only the
+updates a database is still missing.
+
 **Fresh install** (wipes everything): [`supabase/schema.sql`](supabase/schema.sql),
 which already includes the update.
 

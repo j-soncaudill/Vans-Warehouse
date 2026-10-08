@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { recordToRow, toCsv } from "@/lib/backup";
 import { isMintedCode, isPlausibleCode, mintCode, normalizeCode, pickCode, isReturnCode, mintReturnCode } from "@/lib/codes";
 import { emptyForm, formToRow, fromYesNo, toYesNo } from "@/lib/form";
+import { monthToIso, receivedText } from "@/lib/time";
 
 describe("codes", () => {
   it("mints VW- codes only", () => {
@@ -52,7 +53,7 @@ describe("backup", () => {
         packingSlip: null, quantities: "1\n2", damaged: null, colorTag: null, notes: null, status: "on_floor",
         receivedAt: "2026-01-01T00:00:00Z", checkedOutTo: null, checkedOutAt: null,
       lastLocation: null,
-      locationAt: null, stickerFile: null, photoFile: null,
+      locationAt: null, legacy: false, stickerFile: null, photoFile: null,
       },
     ]);
     expect(csv).toContain('"A, ""B"""');
@@ -73,5 +74,30 @@ describe("return codes", () => {
     expect(isReturnCode("VRX-1234")).toBe(false);
     expect(isReturnCode("VRS-834")).toBe(false);
     expect(isReturnCode("VW-ABC123")).toBe(false);
+  });
+});
+
+describe("legacy boxes", () => {
+  it("turns an arrival month into a mid-month date, never in the future", () => {
+    const now = Date.UTC(2026, 9, 8, 12);
+    expect(monthToIso("2025-03", now)).toBe("2025-03-15T12:00:00.000Z");
+    expect(monthToIso("2026-10", now)).toBe(new Date(now).toISOString());
+    expect(monthToIso("", now)).toBeNull();
+    expect(monthToIso("March", now)).toBeNull();
+  });
+  it("saves the flag, and the month only for legacy boxes", () => {
+    const base = { ...emptyForm(), jobName: "Old stock" };
+    expect(formToRow({ ...base, legacy: true, legacyMonth: "2025-03" })).toMatchObject({ legacy: true, received_at: "2025-03-15T12:00:00.000Z" });
+    expect(formToRow({ ...base, legacy: true, legacyMonth: "" })).not.toHaveProperty("received_at");
+    const plain = formToRow({ ...base, legacy: false, legacyMonth: "2025-03" });
+    expect(plain.legacy).toBe(false);
+    expect(plain).not.toHaveProperty("received_at");
+  });
+  it("shows a legacy date as an approximate month", () => {
+    expect(receivedText({ receivedAt: "2025-03-15T12:00:00Z", legacy: true })).toMatch(/^~Mar 2025$/);
+  });
+  it("restores the flag, and treats older backups as not legacy", () => {
+    expect(recordToRow({ code: "VW-AAAAAA", jobName: "J", legacy: true })).toMatchObject({ legacy: true });
+    expect(recordToRow({ code: "VW-AAAAAA", jobName: "J" })).toMatchObject({ legacy: false });
   });
 });

@@ -3,14 +3,14 @@ import { Archive, Download, Lock, ShieldCheck, Upload } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useRole } from "@/lib/role";
 import { CopySql } from "@/components/Gate";
-import upgradeSql from "../../supabase/migrations/002_locations_returns.sql?raw";
+import { UPGRADES, neededUpgrades, upgradeSql } from "@/lib/upgrades";
 import { PageTitle } from "@/components/Shell";
 import { Button, Confirm, cx, errorText, toast } from "@/components/ui";
 import { buildBackup, restoreBackup } from "@/lib/backup";
 import { notifyChanged } from "@/lib/live";
 import { stationPayload, stationToken } from "@/lib/returns";
 import { downloadBlob, renderAppPoster, renderStationPoster } from "@/lib/sticker";
-import { BARCODES_BUCKET, DEMO_UI, PHOTOS_BUCKET, probeSchema, sb } from "@/lib/supabase";
+import { BARCODES_BUCKET, DEMO_UI, PHOTOS_BUCKET, pendingUpgrades, probeSchema, sb } from "@/lib/supabase";
 
 type Check = { label: string; ok: boolean; detail: string };
 
@@ -23,17 +23,21 @@ async function systemCheck(): Promise<Check[]> {
   const schema = await probeSchema();
   const table: Check = {
     label: "packages table + photo columns",
-    ok: schema === "ready",
-    detail: schema === "ready" ? "Ready" : schema === "outdated" ? "Old table. Run the setup SQL." : schema === "missing" ? "Missing. Run the setup SQL." : "Unreachable",
+    ok: schema === "ready" || schema === "upgrade",
+    detail: schema === "ready" || schema === "upgrade" ? "Ready" : schema === "outdated" ? "Old table. Run the setup SQL." : schema === "missing" ? "Missing. Run the setup SQL." : "Unreachable",
   };
-  const extra: Check = {
-    label: "locations + returns (update 002)",
-    ok: schema === "ready",
-    detail: schema === "ready" ? "Ready" : schema === "upgrade" ? "Not added yet. Run the update SQL below." : "Waiting on the packages table.",
-  };
-  const token = schema === "ready" ? await stationToken() : null;
+  const missing = pendingUpgrades();
+  const updates: Check[] = UPGRADES.map((u) => {
+    const ok = schema === "ready" || (schema === "upgrade" && !missing.includes(u.id));
+    return {
+      label: u.label,
+      ok,
+      detail: ok ? "Ready" : schema === "upgrade" ? "Not added yet. Run the update SQL below." : "Waiting on the packages table.",
+    };
+  });
+  const token = schema === "ready" || (schema === "upgrade" && !missing.includes("002")) ? await stationToken() : null;
   const station: Check = { label: "Returns station code", ok: Boolean(token), detail: token ? "Ready" : "Missing. Run the update SQL below." };
-  return [table, extra, station, await bucketOk(BARCODES_BUCKET), await bucketOk(PHOTOS_BUCKET)];
+  return [table, ...updates, station, await bucketOk(BARCODES_BUCKET), await bucketOk(PHOTOS_BUCKET)];
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -162,7 +166,7 @@ function AdminMore({ onSwitch }: { onSwitch: () => void }) {
           </ul>
         ) : null}
         {checks?.some((c) => !c.ok) ? (
-          checks[0].ok ? <CopySql sql={upgradeSql} label="Copy update SQL" /> : <CopySql />
+          checks[0].ok ? <CopySql sql={upgradeSql(neededUpgrades())} label="Copy update SQL" /> : <CopySql />
         ) : null}
       </Section>
 

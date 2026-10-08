@@ -20,3 +20,25 @@ export function stamp(value: string | null | undefined): string {
   if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }
+
+/** "Mar 2025" — for legacy boxes, whose arrival is only known to the month. */
+export function monthYear(value: string | null | undefined): string {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString(undefined, { month: "short", year: "numeric", timeZone: "UTC" });
+}
+
+/** When it was received, as precise as we know it. */
+export function receivedText(pkg: { receivedAt: string; legacy?: boolean }): string {
+  return pkg.legacy ? `~${monthYear(pkg.receivedAt)}` : stamp(pkg.receivedAt);
+}
+
+/** "2025-03" → mid-month ISO time (never in the future); "" → null. */
+export function monthToIso(month: string, now = Date.now()): string | null {
+  const m = /^(\d{4})-(\d{2})$/.exec(month.trim());
+  if (!m) return null;
+  const t = Date.UTC(Number(m[1]), Number(m[2]) - 1, 15, 12);
+  if (Number.isNaN(t)) return null;
+  return new Date(Math.min(t, now)).toISOString();
+}

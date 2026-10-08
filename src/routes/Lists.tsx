@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, type CSSProperties } from "react";
 import { Link } from "@tanstack/react-router";
-import { MapPin, PackagePlus, X } from "lucide-react";
+import { History, MapPin, PackagePlus, X } from "lucide-react";
 import { PackageCard } from "@/components/Package";
 import { PageTitle } from "@/components/Shell";
 import { Button, btn, cx } from "@/components/ui";
@@ -10,7 +10,7 @@ import { listPackages, type Pkg, type PkgStatus } from "@/lib/packages";
 
 function matches(p: Pkg, q: string) {
   if (!q) return true;
-  return [p.jobName, p.code, p.poNumber, p.vendor, p.pm, p.deliveredBy, p.receivedBy, p.quantities, p.notes, p.checkedOutTo, p.colorTag, p.lastLocation]
+  return [p.jobName, p.code, p.poNumber, p.vendor, p.pm, p.deliveredBy, p.receivedBy, p.quantities, p.notes, p.checkedOutTo, p.colorTag, p.lastLocation, p.legacy ? "legacy" : null]
     .filter(Boolean)
     .join(" ")
     .toLowerCase()
@@ -22,11 +22,17 @@ function PackageList({ status }: { status: PkgStatus }) {
   const [q, setQ] = useState("");
   const [color, setColor] = useState("");
   const [place, setPlace] = useState("");
+  const [legacyOnly, setLegacyOnly] = useState(false);
   const all = data ?? [];
   const shown = useMemo(
-    () => all.filter((p) => matches(p, q.trim().toLowerCase()) && (!color || p.colorTag === color) && (!place || p.lastLocation === place)),
-    [all, q, color, place],
+    () =>
+      all.filter(
+        (p) =>
+          matches(p, q.trim().toLowerCase()) && (!color || p.colorTag === color) && (!place || p.lastLocation === place) && (!legacyOnly || p.legacy),
+      ),
+    [all, q, color, place, legacyOnly],
   );
+  const legacyCount = useMemo(() => all.filter((p) => p.legacy).length, [all]);
   const usedColors = COLOR_TAGS.filter((t) => all.some((p) => p.colorTag === t));
   // Only places something is actually at, busiest first.
   const usedPlaces = useMemo(() => {
@@ -67,8 +73,24 @@ function PackageList({ status }: { status: PkgStatus }) {
               </button>
             ) : null}
           </div>
-          {usedPlaces.length > 1 || (usedPlaces.length === 1 && place) ? (
+          {usedPlaces.length > 1 || (usedPlaces.length === 1 && place) || legacyCount > 0 ? (
             <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1" role="group" aria-label="Filter by location">
+              {legacyCount > 0 ? (
+                <button
+                  type="button"
+                  aria-pressed={legacyOnly}
+                  aria-label={`Legacy only, ${legacyCount}`}
+                  onClick={() => setLegacyOnly((v) => !v)}
+                  className={cx(
+                    "vw-press flex min-h-10 shrink-0 items-center gap-1.5 rounded-[8px] border px-3 text-[13px] lowercase",
+                    legacyOnly ? "border-amber bg-amber/10 text-amber" : "border-amber/40 bg-panel text-dim",
+                  )}
+                >
+                  <History aria-hidden className="size-3.5 text-amber" />
+                  legacy
+                  <span className="rounded-[4px] bg-raised px-1.5 text-[11px] text-faint tabular-nums">{legacyCount}</span>
+                </button>
+              ) : null}
               {usedPlaces.map(([name, n]) => {
                 const on = place === name;
                 return (
