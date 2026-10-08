@@ -101,3 +101,15 @@ describe("legacy boxes", () => {
     expect(recordToRow({ code: "VW-AAAAAA", jobName: "J" })).toMatchObject({ legacy: false });
   });
 });
+
+describe("reports", () => {
+  it("counts whole days and groups checked-out boxes by job", async () => {
+    const { daysSince, groupByJob } = await import("@/routes/Reports");
+    const now = Date.parse("2026-10-08T12:00:00Z");
+    expect(daysSince("2026-09-08T13:00:00Z", now)).toBe(29);
+    expect(daysSince("2026-09-08T11:00:00Z", now)).toBe(30);
+    const box = (code: string, jobName: string, at: string) => ({ code, jobName, checkedOutAt: at }) as never;
+    const g = groupByJob([box("A", "Elm", "2026-10-02"), box("B", "Oak", "2026-10-01"), box("C", "Elm", "2026-10-01")]);
+    expect(g.map((x) => [x.job, x.boxes.map((b) => b.code)])).toEqual([["Elm", ["C", "A"]], ["Oak", ["B"]]]);
+  });
+});

@@ -15,6 +15,7 @@ import { DetailPage } from "@/routes/Detail";
 import { FloorPage, OutPage } from "@/routes/Lists";
 import { MorePage } from "@/routes/More";
 import { ReceivePage } from "@/routes/Receive";
+import { ReportsPage } from "@/routes/Reports";
 import { ReturnDetailPage, ReturnNewPage, ReturnsPage } from "@/routes/Returns";
 import { BatchScanPage, ScanPage } from "@/routes/Scan";
 import "@fontsource/geist-sans/latin-500.css";
@@ -84,6 +85,7 @@ const floorRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", com
 const outRoute = createRoute({ getParentRoute: () => rootRoute, path: "/out", component: OutPage });
 const scanRoute = createRoute({ getParentRoute: () => rootRoute, path: "/scan", component: ScanPage });
 const batchRoute = createRoute({ getParentRoute: () => rootRoute, path: "/scan/batch", component: BatchScanPage });
+const reportsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/reports", component: ReportsPage });
 const moreRoute = createRoute({ getParentRoute: () => rootRoute, path: "/more", component: MorePage });
 
 const receiveRoute = createRoute({
@@ -117,7 +119,7 @@ const returnDetailRoute = createRoute({
 });
 
 const router = createRouter({
-  routeTree: rootRoute.addChildren([floorRoute, outRoute, scanRoute, batchRoute, receiveRoute, detailRoute, moreRoute, returnsRoute, returnNewRoute, returnDetailRoute]),
+  routeTree: rootRoute.addChildren([floorRoute, outRoute, scanRoute, batchRoute, reportsRoute, receiveRoute, detailRoute, moreRoute, returnsRoute, returnNewRoute, returnDetailRoute]),
   scrollRestoration: true,
   // The demo runs inside a claude.ai frame where only the hash is ours.
   ...(IS_DEMO ? { history: createHashHistory() } : {}),

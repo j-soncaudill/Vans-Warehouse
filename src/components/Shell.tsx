@@ -1,6 +1,6 @@
 import { useCallback, useState, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { ArrowRight, DatabaseBackup, HardHat, LayoutGrid, Plus, ScanLine, Undo2 } from "lucide-react";
+import { ArrowRight, ChartColumn, DatabaseBackup, HardHat, LayoutGrid, Plus, ScanLine, Undo2 } from "lucide-react";
 import { Confirm, cx, errorText, toast, useOnline } from "@/components/ui";
 import { useRole } from "@/lib/role";
 import logo from "@/assets/vans-logo.png";
@@ -93,6 +93,18 @@ export function Shell({ children }: { children: ReactNode }) {
           <Brand />
         </Link>
         <LiveDot status={status} />
+        {role === "admin" ? (
+          <Link
+            to="/reports"
+            aria-label="Reports"
+            className={cx(
+              "vw-press inline-flex size-11 items-center justify-center rounded-[var(--radius-box)] border bg-panel active:bg-raised",
+              path === "/reports" ? "border-cyan text-cyan" : "border-line text-ink",
+            )}
+          >
+            <ChartColumn className="size-5" strokeWidth={1.9} />
+          </Link>
+        ) : null}
         {role === "admin" ? (
           <Link
             to="/more"

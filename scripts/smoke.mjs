@@ -588,6 +588,21 @@ try {
     if (rows.find((x) => x.code === "AB-778899")?.checked_out_to !== "Crew 3") throw new Error("scan-several check out not saved");
   });
 
+  await step("Reports: longest on floor, out by job, old open returns", async () => {
+    const old = new Date(Date.now() - 20 * 86_400_000).toISOString();
+    returnsRows.push(newRow("returns", { code: "VVR-0420", type: "vendor", returned_by: "Sam", vendor: "Etna", created_at: old }));
+    await page.getByRole("link", { name: "Reports" }).click();
+    await expect(page.getByRole("heading", { name: "Longest on the floor" }), "floor section");
+    await expect(page.getByText("Crew 2").first(), "checked out group shows who");
+    await expect(page.getByText("VVR-0420"), "old return listed at 14 days");
+    await shot("17g-reports");
+    await page.fill("#return-days", "30");
+    await page.getByText("VVR-0420").waitFor({ state: "detached" });
+    await page.getByRole("button", { name: "7", exact: true }).click();
+    await expect(page.getByText("VVR-0420"), "back at 7 days");
+    returnsRows.splice(returnsRows.findIndex((r) => r.code === "VVR-0420"), 1);
+  });
+
   await step("Returns: a QR that isn't the station is rejected", async () => {
     await page.getByRole("link", { name: "returns", exact: true }).click();
     await page.getByRole("link", { name: "Start a return" }).click();
@@ -759,6 +774,7 @@ try {
       await f.getByRole("link", { name: "floor", exact: true }).waitFor();
       if (await f.locator("#pin").count()) throw new Error("field asked for a PIN");
       if (await f.getByRole("link", { name: "Backup and restore" }).count()) throw new Error("field sees backup link");
+      if (await f.getByRole("link", { name: "Reports" }).count()) throw new Error("field sees reports link");
       await f.goto(`http://localhost:${PORT}/p/${mintedCode}`);
       await f.getByRole("button", { name: "Check out" }).waitFor();
       await f.getByRole("button", { name: "Move" }).waitFor();
@@ -775,6 +791,8 @@ try {
       if (await f.getByRole("button", { name: /Return to floor/ }).count()) throw new Error("field can return to floor");
       await f.screenshot({ path: path.join(shots, "24-field-checked-out.png") });
       if (rows.find((x) => x.code === mintedCode)?.checked_out_to !== "Truck 9") throw new Error("field check out not saved");
+      await f.goto(`http://localhost:${PORT}/reports`);
+      await f.getByText("Administrators only").waitFor();
       await f.goto(`http://localhost:${PORT}/more`);
       await f.getByText("Administrators only").waitFor();
       if (await f.getByRole("button", { name: "Export backup" }).count()) throw new Error("field sees backup");
