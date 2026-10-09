@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, type CSSProperties } from "react";
 import { Link } from "@tanstack/react-router";
-import { History, ListChecks, MapPin, PackagePlus, X } from "lucide-react";
+import { ChevronDown, History, ListChecks, MapPin, PackagePlus, X } from "lucide-react";
 import { BatchCheckoutSheet } from "@/components/BatchCheckout";
 import { PackageCard } from "@/components/Package";
 import { PageTitle } from "@/components/Shell";
@@ -17,6 +17,18 @@ function matches(p: Pkg, q: string) {
     .toLowerCase()
     .includes(q);
 }
+
+const LEGACY_OPEN = "vw.legacyOpen";
+function readLegacyOpen() {
+  try {
+    return sessionStorage.getItem(LEGACY_OPEN) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/** Legacy boxes: known months newest first, then the ones nobody knows the date of. */
+const byLegacyAge = (a: Pkg, b: Pkg) => Number(a.arrivalUnknown) - Number(b.arrivalUnknown) || b.receivedAt.localeCompare(a.receivedAt);
 
 function PackageList({ status }: { status: PkgStatus }) {
   const { data, error, loading, reload } = useLiveQuery(`list:${status}`, () => listPackages(status));
@@ -44,6 +56,23 @@ function PackageList({ status }: { status: PkgStatus }) {
     [all, q, color, place, legacyOnly],
   );
   const legacyCount = useMemo(() => all.filter((p) => p.legacy).length, [all]);
+  const floor = status === "on_floor";
+  // On the floor, recent deliveries come first; legacy boxes sit in their own section below.
+  const recent = useMemo(() => (floor ? shown.filter((p) => !p.legacy) : shown), [floor, shown]);
+  const legacy = useMemo(() => (floor ? shown.filter((p) => p.legacy).sort(byLegacyAge) : []), [floor, shown]);
+  const [legacyPref, setLegacyPref] = useState(readLegacyOpen);
+  const legacyForced = legacyOnly || q.trim() !== "" || recent.length === 0;
+  const legacyOpen = legacyForced || legacyPref;
+  const toggleLegacy = () =>
+    setLegacyPref((v) => {
+      try {
+        sessionStorage.setItem(LEGACY_OPEN, v ? "0" : "1");
+      } catch {
+        /* ignore */
+      }
+      return !v;
+    });
+  const visible = legacyOpen ? [...recent, ...legacy] : recent;
   const usedColors = COLOR_TAGS.filter((t) => all.some((p) => p.colorTag === t));
   // Only places something is actually at, busiest first.
   const usedPlaces = useMemo(() => {
@@ -51,7 +80,6 @@ function PackageList({ status }: { status: PkgStatus }) {
     for (const p of all) if (p.lastLocation) counts.set(p.lastLocation, (counts.get(p.lastLocation) ?? 0) + 1);
     return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   }, [all]);
-  const floor = status === "on_floor";
   // Rows present on first load cascade in; rows that show up later (another
   // phone, over realtime) glow once so the change is noticed.
   const seen = useRef<Set<number> | null>(null);
@@ -70,8 +98,8 @@ function PackageList({ status }: { status: PkgStatus }) {
           {picked ? (
             <>
               <span className="mr-auto text-[13px] text-dim">tap boxes to check out together</span>
-              <button type="button" onClick={() => setPicked(new Set(shown.map((p) => p.code)))} className="vw-press min-h-10 rounded-[8px] border border-line bg-panel px-3 text-[13px] text-dim lowercase">
-                all {shown.length}
+              <button type="button" onClick={() => setPicked(new Set(visible.map((p) => p.code)))} className="vw-press min-h-10 rounded-[8px] border border-line bg-panel px-3 text-[13px] text-dim lowercase">
+                all {visible.length}
               </button>
               <button type="button" onClick={() => setPicked(null)} className="vw-press min-h-10 rounded-[8px] border border-line bg-panel px-3 text-[13px] text-ink lowercase">
                 cancel
@@ -199,13 +227,46 @@ function PackageList({ status }: { status: PkgStatus }) {
       ) : data && shown.length === 0 ? (
         <p className="py-8 text-center text-[15px] text-dim">No match.</p>
       ) : (
-        <ul className="flex flex-col border-t border-hair">
-          {shown.map((p, i) => (
-            <li key={p.id} className={isNew(p.id) ? "vw-new" : "vw-row"} style={{ "--i": i } as CSSProperties}>
-              <PackageCard pkg={p} select={picked ? { on: picked.has(p.code), toggle: () => toggle(p.code) } : undefined} />
-            </li>
-          ))}
-        </ul>
+        <>
+          {recent.length > 0 ? (
+            <ul className="flex flex-col border-t border-hair">
+              {recent.map((p, i) => (
+                <li key={p.id} className={isNew(p.id) ? "vw-new" : "vw-row"} style={{ "--i": i } as CSSProperties}>
+                  <PackageCard pkg={p} select={picked ? { on: picked.has(p.code), toggle: () => toggle(p.code) } : undefined} />
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {legacy.length > 0 ? (
+            <section className={cx("flex flex-col", recent.length > 0 && "mt-6")} aria-label="Legacy boxes">
+              {recent.length > 0 || !legacyOnly ? (
+                <button
+                  type="button"
+                  aria-expanded={legacyOpen}
+                  disabled={legacyForced}
+                  onClick={toggleLegacy}
+                  className="vw-press flex min-h-12 items-center gap-2 rounded-[10px] border border-amber/40 bg-panel px-3.5 text-left disabled:cursor-default"
+                >
+                  <History aria-hidden className="size-4 text-amber" />
+                  <span className="flex-1 font-sans text-[15px] font-semibold text-ink">
+                    Legacy boxes <span className="text-faint">·</span> <span className="tabular-nums text-amber">{legacy.length}</span>
+                  </span>
+                  <span className="text-[12px] text-faint">{legacyOpen ? "here before Floorcast" : "tap to show"}</span>
+                  {legacyForced ? null : <ChevronDown aria-hidden className={cx("size-4 text-dim transition-transform", legacyOpen && "rotate-180")} />}
+                </button>
+              ) : null}
+              {legacyOpen ? (
+                <ul className="mt-2 flex flex-col border-t border-hair">
+                  {legacy.map((p, i) => (
+                    <li key={p.id} className={isNew(p.id) ? "vw-new" : "vw-row"} style={{ "--i": i } as CSSProperties}>
+                      <PackageCard pkg={p} select={picked ? { on: picked.has(p.code), toggle: () => toggle(p.code) } : undefined} />
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </section>
+          ) : null}
+        </>
       )}
 
       {picked && picked.size > 0 ? (

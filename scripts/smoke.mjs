@@ -593,6 +593,24 @@ try {
     if ((await page.locator("#f-legacy").getAttribute("aria-checked")) === "true") await page.locator("#f-legacy").click();
     if (!(await page.locator("#f-po").isVisible())) throw new Error("fields did not come back with legacy off");
     await page.getByRole("link", { name: "floor", exact: true }).click();
+    // Recent deliveries first; legacy boxes wait in a collapsed section below them.
+    const legacyHead = page.getByRole("button", { name: /Legacy boxes · 2/ });
+    await expect(legacyHead, "legacy section header");
+    if ((await legacyHead.getAttribute("aria-expanded")) !== "false") throw new Error("legacy section should start collapsed");
+    if (await page.getByText("Old copper").count()) throw new Error("legacy rows showed before the section was opened");
+    const recentY = (await page.locator("main li").first().boundingBox())?.y ?? 0;
+    if (recentY > ((await legacyHead.boundingBox())?.y ?? 0)) throw new Error("recent box is not above the legacy section");
+    await shot("17g-floor-tidy");
+    await page.getByRole("searchbox", { name: "Search" }).fill("copper");
+    await expect(page.getByText("Old copper"), "search finds a legacy box without opening the section");
+    await page.getByRole("button", { name: "Clear search" }).click();
+    await legacyHead.click();
+    await expect(page.getByText("Old copper"), "legacy rows after opening");
+    const order = await page.locator("main li").allInnerTexts();
+    const iCopper = order.findIndex((t) => t.includes("Old copper"));
+    const iMystery = order.findIndex((t) => t.includes("Mystery fittings"));
+    if (!(iCopper >= 0 && iMystery > iCopper)) throw new Error("date-unknown legacy boxes should come after known months");
+    await legacyHead.click();
     const chip = page.getByRole("button", { name: "Legacy only, 2" });
     await expect(chip, "legacy chip with count");
     await chip.click();
@@ -608,6 +626,8 @@ try {
   await step("Batch check-out from the floor list skips a box another phone took", async () => {
     await page.getByRole("link", { name: "floor", exact: true }).click();
     await page.getByRole("button", { name: "select", exact: true }).click();
+    const legacyHead = page.getByRole("button", { name: /Legacy boxes/ });
+    if ((await legacyHead.getAttribute("aria-expanded")) !== "true") await legacyHead.click();
     await page.getByRole("checkbox", { name: /Select Old copper/ }).click();
     await page.getByRole("checkbox", { name: /Select Loc Test/ }).click();
     await expect(page.getByRole("button", { name: "Check out 2 boxes" }), "batch bar");
