@@ -145,7 +145,7 @@ function PackageList({ status }: { status: PkgStatus }) {
                   onClick={() => setLegacyOnly((v) => !v)}
                   className={cx(
                     "vw-press flex min-h-10 shrink-0 items-center gap-1.5 rounded-[8px] border px-3 text-[13px] lowercase",
-                    legacyOnly ? "border-amber bg-amber/10 text-amber" : "border-amber/40 bg-panel text-dim",
+                    legacyOnly ? "border-amber bg-amber/10 text-amber" : "border-line bg-panel text-dim",
                   )}
                 >
                   <History aria-hidden className="size-3.5 text-amber" />
