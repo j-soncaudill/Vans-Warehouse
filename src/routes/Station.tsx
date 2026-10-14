@@ -1,20 +1,22 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { Camera, Check, IdCard, Lock, LogOut, TriangleAlert, Undo2, X } from "lucide-react";
+import { Camera, Check, ChevronRight, IdCard, Lock, LogOut, PackageX, TriangleAlert, Undo2, X } from "lucide-react";
+import { Decode, DrawCheck } from "@/components/motion";
 import { Brand } from "@/components/Shell";
 import { VansMarkFill } from "@/components/VansMark";
 import { Scanner } from "@/components/Scanner";
 import { Button, Overlay, cx, errorText, toast } from "@/components/ui";
 import { badgePayload, badgeToken, isBadgeScan, listEmployees, refreshBadgeCache, whoseBadge, type Employee } from "@/lib/badges";
-import { pickCode } from "@/lib/codes";
+import { RETURN_TYPES, pickCode, returnTypeInfo, type ReturnType } from "@/lib/codes";
 import { notifyChanged } from "@/lib/live";
 import { checkOut, getPackage, listPackages, returnToFloor, type Pkg } from "@/lib/packages";
 import { unlock } from "@/lib/pin";
+import { startReturn, type Ret } from "@/lib/returns";
 import { STATION_IDLE_MS, beep, setStationMode } from "@/lib/station";
 import { DEMO_UI } from "@/lib/supabase";
 import { ago } from "@/lib/time";
 
 type Tone = "ok" | "bad" | "warn";
-type Line = { id: number; tone: Tone; title: string; detail?: string; code?: string; undone?: boolean };
+type Line = { id: number; tone: Tone; title: string; detail?: string; code?: string; undone?: boolean; isReturn?: boolean };
 type Person = { name: string; token: string };
 type Hello = { id: number; mode: "in" | "out"; name: string; note?: string };
 
@@ -38,6 +40,14 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
   const [exiting, setExiting] = useState(false);
   const [hello, setHello] = useState<Hello | null>(null);
   const [count, setCount] = useState(0);
+  // Starting a return from the station: scans pause until it's done.
+  const [returning, setReturning] = useState(false);
+  const returningRef = useRef(false);
+  const openReturn = (on: boolean) => {
+    returningRef.current = on;
+    setReturning(on);
+    lastAt.current = Date.now();
+  };
   const whoRef = useRef<Person | null>(null);
   const lastAt = useRef(Date.now());
   const chain = useRef<Promise<void>>(Promise.resolve());
@@ -55,6 +65,8 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
     if (!p) return;
     whoRef.current = null;
     lastAt.current = Date.now();
+    returningRef.current = false;
+    setReturning(false);
     setWho(null);
     setLines([]);
     setFlash(null);
@@ -65,6 +77,7 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
   const handle = useCallback(
     async (raw: string) => {
       lastAt.current = Date.now();
+      if (returningRef.current) return beep("bad");
       const person = whoRef.current;
       const say = (tone: Tone, title: string, detail?: string, code?: string) => {
         beep(tone === "ok" ? "ok" : "bad");
@@ -169,7 +182,7 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
   // Nobody walks off still signed in: 3 minutes with no scans signs them out.
   useEffect(() => {
     const timer = window.setInterval(() => {
-      if (whoRef.current && Date.now() - lastAt.current >= STATION_IDLE_MS) {
+      if (whoRef.current && !returningRef.current && Date.now() - lastAt.current >= STATION_IDLE_MS) {
         signOut(`No scans for 3 minutes · ${boxes(countRef.current)} checked out`);
       }
     }, 1000);
@@ -216,7 +229,13 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
                     l.undone ? "border-line bg-panel opacity-60" : l.tone === "ok" ? "border-cyan/40 bg-cyan/5" : l.tone === "warn" ? "border-amber/50 bg-amber/5" : "border-danger/50 bg-danger/5",
                   )}
                 >
-                  {l.undone ? <Undo2 aria-label="undone" className="size-5 shrink-0 text-dim" /> : <Mark tone={l.tone} />}
+                  {l.undone ? (
+                    <Undo2 aria-label="undone" className="size-5 shrink-0 text-dim" />
+                  ) : l.isReturn ? (
+                    <PackageX aria-label="return" className="size-5 shrink-0 text-cyan" />
+                  ) : (
+                    <Mark tone={l.tone} />
+                  )}
                   <div className="min-w-0 flex-1">
                     <p className={cx("truncate font-sans text-[17px] leading-tight font-semibold text-white", l.undone && "line-through")}>{l.title}</p>
                     <p className={cx("truncate text-[13px]", l.undone ? "text-dim" : l.tone === "bad" ? "text-danger" : "text-dim")}>
@@ -224,7 +243,7 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
                       {l.code ? <span className="code text-faint"> · {l.code}</span> : null}
                     </p>
                   </div>
-                  {l.tone === "ok" && !l.undone ? (
+                  {l.tone === "ok" && !l.undone && !l.isReturn ? (
                     <button
                       type="button"
                       onClick={() => void undo(l)}
@@ -241,9 +260,14 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
 
           <div className="mt-auto flex flex-col gap-2 pt-4">
             <p className="text-center text-[14px] text-dim">Scan your badge again to sign out.</p>
-            <Button variant="ghost" onClick={() => signOut()}>
-              <LogOut className="size-[18px]" /> sign out
-            </Button>
+            <div className="flex gap-2">
+              <Button className="flex-1 whitespace-nowrap" onClick={() => openReturn(true)}>
+                <PackageX className="size-[18px] shrink-0" /> start a return
+              </Button>
+              <Button variant="ghost" className="w-auto! shrink-0 whitespace-nowrap" onClick={() => signOut()}>
+                <LogOut className="size-[18px]" /> sign out
+              </Button>
+            </div>
           </div>
         </main>
       ) : (
@@ -284,6 +308,18 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
       ) : null}
       {flash ? <ScanFlash key={flash.id} line={flash} onDone={() => setFlash((f) => (f?.id === flash.id ? null : f))} /> : null}
       {hello ? <HelloCard key={hello.id} hello={hello} onDone={() => setHello((h) => (h?.id === hello.id ? null : h))} /> : null}
+      {returning && who ? (
+        <StationReturn
+          name={who.name}
+          onClose={(ret) => {
+            openReturn(false);
+            if (ret) {
+              const line: Line = { id: ++lineId, tone: "ok", title: `Return ${ret.code}`, detail: returnTypeInfo(ret.type).label.toLowerCase(), isReturn: true };
+              setLines((l) => [line, ...l].slice(0, 40));
+            }
+          }}
+        />
+      ) : null}
       {exiting ? <ExitStation onCancel={() => setExiting(false)} onExit={onExit} /> : null}
     </div>
   );
@@ -404,6 +440,78 @@ function Mark({ tone, big }: { tone: Tone; big?: boolean }) {
   if (tone === "ok") return <Check aria-label="checked out" className={cx(size, "shrink-0 text-cyan")} strokeWidth={2.8} />;
   if (tone === "warn") return <TriangleAlert aria-label="note" className={cx(size, "shrink-0 text-amber")} strokeWidth={2.4} />;
   return <X aria-label="problem" className={cx(size, "shrink-0 text-danger")} strokeWidth={2.8} />;
+}
+
+/**
+ * A return started at the station: the person is already known from their
+ * badge and the station is on site, so it's just the type, then the code to
+ * write on the item. Details and a photo can be added later on the Returns page.
+ */
+function StationReturn({ name, onClose }: { name: string; onClose: (ret: Ret | null) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [made, setMade] = useState<Ret | null>(null);
+
+  async function pick(type: ReturnType) {
+    setBusy(true);
+    try {
+      const ret = await startReturn(type, name);
+      notifyChanged();
+      beep("ok");
+      setMade(ret);
+    } catch (err) {
+      beep("bad");
+      toast(errorText(err, "Could not start the return."), "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (made) {
+    return (
+      <Overlay title="Return started" onClose={() => onClose(made)} closeLabel="Done">
+        <div className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center gap-5 px-4 pb-[max(env(safe-area-inset-bottom),16px)]">
+          <div className="flex items-center gap-3">
+            <DrawCheck className="size-8 shrink-0 text-cyan drop-shadow-[0_0_10px_rgb(45_174_196/0.6)]" />
+            <div className="flex flex-col">
+              <span className="text-[13px] text-faint lowercase">{returnTypeInfo(made.type).label}</span>
+              <span className="font-sans text-[20px] font-semibold text-white">Write this on the item</span>
+            </div>
+          </div>
+          <div className="vw-pop flex flex-col items-center gap-2 rounded-[16px] border border-cyan/50 bg-[radial-gradient(circle_at_50%_0%,rgb(45_174_196/0.18),transparent_70%)] px-4 py-8">
+            <Decode text={made.code} ms={700} className="code text-[clamp(44px,15vw,72px)] leading-none font-bold tracking-[0.06em] text-white" />
+            <span className="text-[13px] text-dim">with a sharpie, big and clear</span>
+          </div>
+          <Button big variant="primary" onClick={() => onClose(made)}>
+            Done
+          </Button>
+        </div>
+      </Overlay>
+    );
+  }
+
+  return (
+    <Overlay title="Start a return" onClose={() => onClose(null)} closeLabel="Cancel">
+      <div className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center gap-3 overflow-y-auto px-4 pb-[max(env(safe-area-inset-bottom),16px)]">
+        <h2 className="font-sans text-[26px] leading-tight font-bold tracking-[-0.02em]">What kind of return?</h2>
+        {RETURN_TYPES.map((t) => (
+          <button
+            key={t.type}
+            type="button"
+            disabled={busy}
+            onClick={() => void pick(t.type)}
+            className="vw-press flex min-h-[72px] items-center gap-4 rounded-[14px] border border-line bg-panel px-4 text-left disabled:opacity-50"
+          >
+            <span className="code w-14 shrink-0 text-[17px] font-semibold text-cyan">{t.prefix}</span>
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="font-sans text-[18px] font-semibold text-white">{t.label}</span>
+              <span className="text-[13px] text-dim">{t.hint}</span>
+            </span>
+            <ChevronRight className="size-5 shrink-0 text-faint" />
+          </button>
+        ))}
+      </div>
+    </Overlay>
+  );
 }
 
 /** Leaving station mode needs the shop PIN, so the crew can't wander into the rest of the app. */

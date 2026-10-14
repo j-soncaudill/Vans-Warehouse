@@ -87,13 +87,13 @@ export async function renderPoster({ tone, kind, title, lines, payload, caption,
   g.fillRect(M, 320, W - M * 2, 7);
 
   // ---------------------------------------------------------------- title
-  g.textAlign = "left";
+  g.textAlign = "center";
   const size = fit(g, title, 800, 230, 120, W - M * 2);
   g.fillStyle = "#ffffff";
-  g.fillText(title, M - 6, 400 + size * 0.86);
+  g.fillText(title, W / 2, 400 + size * 0.86);
   g.font = `500 54px ${SANS}`;
   g.fillStyle = "rgba(255,255,255,0.75)";
-  lines.slice(0, 2).forEach((line, i) => g.fillText(line, M, 700 + i * 70, W - M * 2));
+  lines.slice(0, 2).forEach((line, i) => g.fillText(line, W / 2, 700 + i * 70, W - M * 2));
 
   // ---------------------------------------------------------------- QR tile
   const tile = 1000;

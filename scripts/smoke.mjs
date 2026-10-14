@@ -896,6 +896,16 @@ try {
     await shot("23b-station-flash-error");
     await page.waitForTimeout(2200);
     await shot("23c-station-list");
+    // A return can be started right from the station; the badge supplies the name.
+    await page.getByRole("button", { name: "start a return" }).click();
+    await page.getByRole("button", { name: /Return to stock/ }).click();
+    await expect(page.getByText("Write this on the item"), "return code shown");
+    const stationRet = returnsRows.find((r) => r.returned_by === "Dana R.");
+    if (!stationRet || stationRet.type !== "stock" || !/^VRS-\d{4}$/.test(stationRet.code)) throw new Error(`station return wrong: ${JSON.stringify(stationRet)}`);
+    await page.waitForTimeout(800);
+    await shot("23h-station-return");
+    await page.getByRole("dialog").getByRole("button", { name: "Done" }).last().click();
+    await expect(page.getByText(`Return ${stationRet.code}`), "return listed with the scans");
     await scanText(`VW-BADGE:${dana.badge}`);
     const bye = page.locator('[data-hello="out"]');
     await expect(bye.getByText("You're signed out."), "badge again signs out");
