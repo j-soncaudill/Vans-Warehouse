@@ -4,7 +4,7 @@ Ideas parked until there's time to plan them. The check-out station is now built
 
 ## 1. Check-out station (handheld scanner) — built
 
-Built as **Station mode** (Backup & setup → Check-out station): lanyard badges, "Hi Dana. Start scanning your items.", each box checked out on scan, a red warning for a box that's already out, sign out by scanning the badge again or after 30 s. Database update 006. Still open: hand-offs, returns at the station, badge + PIN. The notes below are kept for reference.
+Built as **Station mode** (Backup & setup → Check-out station): lanyard badges, "Hi Dana. Start scanning your items.", each box checked out on scan, a red warning for a box that's already out, undo a mistaken scan, sign out by scanning the badge again (or automatically after 3 minutes), crew and admin badges in color or black & white. Database updates 006 and 007. Still open: hand-offs, returns at the station, badge + PIN. The notes below are kept for reference.
 
 **Goal:** someone scans their own badge, then scans the boxes they're taking. Each box is checked out to them right away, and the record of who took what and when is the same as today.
 
