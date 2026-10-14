@@ -247,6 +247,23 @@ input[type="search"]::-webkit-search-cancel-button {
   to { opacity: 0; }
 }
 .vw-greet-out-veil { animation: vw-greet-veil-out 300ms var(--ease-out) forwards; }
+/* Sign-in confirmation: the Vans mark draws in outline, then fills with a blue glow. */
+@keyframes vw-mark-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes vw-mark-rise {
+  from { clip-path: inset(100% 0 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+@keyframes vw-mark-glow {
+  0% { filter: drop-shadow(0 0 0 rgb(45 174 196 / 0)); }
+  70% { filter: drop-shadow(0 0 22px rgb(45 174 196 / 0.95)); }
+  100% { filter: drop-shadow(0 0 14px rgb(45 174 196 / 0.7)); }
+}
+.vw-mark { animation: vw-mark-glow 700ms var(--ease-out) 900ms both; }
+.vw-mark-line path { stroke-dasharray: 1; animation: vw-mark-draw 650ms var(--ease-out) 200ms both; }
+.vw-mark-fill { animation: vw-mark-rise 600ms cubic-bezier(0.65, 0, 0.35, 1) 800ms both; }
 @keyframes vw-tap {
   0% { transform: scale(0.86); }
   100% { transform: scale(1); }

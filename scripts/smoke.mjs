@@ -831,8 +831,10 @@ try {
     // The big greeting card pops in, then gets out of the way on its own.
     const card = page.locator('[aria-live="assertive"]');
     await expect(card.getByText("Dana R.", { exact: true }), "greeting card");
-    await page.waitForTimeout(600);
-    await shot("23d-station-greeting");
+    await page.waitForTimeout(450);
+    await shot("23d-station-greeting-outline");
+    await page.waitForTimeout(500);
+    await shot("23e-station-greeting-filled");
     await card.waitFor({ state: "detached", timeout: 4000 });
     await expect(page.getByText("Hi Dana R."), "greeting");
     await expect(page.getByText("Start scanning your items."), "prompt");

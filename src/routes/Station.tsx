@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { Camera, Check, IdCard, Lock, LogOut, TriangleAlert, X } from "lucide-react";
 import { Brand } from "@/components/Shell";
+import { VansMarkFill } from "@/components/VansMark";
 import { Scanner } from "@/components/Scanner";
 import { Button, Overlay, cx } from "@/components/ui";
 import { badgePayload, badgeToken, isBadgeScan, listEmployees, refreshBadgeCache, whoseBadge, type Employee } from "@/lib/badges";
@@ -271,8 +272,8 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
 }
 
 /**
- * Full-screen hello when a badge is scanned: pops in, holds about a second,
- * then lifts away. It never blocks scanning; box scans go through underneath.
+ * Full-screen hello when a badge is scanned: pops in, the Vans mark draws
+ * and fills with a blue glow (the sign-in confirmation), then it lifts away. It never blocks scanning; box scans go through underneath.
  */
 function Greeting({ name, onDone }: { name: string; onDone: () => void }) {
   const [leaving, setLeaving] = useState(false);
@@ -280,14 +281,13 @@ function Greeting({ name, onDone }: { name: string; onDone: () => void }) {
   doneRef.current = onDone;
   // Timed once per greeting; the station re-renders every half second for its countdown.
   useEffect(() => {
-    const out = window.setTimeout(() => setLeaving(true), 1350);
-    const done = window.setTimeout(() => doneRef.current(), 1700);
+    const out = window.setTimeout(() => setLeaving(true), 1900);
+    const done = window.setTimeout(() => doneRef.current(), 2250);
     return () => {
       window.clearTimeout(out);
       window.clearTimeout(done);
     };
   }, []);
-  const initial = name.trim().charAt(0).toUpperCase();
   return (
     <div
       role="status"
@@ -300,9 +300,7 @@ function Greeting({ name, onDone }: { name: string; onDone: () => void }) {
           leaving ? "vw-greet-out" : "vw-greet-in",
         )}
       >
-        <span className="flex size-28 items-center justify-center rounded-full border-2 border-cyan bg-cyan/15 font-sans text-[56px] font-bold text-cyan shadow-[0_0_40px_rgb(45_174_196/0.5)]">
-          {initial || <Check className="size-14" strokeWidth={2.6} />}
-        </span>
+        <VansMarkFill className="h-40 w-auto text-cyan" />
         <span className="font-sans text-[28px] font-semibold text-cyan">Hi,</span>
         <span className="font-sans text-[clamp(44px,14vw,92px)] leading-[0.95] font-bold tracking-[-0.03em] break-words text-white">{name}</span>
         <span className="text-[19px] text-ink">Start scanning your items.</span>
