@@ -207,6 +207,13 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
                 {who.name.endsWith(".") ? "" : "."}
               </h1>
               <p className="mt-0.5 text-[17px] text-cyan">Start scanning your items.</p>
+              <button
+                type="button"
+                onClick={() => openReturn(true)}
+                className="vw-press mt-2.5 inline-flex min-h-10 items-center gap-1.5 rounded-[8px] border border-line bg-panel px-3 text-[13px] text-ink lowercase"
+              >
+                <PackageX aria-hidden className="size-4 text-cyan" /> start a return
+              </button>
             </div>
             <span className="flex shrink-0 flex-col items-end leading-none">
               <span className="font-sans text-[34px] font-bold text-cyan tabular-nums">{count}</span>
@@ -260,14 +267,9 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
 
           <div className="mt-auto flex flex-col gap-2 pt-4">
             <p className="text-center text-[14px] text-dim">Scan your badge again to sign out.</p>
-            <div className="flex gap-2">
-              <Button className="flex-1 whitespace-nowrap" onClick={() => openReturn(true)}>
-                <PackageX className="size-[18px] shrink-0" /> start a return
-              </Button>
-              <Button variant="ghost" className="w-auto! shrink-0 whitespace-nowrap" onClick={() => signOut()}>
-                <LogOut className="size-[18px]" /> sign out
-              </Button>
-            </div>
+            <Button variant="ghost" onClick={() => signOut()}>
+              <LogOut className="size-[18px]" /> sign out
+            </Button>
           </div>
         </main>
       ) : (
