@@ -123,9 +123,8 @@ export async function renderBadge(name: string, payload: string, style: BadgeSty
       g.stroke();
     }
     g.restore();
-    // A huge flame mark bleeding off the bottom-left corner, clear of the
-    // small flame beside CREW / ADMIN.
-    flames(g, -250, 470, 900, (p) => {
+    // A huge flame mark bleeding off the left edge, behind the name.
+    flames(g, -170, 210, 820, (p) => {
       g.fillStyle = `rgba(${accentRgb},0.08)`;
       g.fill(p);
       g.strokeStyle = `rgba(${accentRgb},0.26)`;
@@ -210,12 +209,27 @@ export async function renderBadge(name: string, payload: string, style: BadgeSty
     });
     g.fillStyle = "#ffffff";
     g.fillText(tag, M + 54, 300);
+  } else if (color) {
+    // The big background flame is the icon here, so the tag is text only
+    // (a small flame would cross the big one): an outlined pill.
+    const tw = g.measureText(tag).width;
+    g.strokeStyle = accent;
+    g.lineWidth = 3;
+    roundRect(g, M, 258, tw + 40, 58, 12);
+    // Solid, so the background flame passes cleanly behind the tag.
+    g.fillStyle = "#0c1c20";
+    g.fill();
+    g.fillStyle = `rgba(${accentRgb},0.16)`;
+    g.fill();
+    g.stroke();
+    g.fillStyle = accent;
+    g.fillText(tag, M + 20, 300);
   } else {
     flames(g, M, 262, 54, (p) => {
-      g.fillStyle = color ? accent : "#000000";
+      g.fillStyle = "#000000";
       g.fill(p);
     });
-    g.fillStyle = color ? accent : "#000000";
+    g.fillStyle = "#000000";
     g.fillText(tag, M + 50, 302);
   }
 
