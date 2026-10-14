@@ -108,9 +108,9 @@ export async function renderBadge(name: string, payload: string, style: BadgeSty
   if (color) {
     const bg = g.createLinearGradient(0, 0, W, H);
     // Crew: teal fading to near-black, a touch of red in the far corner.
-    // Admin: the same fade, starting from Vans red.
+    // Admin: the mirror image, Vans red fading out, a touch of teal in the far corner.
     const stops: Array<[number, string]> = admin
-      ? [[0, "#4a1014"], [0.42, "#1c0a0c"], [0.75, "#0b0a0c"], [1, "#2a0c0f"]]
+      ? [[0, "#4a1014"], [0.42, "#1c0a0c"], [0.72, "#0b0a0c"], [1, "#0d2f36"]]
       : [[0, "#0d2f36"], [0.42, "#0a1316"], [0.75, "#0b0a0c"], [1, "#2a0c0f"]];
     for (const [at, c] of stops) bg.addColorStop(at, c);
     g.fillStyle = bg;
@@ -263,8 +263,8 @@ export async function renderBadge(name: string, payload: string, style: BadgeSty
     g.font = `500 22px ${MONO}`;
     g.fillText(`ID ···${id}`, M, H - 66);
     const strip = g.createLinearGradient(0, 0, W, 0);
-    strip.addColorStop(0, admin ? "#ff6b6e" : CYAN);
-    strip.addColorStop(1, RED);
+    strip.addColorStop(0, admin ? RED : CYAN);
+    strip.addColorStop(1, admin ? CYAN : RED);
     g.fillStyle = strip;
     g.fillRect(0, H - 22, W, 22);
   } else {
