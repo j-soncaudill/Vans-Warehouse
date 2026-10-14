@@ -798,8 +798,20 @@ try {
     // Admin makes a badge.
     await page.fill("#badge-name", "Dana R.");
     await page.getByRole("button", { name: "add", exact: true }).click();
-    await expect(page.getByAltText("Badge for Dana R."), "badge preview");
+    // Full color by default; black & white for the thermal label printer.
+    const saveImg = async (alt, file) => {
+      const img = page.getByAltText(alt);
+      await img.waitFor();
+      const b64 = await img.evaluate(async (el) => {
+        const blob = await (await fetch(el.src)).blob();
+        return await new Promise((r) => { const fr = new FileReader(); fr.onload = () => r(String(fr.result).split(",")[1]); fr.readAsDataURL(blob); });
+      });
+      writeFileSync(path.join(shots, file), Buffer.from(b64, "base64"));
+    };
+    await saveImg("Badge for Dana R., full color", "badge-color.png");
     await shot("23a-badge");
+    await page.getByRole("button", { name: "black & white" }).click();
+    await saveImg("Badge for Dana R., black and white", "badge-bw.png");
     await page.getByRole("button", { name: "Done", exact: true }).click();
     const dana = employees.find((e) => e.name === "Dana R.");
     if (!dana || !/^[A-Z0-9]{12}$/.test(dana.badge)) throw new Error(`badge row wrong: ${JSON.stringify(dana)}`);

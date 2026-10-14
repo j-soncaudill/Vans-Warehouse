@@ -1,19 +1,25 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { IdCard, Plus, Printer, RefreshCw, Share2, Trash2 } from "lucide-react";
-import { Button, Confirm, errorText, toast } from "@/components/ui";
+import { Button, Confirm, cx, errorText, toast } from "@/components/ui";
 import { addEmployee, badgePayload, listEmployees, reissueBadge, removeEmployee, type Employee } from "@/lib/badges";
 import { useRole } from "@/lib/role";
-import { downloadBlob, printLabel, renderBadge } from "@/lib/sticker";
+import { renderBadge, type BadgeStyle } from "@/lib/badgeArt";
+import { downloadBlob, printLabel } from "@/lib/sticker";
 import { DEMO_UI } from "@/lib/supabase";
 
-async function badgeBlob(e: Employee) {
-  return renderBadge(e.name, badgePayload(e.badge));
+async function badgeBlob(e: Employee, style: BadgeStyle) {
+  return renderBadge(e.name, badgePayload(e.badge), style);
 }
 
+const STYLES: Array<{ style: BadgeStyle; label: string; hint: string }> = [
+  { style: "color", label: "full color", hint: "For a color printer on cardstock. Cut to 4×3 in for a badge holder." },
+  { style: "label", label: "black & white", hint: "For the Brother label printer (4×3 labels). Thermal labels print black only." },
+];
+
 /** Share sheet on phones (Save Image / Print), download elsewhere. */
-async function saveBadge(e: Employee) {
-  const blob = await badgeBlob(e);
-  const filename = `badge-${e.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.png`;
+async function saveBadge(e: Employee, style: BadgeStyle) {
+  const blob = await badgeBlob(e, style);
+  const filename = `badge-${e.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}${style === "label" ? "-bw" : ""}.png`;
   const file = new File([blob], filename, { type: "image/png" });
   if (navigator.canShare?.({ files: [file] })) {
     try {
@@ -33,7 +39,7 @@ export function BadgesSection() {
   const [error, setError] = useState("");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
-  const [preview, setPreview] = useState<{ e: Employee; url: string } | null>(null);
+  const [preview, setPreview] = useState<{ e: Employee; url: string; style: BadgeStyle } | null>(null);
   const [reissue, setReissue] = useState<Employee | null>(null);
   const [remove, setRemove] = useState<Employee | null>(null);
   const [goStation, setGoStation] = useState(false);
@@ -49,9 +55,9 @@ export function BadgesSection() {
   useEffect(load, []);
   useEffect(() => () => (preview ? URL.revokeObjectURL(preview.url) : undefined), [preview]);
 
-  async function show(e: Employee) {
-    const blob = await badgeBlob(e);
-    setPreview({ e, url: URL.createObjectURL(blob) });
+  async function show(e: Employee, style: BadgeStyle = "color") {
+    const blob = await badgeBlob(e, style);
+    setPreview({ e, url: URL.createObjectURL(blob), style });
   }
 
   async function add(ev: FormEvent) {
@@ -135,14 +141,30 @@ export function BadgesSection() {
           title={`${preview.e.name}'s badge`}
           body={
             <span className="flex flex-col gap-3">
-              <img src={preview.url} alt={`Badge for ${preview.e.name}`} className="w-full rounded-[8px] border border-line bg-white" />
-              <span className="text-[13px] text-dim">Prints on the same 4×3 labels as box stickers, and fits a 4×3 badge holder.</span>
+              <span className="flex gap-2" role="group" aria-label="Badge style">
+                {STYLES.map((o) => (
+                  <button
+                    key={o.style}
+                    type="button"
+                    aria-pressed={preview.style === o.style}
+                    onClick={() => void show(preview.e, o.style)}
+                    className={cx(
+                      "vw-press min-h-10 flex-1 rounded-[8px] border px-3 text-[13px] lowercase",
+                      preview.style === o.style ? "border-cyan bg-cyan/10 text-cyan" : "border-line bg-panel text-dim",
+                    )}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </span>
+              <img src={preview.url} alt={`Badge for ${preview.e.name}, ${preview.style === "color" ? "full color" : "black and white"}`} className="w-full rounded-[8px] border border-line bg-white" />
+              <span className="text-[13px] text-dim">{STYLES.find((o) => o.style === preview.style)?.hint}</span>
               {DEMO_UI ? <span className="text-[13px] text-faint">Printing and saving are blocked in this preview.</span> : null}
               <span className="flex gap-2">
-                <Button disabled={DEMO_UI} onClick={() => void badgeBlob(preview.e).then((b) => printLabel(b, `${preview.e.name} badge`))}>
+                <Button disabled={DEMO_UI} onClick={() => void badgeBlob(preview.e, preview.style).then((b) => printLabel(b, `${preview.e.name} badge`))}>
                   <Printer className="size-[18px]" /> print
                 </Button>
-                <Button disabled={DEMO_UI} onClick={() => void saveBadge(preview.e)}>
+                <Button disabled={DEMO_UI} onClick={() => void saveBadge(preview.e, preview.style)}>
                   <Share2 className="size-[18px]" /> save
                 </Button>
               </span>
