@@ -134,7 +134,7 @@ export function Shell({ children }: { children: ReactNode }) {
       {askSwitch ? (
         <Confirm
           title="Switch role?"
-          body="This phone goes back to the Field / Administrator choice. Administrator needs the shop PIN."
+          body="Back to the Field / Administrator choice."
           confirmLabel="Switch"
           onCancel={() => setAskSwitch(false)}
           onConfirm={() => {

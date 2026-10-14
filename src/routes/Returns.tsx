@@ -481,7 +481,7 @@ export function ReturnDetailPage({ code: rawCode }: { code: string }) {
       <div className="flex flex-col gap-4">
         <h1 className="font-sans text-[28px] font-bold tracking-[-0.02em]">No such return</h1>
         <p className="text-[15px] text-dim">
-          <span className="code text-ink">{code}</span> is not in the returns list. It may have been removed.
+          <span className="code text-ink">{code}</span> not found.
         </p>
         <Link to="/returns" className={btn("primary", true)}>
           Go to returns
@@ -634,7 +634,7 @@ function ReturnEntry({ ret }: { ret: Ret }) {
         <Overlay title="Change type" onClose={() => setSheet("")} closeLabel="Cancel">
           <div className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-3 overflow-y-auto px-4 pt-4 pb-[max(env(safe-area-inset-bottom),16px)]">
             <p className="text-[14px] text-dim">
-              The code on the item stays <span className="code text-cyan">{ret.code}</span>. Only the type changes.
+              Code stays <span className="code text-cyan">{ret.code}</span>.
             </p>
             {RETURN_TYPES.map((t) => (
               <button
@@ -667,7 +667,7 @@ function ReturnEntry({ ret }: { ret: Ret }) {
       {sheet === "remove" ? (
         <Confirm
           title={`Remove ${ret.code}?`}
-          body="Deletes this return and its photo for every phone. This cannot be undone."
+          body="Deletes it on every phone, with its photo. Can't be undone."
           confirmLabel="Remove for good"
           danger
           busy={busy}

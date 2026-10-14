@@ -73,7 +73,6 @@ export function ReportsPage() {
           <ShieldCheck className="size-6 text-cyan" strokeWidth={2.2} />
           <span className="grad-title">Administrators only</span>
         </h1>
-        <p className="text-[15px] text-dim">Reports are for Administrator phones.</p>
       </div>
     );
   }

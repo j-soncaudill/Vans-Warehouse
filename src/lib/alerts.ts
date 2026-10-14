@@ -144,9 +144,9 @@ export async function finishAlertsSetup(): Promise<void> {
 
 export const ALERT_NOTES: Record<AlertStatus, string> = {
   unsupported: "This browser can't get alerts. Use Safari on iPhone or Chrome on Android.",
-  "home-screen": "On iPhone, add Floorcast to the Home Screen (Share → Add to Home Screen) and open it from there to get alerts.",
-  blocked: "Alerts are blocked in this phone's settings. Allow notifications for Floorcast, then turn them on here.",
-  "not-ready": "Alerts aren't set up yet. The daily-alerts job needs to be installed in Supabase (see README → Admin alerts).",
-  off: "Alerts are off on this phone.",
-  on: "This phone gets a summary at 7 AM Eastern when boxes or returns are waiting.",
+  "home-screen": "iPhone: add Floorcast to the Home Screen and open it from there.",
+  blocked: "Notifications are blocked for Floorcast in this phone's settings.",
+  "not-ready": "Alerts aren't set up in Supabase yet (README → Admin alerts).",
+  off: "",
+  on: "",
 };

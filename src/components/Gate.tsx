@@ -149,8 +149,7 @@ export function Gate({ children }: { children: ReactNode }) {
       <Screen>
         <h1 className="font-sans text-[28px] font-bold tracking-[-0.02em]">One database update</h1>
         <p className="mt-3 mb-6 text-[14px] text-dim">
-          This version adds {needed.map((u) => u.adds).join(" and ")}. In Supabase, open SQL Editor, paste this update, and press Run. It only adds new
-          columns and tables. Every existing entry is kept.
+          Adds {needed.map((u) => u.adds).join(" and ")}. Paste it into Supabase → SQL Editor → Run. Nothing existing changes.
         </p>
         <CopySql sql={upgradeSql(needed)} label="Copy update SQL" />
         <div className="mt-6">
@@ -210,7 +209,7 @@ export function Gate({ children }: { children: ReactNode }) {
           <RoleCard
             icon={<HardHat className="size-6" strokeWidth={2} />}
             title="Field"
-            body="Receive, scan, check out. No PIN."
+            body="No PIN"
             onClick={() => {
               chooseField();
               void dropAlertsIfNotAdmin(false);
@@ -220,7 +219,7 @@ export function Gate({ children }: { children: ReactNode }) {
           <RoleCard
             icon={<ShieldCheck className="size-6" strokeWidth={2} />}
             title="Administrator"
-            body="Everything, including edits and backup. Needs PIN."
+            body="Shop PIN"
             onClick={() => setAskPin(true)}
           />
         </div>

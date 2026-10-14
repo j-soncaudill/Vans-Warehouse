@@ -46,7 +46,7 @@ export function DetailPage({ code: rawCode }: { code: string }) {
       <div className="flex flex-col gap-4">
         <h1 className="font-sans text-[28px] font-bold tracking-[-0.02em]">Not in the warehouse</h1>
         <p className="text-[15px] text-dim">
-          <span className="code text-ink">{code}</span> is not on the list. It may have been removed.
+          <span className="code text-ink">{code}</span> not found.
         </p>
         <Link to="/receive" search={{ code }} className={btn("primary", true)}>
           Receive {code}
@@ -231,9 +231,7 @@ function Entry({ pkg }: { pkg: Pkg }) {
               <Button className="flex-1" onClick={() => setSlipCamera(true)} disabled={busy}>
                 <FileText className="size-[18px]" /> {slipFull ? "Replace slip photo" : "Add slip photo"}
               </Button>
-            ) : (
-              <span className="text-[13px] text-dim">Tap to read it full size.</span>
-            )}
+            ) : null}
           </div>
         </section>
       ) : null}
@@ -321,7 +319,7 @@ function Entry({ pkg }: { pkg: Pkg }) {
       {confirmRemove && admin ? (
         <Confirm
           title={`Remove ${pkg.code}?`}
-          body="Deletes this entry, its sticker file, and its photos for every phone. This cannot be undone. Export a backup first if you need a record."
+          body="Deletes it on every phone, with its sticker and photos. Can't be undone."
           confirmLabel="Remove for good"
           danger
           busy={busy}

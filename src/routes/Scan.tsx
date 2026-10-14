@@ -141,7 +141,6 @@ export function BatchScanPage() {
   return (
     <>
       <PageTitle aside={<span className="text-[13px] text-faint tabular-nums">{count}</span>}>Scan several</PageTitle>
-      <p className="-mt-2 mb-4 text-[14px] text-dim">Scan each box's sticker, then check them all out to one person.</p>
       {note ? <p className={note.tone === "ok" ? "mb-3 text-[14px] text-cyan" : "mb-3 text-[14px] text-danger"}>{note.text}</p> : null}
 
       <div className="flex flex-col gap-2.5">

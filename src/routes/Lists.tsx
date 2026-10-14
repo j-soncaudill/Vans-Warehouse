@@ -97,7 +97,7 @@ function PackageList({ status }: { status: PkgStatus }) {
         <div className="-mt-2 mb-3 flex items-center justify-end gap-2">
           {picked ? (
             <>
-              <span className="mr-auto text-[13px] text-dim">tap boxes to check out together</span>
+              <span className="mr-auto text-[13px] text-dim">tap boxes to pick</span>
               <button type="button" onClick={() => setPicked(new Set(visible.map((p) => p.code)))} className="vw-press min-h-10 rounded-[8px] border border-line bg-panel px-3 text-[13px] text-dim lowercase">
                 all {visible.length}
               </button>
@@ -215,9 +215,6 @@ function PackageList({ status }: { status: PkgStatus }) {
       ) : data && all.length === 0 ? (
         <div className="flex flex-col items-start gap-3 rounded-[12px] border border-dashed border-line p-5">
           <p className="font-sans text-[20px] font-semibold">{floor ? "Floor is empty" : "Nothing is out"}</p>
-          <p className="text-[15px] text-dim">
-            {floor ? "Receive a delivery and it shows up here on every phone." : "Boxes you check out from the floor land here."}
-          </p>
           {floor ? (
             <Link to="/receive" className={btn("primary", true)}>
               <PackagePlus className="size-[18px]" /> Receive

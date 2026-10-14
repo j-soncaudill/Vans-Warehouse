@@ -158,9 +158,7 @@ export function ReceivePage({ code: incoming }: { code?: string }) {
               </button>
             ))}
           </div>
-          {mode === "new" ? (
-            <p className="text-[12px] text-faint">a new {CODE_PREFIX} code and sticker are made when you save</p>
-          ) : (
+          {mode === "new" ? null : (
             <div className="flex gap-2">
               <label htmlFor="existing-code" className="sr-only">
                 Code on the box

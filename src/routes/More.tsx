@@ -73,7 +73,6 @@ export function MorePage() {
           <ShieldCheck className="size-6 text-cyan" strokeWidth={2.2} />
           <span className="grad-title">Administrators only</span>
         </h1>
-        <p className="text-[15px] text-dim">Backup &amp; setup is locked on Field phones.</p>
         <Button big variant="primary" onClick={toChooser}>
           Switch to Administrator
         </Button>
@@ -125,7 +124,6 @@ function AdminMore({ onSwitch }: { onSwitch: () => void }) {
       <PageTitle>Backup & setup</PageTitle>
 
       <Section title="Export backup">
-        <p className="text-[15px] text-dim">One zip with every record (JSON + CSV), every sticker, and every photo.</p>
         {DEMO_UI ? <p className="text-[15px] text-dim">Downloads are blocked in this preview. Export works on the live site.</p> : null}
         <Button big variant="primary" disabled={!!exporting || DEMO_UI} onClick={() => void doExport()}>
           <Archive className="size-5" /> {exporting ? `Packing ${exporting}` : "Export backup"}
@@ -133,7 +131,7 @@ function AdminMore({ onSwitch }: { onSwitch: () => void }) {
       </Section>
 
       <Section title="Restore">
-        <p className="text-[15px] text-dim">Loads a backup zip into the live list. Entries with the same code are overwritten. Nothing else is deleted.</p>
+        <p className="text-[15px] text-dim">Same codes are overwritten. Nothing is deleted.</p>
         <input
           ref={fileRef}
           type="file"
@@ -250,12 +248,10 @@ function StationPoster() {
     };
   }, []);
   if (missing)
-    return <p className="text-[15px] text-dim">The returns station code isn't set up yet. Run the update SQL from the system check.</p>;
+    return <p className="text-[15px] text-dim">Not set up yet. Run the update SQL from the system check.</p>;
   return (
     <>
-      <p className="text-[15px] text-dim">
-        Print this and post it in the warehouse. A return can only be started by scanning it, so whoever drops one off has to be there.
-      </p>
+      <p className="text-[15px] text-dim">Post it in the warehouse. Returns start by scanning it.</p>
       <div className="overflow-hidden rounded-[12px] border border-line bg-white">
         {url ? <img src={url} alt="Returns station poster with QR code" className="mx-auto block max-h-[60vh] w-auto" /> : <div className="aspect-[17/22] w-full" />}
       </div>
@@ -289,7 +285,7 @@ function AppPoster() {
   return (
     <>
       <p className="text-[15px] text-dim">
-        Print this and post it where the crew will see it. Scanning it with a phone camera opens Floorcast at{" "}
+        Opens Floorcast at{" "}
         <span className="code text-cyan">{url.replace(/^https?:\/\//, "").replace(/\/$/, "")}</span>.
       </p>
       <div className="overflow-hidden rounded-[12px] border border-line bg-white">

@@ -57,7 +57,7 @@ export function OfflineBar() {
       {open ? (
         <Overlay title="Couldn't sync" onClose={() => setOpen(false)} closeLabel="Close">
           <div className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-3 overflow-y-auto px-4 pt-4 pb-[max(env(safe-area-inset-bottom),16px)]">
-            <p className="text-[14px] text-dim">These were done on this phone with no signal, but another phone got there first. Nothing was overwritten.</p>
+            <p className="text-[14px] text-dim">Another phone got there first. Nothing was overwritten.</p>
             <ul className="m-0 flex list-none flex-col gap-2 p-0">
               {failed.map((f) => (
                 <li key={f.id} className="rounded-[12px] border border-line bg-panel px-3.5 py-3">

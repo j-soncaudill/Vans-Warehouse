@@ -78,7 +78,7 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
         if (!token) return say("bad", "That badge didn't read", "Try scanning it again.");
         if (person?.token === token) return signOut();
         const name = await whoseBadge(token).catch(() => null);
-        if (!name) return say("bad", "Badge not recognized", "It may have been replaced. Ask an admin for a new one.");
+        if (!name) return say("bad", "Badge not recognized", "Ask an admin for a new one.");
         beep("hello");
         setFlash(null);
         setHello({ id: ++lineId, mode: "in", name });
@@ -100,7 +100,7 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
         say("ok", pkg.jobName || code, "checked out to you", code);
       } catch {
         const now = await getPackage(code).catch(() => undefined);
-        if (now === null) say("bad", "Not in Floorcast", "This box hasn't been received. Nothing changed.", code);
+        if (now === null) say("bad", "Not in Floorcast", "Receive it first. Nothing changed.", code);
         else if (now?.status === "checked_out" && now.checkedOutTo === person.name) say("warn", now.jobName, "already checked out to you", code);
         else if (now?.status === "checked_out")
           say("bad", `Already out to ${now.checkedOutTo ?? "someone"}`, `${now.jobName}${now.checkedOutAt ? ` · ${ago(now.checkedOutAt)}` : ""}. Nothing changed.`, code);
@@ -252,7 +252,6 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
             <IdCard className="size-12" strokeWidth={1.6} />
           </span>
           <h1 className="m-0 font-sans text-[32px] leading-tight font-bold tracking-[-0.02em] text-white">Scan your badge</h1>
-          <p className="max-w-xs text-[16px] text-dim">Then scan each box you're taking. It's checked out to you right away.</p>
         </main>
       )}
 
@@ -429,7 +428,7 @@ function ExitStation({ onCancel, onExit }: { onCancel: () => void; onExit: () =>
     <Overlay title="Exit station" onClose={onCancel} closeLabel="Cancel">
       <form onSubmit={(e) => void submit(e)} className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-4 px-4 pb-[max(env(safe-area-inset-bottom),16px)]">
         <h2 className="font-sans text-[26px] leading-tight font-bold tracking-[-0.02em]">Exit check-out station?</h2>
-        <p className="text-[15px] text-dim">Enter the shop PIN. This device goes back to the full app as an Administrator.</p>
+        <p className="text-[15px] text-dim">Enter the shop PIN.</p>
         <label htmlFor="station-pin" className="sr-only">
           Shop PIN
         </label>

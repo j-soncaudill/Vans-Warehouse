@@ -281,7 +281,7 @@ try {
   await step("Missing badges table: the app asks for updates 006 and 007 only", async () => {
     await page.goto(`http://localhost:${PORT}/`);
     await expect(page.getByText("One database update"), "update screen");
-    await expect(page.getByText(/adds badges for the check-out station and admin badges/), "names what it adds");
+    await expect(page.getByText(/Adds badges for the check-out station and admin badges/), "names what it adds");
     await page.getByRole("button", { name: "Show SQL" }).click();
     const sql = await page.locator("textarea").inputValue();
     if (!sql.includes("create table if not exists public.employees")) throw new Error("update SQL is not 006");
@@ -1095,7 +1095,7 @@ try {
 
   await step("Alert notes: blocked in settings, and iPhone not on the Home Screen", async () => {
     for (const [opts, note] of [
-      [{ permission: "denied" }, "Alerts are blocked in this phone's settings."],
+      [{ permission: "denied" }, "Notifications are blocked for Floorcast"],
       [{ ua: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1" }, "add Floorcast to the Home Screen"],
     ]) {
       const c = await browser.newContext({ viewport: { width: 390, height: 844 } });

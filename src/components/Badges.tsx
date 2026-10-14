@@ -12,8 +12,8 @@ async function badgeBlob(e: Employee, style: BadgeStyle) {
 }
 
 const STYLES: Array<{ style: BadgeStyle; label: string; hint: string }> = [
-  { style: "color", label: "full color", hint: "For a color printer on cardstock. Cut to 4×3 in for a badge holder." },
-  { style: "label", label: "black & white", hint: "For the Brother label printer (4×3 labels). Thermal labels print black only." },
+  { style: "color", label: "full color", hint: "Color printer, 4×3 in." },
+  { style: "label", label: "black & white", hint: "Brother label printer, 4×3 labels." },
 ];
 
 /** Share sheet on phones (Save Image / Print), download elsewhere. */
@@ -95,10 +95,6 @@ export function BadgesSection() {
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-[15px] text-dim">
-        Each person gets a QR badge for their lanyard: crew badges in blue, admin badges in red. At the station they scan it ("Hi Dana. Start scanning your items."), then scan their boxes. Each box
-        is checked out under their name.
-      </p>
 
       <form onSubmit={(e) => void add(e)} className="flex flex-col gap-2">
         <div className="flex gap-2" role="group" aria-label="New badge for">
@@ -138,7 +134,7 @@ export function BadgesSection() {
       </form>
 
       {error ? <p className="text-[14px] text-danger">{error}</p> : null}
-      {people && people.length === 0 ? <p className="text-[14px] text-dim">No badges yet. Add the first person above.</p> : null}
+      {people && people.length === 0 ? <p className="text-[14px] text-dim">No badges yet.</p> : null}
       {people && people.length > 0 ? (
         <ul className="m-0 flex list-none flex-col p-0" aria-label="Badges">
           {people.map((e) => (
@@ -164,9 +160,6 @@ export function BadgesSection() {
 
       <div className="mt-2 flex flex-col gap-2 rounded-[12px] border border-line bg-panel p-3.5">
         <p className="text-[14px] text-ink">Make this device the check-out station</p>
-        <p className="text-[13px] text-dim">
-          For the handheld scanner by the door. It will show only the station screen. Getting back to the full app needs the shop PIN.
-        </p>
         <Button variant="primary" onClick={() => setGoStation(true)}>
           <IdCard className="size-[18px]" /> Start station mode
         </Button>
@@ -228,7 +221,7 @@ export function BadgesSection() {
       {reissue ? (
         <Confirm
           title={`New badge for ${reissue.name}?`}
-          body="The old badge stops working right away. Print the new one before the next shift."
+          body="The old badge stops working right away."
           confirmLabel="Make new badge"
           busy={busy}
           onCancel={() => setReissue(null)}
@@ -250,7 +243,7 @@ export function BadgesSection() {
       {remove ? (
         <Confirm
           title={`Remove ${remove.name}?`}
-          body="Their badge stops working. Boxes they already checked out keep their name."
+          body="Their badge stops working."
           confirmLabel="Remove"
           danger
           busy={busy}
@@ -272,7 +265,7 @@ export function BadgesSection() {
       {goStation ? (
         <Confirm
           title="Start station mode on this device?"
-          body="It will show only the check-out station. Admin alerts turn off on this device. To leave, tap exit and enter the shop PIN."
+          body="Shows only the station screen. Leaving needs the shop PIN."
           confirmLabel="Start station"
           onCancel={() => setGoStation(false)}
           onConfirm={() => {

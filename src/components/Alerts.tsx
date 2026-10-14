@@ -41,7 +41,7 @@ export function AlertsPrompt({ onDone }: { onDone: () => void }) {
         <Bell aria-hidden className="size-9 text-cyan" strokeWidth={1.8} />
         <h2 className="font-sans text-[26px] leading-tight font-bold tracking-[-0.02em]">Get a morning alert when things are waiting?</h2>
         <p className="text-[15px] text-dim">
-          One summary at 7 AM Eastern: boxes sitting 30+ days in Warehouse or Metal shop, and returns open 14+ days. Administrator phones only.
+          A 7 AM summary of boxes and returns that have been waiting.
         </p>
         {canAsk ? null : <p className="rounded-[var(--radius-box)] border border-amber/50 bg-amber/10 px-3 py-2.5 text-[14px] text-ink">{ALERT_NOTES[status]}</p>}
         {canAsk ? (
@@ -127,7 +127,9 @@ export function AlertsSection() {
           <span className={cx("absolute top-[3px] size-5 rounded-full bg-white shadow transition-[left]", on ? "left-[23px]" : "left-[3px]")} />
         </span>
       </button>
-      <p className={cx("text-[13px]", usable ? "text-dim" : "rounded-[var(--radius-box)] border border-amber/50 bg-amber/10 px-3 py-2.5 text-ink")}>{ALERT_NOTES[status]}</p>
+      {ALERT_NOTES[status] ? (
+        <p className={cx("text-[13px]", usable ? "text-dim" : "rounded-[var(--radius-box)] border border-amber/50 bg-amber/10 px-3 py-2.5 text-ink")}>{ALERT_NOTES[status]}</p>
+      ) : null}
       {on ? (
         <Button disabled={busy} onClick={() => void test()}>
           Send a test alert
