@@ -150,7 +150,7 @@ export async function renderBadge(name: string, payload: string, style: BadgeSty
   g.drawImage(color ? img : tinted(img, "#ffffff"), M, (headH - logoH) / 2 + 4, logoW, logoH);
   g.textAlign = "right";
   g.textBaseline = "alphabetic";
-  g.fillStyle = color ? (admin ? "#ff6b6e" : CYAN) : "#ffffff";
+  g.fillStyle = color ? CYAN : "#ffffff";
   g.font = `600 40px ${MONO}`;
   g.fillText("floorcast", W - M, 92);
   g.fillStyle = color ? "rgba(255,255,255,0.55)" : "#ffffff";
@@ -158,11 +158,12 @@ export async function renderBadge(name: string, payload: string, style: BadgeSty
   g.fillText(admin ? "ADMIN BADGE" : "CHECK-OUT BADGE", W - M, 130);
   if (color) {
     const rule = g.createLinearGradient(M, 0, W - M, 0);
+    // Admin: the same rule with red and blue swapped, matching the bottom strip.
     if (admin) {
-      rule.addColorStop(0, "rgba(255,107,110,0)");
-      rule.addColorStop(0.2, "#ff6b6e");
-      rule.addColorStop(0.7, RED);
-      rule.addColorStop(1, "rgba(197,44,46,0)");
+      rule.addColorStop(0, "rgba(197,44,46,0)");
+      rule.addColorStop(0.18, RED);
+      rule.addColorStop(0.6, CYAN);
+      rule.addColorStop(1, "rgba(45,174,196,0)");
     } else {
       rule.addColorStop(0, "rgba(45,174,196,0)");
       rule.addColorStop(0.18, CYAN);
