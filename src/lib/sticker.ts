@@ -105,13 +105,16 @@ export async function saveSticker(info: StickerInfo): Promise<"shared" | "downlo
 
 /** Prints only the sticker, sized to a 4×3 in label. */
 export async function printSticker(info: StickerInfo): Promise<void> {
-  const code = info.code;
-  const blob = await renderSticker(info);
+  await printLabel(await renderSticker(info), info.code);
+}
+
+/** Prints one 4×3 in label image and nothing else on the page. */
+export async function printLabel(blob: Blob, alt: string): Promise<void> {
   const url = URL.createObjectURL(blob);
   const host = document.createElement("div");
   host.id = "print-sticker";
   const img = new Image();
-  img.alt = code;
+  img.alt = alt;
   img.src = url;
   host.appendChild(img);
   document.body.appendChild(host);
@@ -213,4 +216,59 @@ export function renderAppPoster(url: string): Promise<Blob> {
     tips: ["iPhone: Share → Add to Home Screen", "Android: ⋮ menu → Add to Home screen"],
     footer: "VANS · FLOORCAST",
   });
+}
+
+/**
+ * Lanyard badge, 4×3 in (fits the same Brother labels and a standard 4×3
+ * badge holder). Name across the top, a big QR to scan at the check-out station.
+ */
+export async function renderBadge(name: string, payload: string): Promise<Blob> {
+  await document.fonts?.ready.catch(() => undefined);
+  const W = 800;
+  const H = 600;
+  const PAD = 36;
+  const c = document.createElement("canvas");
+  c.width = W;
+  c.height = H;
+  const ctx = c.getContext("2d");
+  if (!ctx) throw new Error("Could not draw the badge.");
+  ctx.fillStyle = PAPER;
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = INK;
+  ctx.textBaseline = "alphabetic";
+
+  ctx.fillRect(0, 0, W, 72);
+  ctx.fillStyle = PAPER;
+  ctx.font = `700 26px ${SANS}`;
+  ctx.textAlign = "left";
+  ctx.fillText("VANS FLOORCAST", PAD, 47);
+  ctx.textAlign = "right";
+  ctx.font = `500 22px ${SANS}`;
+  ctx.fillText("check-out badge", W - PAD, 46);
+
+  const QR = 440;
+  const qr = document.createElement("canvas");
+  await QRCode.toCanvas(qr, payload, { width: QR, margin: 2, color: { dark: INK, light: PAPER }, errorCorrectionLevel: "Q" });
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(qr, PAD - 12, 104, QR, QR);
+
+  const colX = PAD + QR + 12;
+  const colW = W - PAD - colX;
+  ctx.fillStyle = INK;
+  ctx.textAlign = "left";
+  // Long names wrap onto a second line, then shrink to fit.
+  const words = name.trim().split(/\s+/);
+  const lines: string[] = [];
+  for (const w of words) {
+    const last = lines[lines.length - 1];
+    ctx.font = `700 44px ${SANS}`;
+    if (last && ctx.measureText(`${last} ${w}`).width <= colW) lines[lines.length - 1] = `${last} ${w}`;
+    else lines.push(w);
+  }
+  lines.slice(0, 3).forEach((l, i) => ctx.fillText(l, colX, 180 + i * 54, colW));
+  ctx.font = `500 21px ${SANS}`;
+  ctx.fillText("Scan at the check-out", colX, H - 92, colW);
+  ctx.fillText("station to take boxes.", colX, H - 64, colW);
+
+  return new Promise((resolve, reject) => c.toBlob((b) => (b ? resolve(b) : reject(new Error("Could not save the badge."))), "image/png"));
 }

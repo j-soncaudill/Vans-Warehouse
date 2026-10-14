@@ -118,3 +118,24 @@ describe("reports", () => {
     expect(g.map((x) => [x.job, x.boxes.map((b) => b.code)])).toEqual([["Elm", ["C", "A"]], ["Oak", ["B"]]]);
   });
 });
+
+describe("badges", async () => {
+  const { badgePayload, badgeToken, isBadgeScan, mintBadge } = await import("@/lib/badges");
+  it("mints tokens that round-trip through the badge QR", () => {
+    for (let i = 0; i < 50; i += 1) {
+      const t = mintBadge();
+      expect(t).toMatch(/^[2-9A-HJ-NP-Z]{12}$/);
+      expect(badgeToken(badgePayload(t))).toBe(t);
+    }
+  });
+  it("reads scanner output loosely but rejects junk", () => {
+    expect(badgeToken(" vw-badge:abcd2345efgh\n")).toBe("ABCD2345EFGH");
+    expect(badgeToken("VW-BADGE:short")).toBeNull();
+    expect(badgeToken("VW-ABC123")).toBeNull();
+    expect(isBadgeScan("VW-BADGE:whatever")).toBe(true);
+  });
+  it("is never mistaken for a box code", () => {
+    expect(pickCode("VW-BADGE:ABCD2345EFGH")).toBeNull();
+    expect(pickCode("VW-ABC123")).toBe("VW-ABC123");
+  });
+});

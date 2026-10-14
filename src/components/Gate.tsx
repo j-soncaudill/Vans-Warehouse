@@ -9,6 +9,8 @@ import { disableAlerts, dropAlertsIfNotAdmin, pruneOldPinAlerts, resetAlertsDefa
 import { DEMO_UI, probeSchema, type SchemaState } from "@/lib/supabase";
 import schemaSql from "../../supabase/schema.sql?raw";
 import { neededUpgrades, upgradeSql } from "@/lib/upgrades";
+import { isStationMode, setStationMode } from "@/lib/station";
+import { StationScreen } from "@/routes/Station";
 
 function Screen({ children }: { children: ReactNode }) {
   return (
@@ -66,6 +68,7 @@ export function Gate({ children }: { children: ReactNode }) {
   const [schema, setSchema] = useState<SchemaState | "checking">("checking");
   const [role, setRole] = useState<Role | null | undefined>(undefined);
   const [askPin, setAskPin] = useState(false);
+  const [station, setStation] = useState(isStationMode);
   const [freshAdmin, setFreshAdmin] = useState(false);
   const doneFreshAdmin = useCallback(() => setFreshAdmin(false), []);
   const [pin, setPin] = useState("");
@@ -97,6 +100,22 @@ export function Gate({ children }: { children: ReactNode }) {
       <Screen>
         <p className="text-[14px] text-dim">Connecting…</p>
       </Screen>
+    );
+  }
+
+  // A check-out station shows only the station, whoever set it up.
+  if (schema === "ready" && station) {
+    return (
+      <StationScreen
+        onExit={() => {
+          // Leaving takes the shop PIN, so it counts as an admin unlock (alerts offered again).
+          resetAlertsDefault();
+          void pruneOldPinAlerts();
+          setFreshAdmin(true);
+          setStation(false);
+          setRole("admin");
+        }}
+      />
     );
   }
 
@@ -170,7 +189,15 @@ export function Gate({ children }: { children: ReactNode }) {
       setAskPin(false);
       setRole(null);
     };
-    return <RoleContext.Provider value={{ role, switchRole, freshAdmin: role === "admin" && freshAdmin, doneFreshAdmin }}>{children}</RoleContext.Provider>;
+    const enterStation = () => {
+      // The station never gets admin alerts.
+      void disableAlerts(false);
+      setStationMode(true);
+      setStation(true);
+    };
+    return (
+      <RoleContext.Provider value={{ role, switchRole, freshAdmin: role === "admin" && freshAdmin, doneFreshAdmin, enterStation }}>{children}</RoleContext.Provider>
+    );
   }
 
   if (!askPin) {

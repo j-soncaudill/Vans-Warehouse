@@ -22,15 +22,16 @@ let nextId = 1;
 const rows = [];
 const moves = [];
 const returnsRows = [];
-const TABLES = { packages: rows, package_moves: moves, returns: returnsRows };
+const employees = [];
+const TABLES = { packages: rows, package_moves: moves, returns: returnsRows, employees };
 const BY_CODE = new Set(["packages", "returns"]);
 const STATION_TOKEN = "smoke-station-token";
 const files = new Map(); // "bucket/path" -> { body, type }
 // Admin alert calls the phones make (database functions and the daily-alerts job).
 const alertCalls = [];
 const ALERTS_PUBLIC_KEY = "BP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A8";
-// Starts as a database without update 003, so the app has to ask for it.
-let legacyColumn = false;
+// Starts as a database without update 006, so the app has to ask for it.
+let employeesTable = false;
 
 function filterRows(url, list = rows) {
   let out = list;
@@ -51,6 +52,7 @@ function filterRows(url, list = rows) {
 function newRow(table, item) {
   const now = new Date().toISOString();
   if (table === "package_moves") return { id: nextId++, from_location: null, moved_by: null, moved_at: now, ...item };
+  if (table === "employees") return { id: nextId++, created_at: now, ...item };
   if (table === "returns") {
     return {
       id: nextId++, status: "open", returned_by: null, vendor: null, job_name: null, notes: null, photo_path: null, thumb_path: null,
@@ -84,14 +86,11 @@ async function rest(route, req, url) {
     const all = [{ key: "return_station_token", value: STATION_TOKEN }, { key: "alerts_public_key", value: ALERTS_PUBLIC_KEY }];
     return reply(filterRows(url, all));
   }
-  const list = TABLES[table];
+  const list = table === "employees" && !employeesTable ? undefined : TABLES[table];
   if (!list) return route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ code: "PGRST205", message: "no table" }) });
   const method = req.method();
   const now = () => new Date().toISOString();
   if (method === "GET" || method === "HEAD") {
-    if (table === "packages" && !legacyColumn && /\barrival_unknown\b/.test(url.searchParams.get("select") ?? "")) {
-      return route.fulfill({ status: 400, contentType: "application/json", body: JSON.stringify({ code: "42703", message: "column packages.arrival_unknown does not exist" }) });
-    }
     let out = [...filterRows(url, list)];
     const [col, dir] = (url.searchParams.get("order") ?? "").split(",")[0].split(".");
     if (col) out.sort((a, b) => (String(a[col] ?? "") > String(b[col] ?? "") ? 1 : -1) * (dir === "desc" ? -1 : 1));
@@ -279,17 +278,17 @@ let mintedCode = "";
 let locCode = "";
 let retCode = "";
 try {
-  await step("Missing date-unknown column: the app asks for update 005 only", async () => {
+  await step("Missing badges table: the app asks for update 006 only", async () => {
     await page.goto(`http://localhost:${PORT}/`);
     await expect(page.getByText("One database update"), "update screen");
-    await expect(page.getByText(/adds "date unknown" for legacy boxes/), "names what it adds");
+    await expect(page.getByText(/adds badges for the check-out station/), "names what it adds");
     await page.getByRole("button", { name: "Show SQL" }).click();
     const sql = await page.locator("textarea").inputValue();
-    if (!sql.includes("add column if not exists arrival_unknown")) throw new Error("update SQL is not 005");
-    if (sql.includes("add column if not exists legacy ")) throw new Error("update SQL repeats 003");
+    if (!sql.includes("create table if not exists public.employees")) throw new Error("update SQL is not 006");
+    if (sql.includes("arrival_unknown")) throw new Error("update SQL repeats 005");
     if (sql.includes("create table if not exists public.returns")) throw new Error("update SQL repeats 002");
-    await shot("00a-update-005");
-    legacyColumn = true;
+    await shot("00a-update-006");
+    employeesTable = true;
     await page.getByRole("button", { name: /check again/ }).click();
     await expect(page.getByText("Who's using this phone?"), "app opens once updated");
   });
@@ -793,6 +792,70 @@ try {
       if (!r.ok() || !(r.headers()["content-type"] ?? "").includes("png")) throw new Error(`${icon} not served`);
     }
     await shot("22-app-poster");
+  });
+
+  await step("Check-out station: badge, scan boxes, warnings, sign out, PIN to exit", async () => {
+    // Admin makes a badge.
+    await page.fill("#badge-name", "Dana R.");
+    await page.getByRole("button", { name: "add", exact: true }).click();
+    await expect(page.getByAltText("Badge for Dana R."), "badge preview");
+    await shot("23a-badge");
+    await page.getByRole("button", { name: "Done", exact: true }).click();
+    const dana = employees.find((e) => e.name === "Dana R.");
+    if (!dana || !/^[A-Z0-9]{12}$/.test(dana.badge)) throw new Error(`badge row wrong: ${JSON.stringify(dana)}`);
+    // A new badge replaces the old one.
+    await page.getByRole("button", { name: "badge", exact: true }).first().click();
+    await page.getByRole("button", { name: /make a new badge/ }).click();
+    const oldBadge = dana.badge;
+    await page.getByRole("button", { name: "Make new badge" }).click();
+    await expect(page.getByText(/The old one no longer works/), "reissued");
+    if (dana.badge === oldBadge) throw new Error("badge did not change");
+    await page.getByRole("button", { name: "Done", exact: true }).click();
+
+    const box = newRow("packages", { code: "VW-STN2A7", job_name: "Station Box", last_location: "Warehouse" });
+    rows.push(box);
+    await page.getByRole("button", { name: "Start station mode" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Start station" }).click();
+    await expect(page.getByText("Scan your badge"), "station idle");
+    // Box before badge.
+    const scanText = async (text) => {
+      await page.keyboard.type(text);
+      await page.keyboard.press("Enter");
+    };
+    await scanText(box.code);
+    await expect(page.getByText("Scan your badge first"), "needs a badge first");
+    if (box.status !== "on_floor") throw new Error("box changed without a badge");
+    await scanText(`VW-BADGE:${oldBadge}`);
+    await expect(page.getByText("Badge not recognized"), "old badge refused");
+    await scanText(`VW-BADGE:${dana.badge}`);
+    await expect(page.getByText("Hi Dana R."), "greeting");
+    await expect(page.getByText("Start scanning your items."), "prompt");
+    await scanText(box.code);
+    await expect(page.getByText("checked out to you"), "box checked out");
+    if (box.status !== "checked_out" || box.checked_out_to !== "Dana R.") throw new Error(`station check out wrong: ${JSON.stringify(box)}`);
+    await scanText(locCode);
+    await expect(page.getByText("Already out to Truck 7"), "already out warning");
+    if (rows.find((x) => x.code === locCode)?.checked_out_to !== "Truck 7") throw new Error("station overwrote a box that was out");
+    await scanText("VW-NOPE99");
+    await expect(page.getByText("Not in Floorcast"), "unknown box");
+    await shot("23b-station-scanning");
+    await scanText(`VW-BADGE:${dana.badge}`);
+    await expect(page.getByText("Signed out"), "badge again signs out");
+    await expect(page.getByText("Dana R. · 1 box checked out"), "sign-out summary");
+    await shot("23c-station-signed-out");
+    // Station survives a reload: still the station, not the app.
+    await page.reload();
+    await expect(page.getByText("Scan your badge"), "station after reload");
+    if (await page.getByRole("link", { name: "floor", exact: true }).count()) throw new Error("station shows the app tabs");
+    await page.getByRole("button", { name: "exit" }).click();
+    await page.fill("#station-pin", "1");
+    await page.getByRole("button", { name: "Exit station" }).click();
+    await expect(page.getByText("Wrong PIN."), "wrong PIN refused");
+    await page.fill("#station-pin", PIN);
+    await page.getByRole("button", { name: "Exit station" }).click();
+    // Same as any admin unlock: the alerts offer comes back.
+    await page.getByRole("button", { name: "Allow alerts" }).click();
+    await expect(page.getByRole("button", { name: "Export backup" }), "back to Backup & setup");
   });
 
   await step("Export backup includes records, stickers, photos", async () => {

@@ -75,21 +75,23 @@ export async function probeSchema(): Promise<SchemaState> {
     // Locations and returns came later (migrations/002). Older databases
     // keep working once that migration runs; nothing is dropped.
     // Legacy boxes came after that (migrations/003), then slip photos and
-    // admin alerts (migrations/004).
-    const [loc, ret, legacy, slip, unknown] = await Promise.all([
+    // admin alerts (migrations/004), "date unknown" (005) and station badges (006).
+    const [loc, ret, legacy, slip, unknown, badges] = await Promise.all([
       sb().from("packages").select("last_location").limit(1),
       sb().from("returns").select("id").limit(1),
       sb().from("packages").select("legacy").limit(1),
       sb().from("packages").select("slip_photo_path").limit(1),
       sb().from("packages").select("arrival_unknown").limit(1),
+      sb().from("employees").select("id").limit(1),
     ]);
     missing = [];
     if (isColumnMissing(loc.error) || isTableMissing(ret.error)) missing.push("002");
     if (isColumnMissing(legacy.error)) missing.push("003");
     if (isColumnMissing(slip.error)) missing.push("004");
     if (isColumnMissing(unknown.error)) missing.push("005");
+    if (isTableMissing(badges.error)) missing.push("006");
     if (missing.length) return "upgrade";
-    if (loc.error || ret.error || legacy.error || slip.error || unknown.error) return "offline";
+    if (loc.error || ret.error || legacy.error || slip.error || unknown.error || badges.error) return "offline";
     return "ready";
   } catch {
     return "offline";

@@ -7,6 +7,8 @@ export type RoleState = {
   /** True right after an admin typed the PIN: the app offers to turn alerts on. */
   freshAdmin?: boolean;
   doneFreshAdmin?: () => void;
+  /** Turns this device into the check-out station (admin only). */
+  enterStation?: () => void;
 };
 
 export const RoleContext = createContext<RoleState>({ role: "field", switchRole: () => undefined });

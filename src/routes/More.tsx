@@ -3,6 +3,7 @@ import { Archive, Download, Lock, ShieldCheck, Upload } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useRole } from "@/lib/role";
 import { AlertsSection } from "@/components/Alerts";
+import { BadgesSection } from "@/components/Badges";
 import { CopySql } from "@/components/Gate";
 import { UPGRADES, neededUpgrades, upgradeSql } from "@/lib/upgrades";
 import { PageTitle } from "@/components/Shell";
@@ -173,6 +174,10 @@ function AdminMore({ onSwitch }: { onSwitch: () => void }) {
 
       <Section title="Open the app">
         <AppPoster />
+      </Section>
+
+      <Section title="Check-out station">
+        <BadgesSection />
       </Section>
 
       <Section title="Returns station">

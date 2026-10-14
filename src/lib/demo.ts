@@ -11,7 +11,8 @@ let nextId = 1;
 const rows: Row[] = [];
 const moves: Row[] = [];
 const returns: Row[] = [];
-const TABLES: Record<string, Row[]> = { packages: rows, package_moves: moves, returns };
+const employees: Row[] = [];
+const TABLES: Record<string, Row[]> = { packages: rows, package_moves: moves, returns, employees };
 /** Tables whose rows are unique by code. */
 const BY_CODE = new Set(["packages", "returns"]);
 const files = new Map<string, Blob>();
@@ -81,6 +82,7 @@ function makeRow(item: Record<string, unknown>): Row {
 function makeOther(table: string, item: Record<string, unknown>): Row {
   const now = new Date().toISOString();
   if (table === "package_moves") return { id: nextId++, from_location: null, moved_by: null, moved_at: now, ...item } as unknown as Row;
+  if (table === "employees") return { id: nextId++, created_at: now, ...item } as unknown as Row;
   return {
     id: nextId++, status: "open", returned_by: null, vendor: null, job_name: null, notes: null, photo_path: null, thumb_path: null,
     created_at: now, updated_at: now, closed_at: null, closed_by: null, close_note: null,
@@ -292,6 +294,10 @@ export async function seedDemo() {
     }
     rows.push(row);
   }
+  employees.push(
+    makeOther("employees", { name: "Dana", badge: "DEMODANA2026" }),
+    makeOther("employees", { name: "Luis", badge: "DEMOLUIS2026" }),
+  );
   returns.push(
     makeOther("returns", { code: "VVR-4127", type: "vendor", returned_by: "Luis", vendor: "Ferguson", job_name: "Example: Harbor clinic", notes: "Wrong size couplings", created_at: at(3) }),
     makeOther("returns", { code: "VRR-0583", type: "general", returned_by: "Marco", notes: "Leftover from Oak Ave, not sure", created_at: at(20) }),

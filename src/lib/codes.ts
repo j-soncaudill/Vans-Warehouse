@@ -23,6 +23,8 @@ export function isMintedCode(code: string): boolean {
 /** Scanners sometimes hand back a URL; keep the last path segment if so. */
 export function pickCode(raw: string | null | undefined): string | null {
   if (!raw) return null;
+  // A lanyard badge is a person, not a box.
+  if (/^\s*VW-BADGE:/i.test(raw)) return null;
   const code = normalizeCode(raw);
   if (isPlausibleCode(code)) return code;
   try {
