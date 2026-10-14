@@ -829,7 +829,7 @@ try {
     await expect(page.getByText("Badge not recognized"), "old badge refused");
     await scanText(`VW-BADGE:${dana.badge}`);
     // The big greeting card pops in, then gets out of the way on its own.
-    const card = page.locator('[aria-live="assertive"]');
+    const card = page.locator('[data-hello="in"]');
     await expect(card.getByText("Dana R.", { exact: true }), "greeting card");
     await page.waitForTimeout(450);
     await shot("23d-station-greeting-outline");
@@ -841,16 +841,30 @@ try {
     await scanText(box.code);
     await expect(page.getByText("checked out to you"), "box checked out");
     if (box.status !== "checked_out" || box.checked_out_to !== "Dana R.") throw new Error(`station check out wrong: ${JSON.stringify(box)}`);
+    // The big card shrinks into the list; then a mistaken scan can be undone.
+    await page.waitForTimeout(300);
+    await shot("23f-station-scan-card");
+    await page.getByRole("button", { name: "Undo Station Box" }).click();
+    await expect(page.getByText("undone · back on the floor"), "undone row");
+    if (box.status !== "on_floor") throw new Error("undo did not put the box back on the floor");
+    await scanText(box.code);
+    await expect(page.getByRole("button", { name: "Undo Station Box" }), "scanned again after undo");
+    if (box.status !== "checked_out") throw new Error("box did not check out again after undo");
     await scanText(locCode);
     await expect(page.getByText("Already out to Truck 7"), "already out warning");
     if (rows.find((x) => x.code === locCode)?.checked_out_to !== "Truck 7") throw new Error("station overwrote a box that was out");
     await scanText("VW-NOPE99");
     await expect(page.getByText("Not in Floorcast"), "unknown box");
-    await shot("23b-station-scanning");
+    await shot("23b-station-flash-error");
+    await page.waitForTimeout(2200);
+    await shot("23c-station-list");
     await scanText(`VW-BADGE:${dana.badge}`);
-    await expect(page.getByText("Signed out"), "badge again signs out");
-    await expect(page.getByText("Dana R. · 1 box checked out"), "sign-out summary");
-    await shot("23c-station-signed-out");
+    const bye = page.locator('[data-hello="out"]');
+    await expect(bye.getByText("You're signed out."), "badge again signs out");
+    await expect(bye.getByText("1 box checked out"), "sign-out summary");
+    await page.waitForTimeout(900);
+    await shot("23g-station-bye");
+    await bye.waitFor({ state: "detached", timeout: 4000 });
     // Station survives a reload: still the station, not the app.
     await page.reload();
     await expect(page.getByText("Scan your badge"), "station after reload");

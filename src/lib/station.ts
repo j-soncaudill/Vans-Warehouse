@@ -23,7 +23,7 @@ export function setStationMode(on: boolean) {
 }
 
 /** Signs the person out after this long with no scans. */
-export const STATION_IDLE_MS = 30_000;
+export const STATION_IDLE_MS = 180_000;
 
 let audio: AudioContext | null = null;
 

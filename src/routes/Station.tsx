@@ -1,57 +1,65 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { Camera, Check, IdCard, Lock, LogOut, TriangleAlert, X } from "lucide-react";
+import { Camera, Check, IdCard, Lock, LogOut, TriangleAlert, Undo2, X } from "lucide-react";
 import { Brand } from "@/components/Shell";
 import { VansMarkFill } from "@/components/VansMark";
 import { Scanner } from "@/components/Scanner";
-import { Button, Overlay, cx } from "@/components/ui";
+import { Button, Overlay, cx, errorText, toast } from "@/components/ui";
 import { badgePayload, badgeToken, isBadgeScan, listEmployees, refreshBadgeCache, whoseBadge, type Employee } from "@/lib/badges";
 import { pickCode } from "@/lib/codes";
 import { notifyChanged } from "@/lib/live";
-import { checkOut, getPackage, listPackages, type Pkg } from "@/lib/packages";
+import { checkOut, getPackage, listPackages, returnToFloor, type Pkg } from "@/lib/packages";
 import { unlock } from "@/lib/pin";
 import { STATION_IDLE_MS, beep, setStationMode } from "@/lib/station";
 import { DEMO_UI } from "@/lib/supabase";
 import { ago } from "@/lib/time";
 
 type Tone = "ok" | "bad" | "warn";
-type Line = { id: number; tone: Tone; title: string; detail?: string; code?: string };
+type Line = { id: number; tone: Tone; title: string; detail?: string; code?: string; undone?: boolean };
 type Person = { name: string; token: string };
+type Hello = { id: number; mode: "in" | "out"; name: string; note?: string };
 
 let lineId = 0;
+const boxes = (n: number) => `${n} ${n === 1 ? "box" : "boxes"}`;
+const calm = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /**
- * The check-out station. Scan your badge ("Hi Dana. Start scanning your
- * items."), then scan boxes: each one is checked out to you right away.
- * Scanning your badge again, or 30 s with no scans, signs you out.
+ * The check-out station. Scan your badge (a big "Hi Dana" card), then scan
+ * boxes: each one is checked out to you right away, pops up big, then shrinks
+ * into the list, where a mistaken scan can be undone. Scanning your badge
+ * again signs you out (a matching "Bye" card); so do 3 minutes with no scans.
  * Works with a scanner that types (Zebra DataWedge, Bluetooth / USB scanners)
  * and with the camera on a phone.
  */
 export function StationScreen({ onExit }: { onExit: () => void }) {
   const [who, setWho] = useState<Person | null>(null);
   const [lines, setLines] = useState<Line[]>([]);
-  const [notice, setNotice] = useState<Line | null>(null);
-  const [left, setLeft] = useState(STATION_IDLE_MS / 1000);
+  const [flash, setFlash] = useState<Line | null>(null);
   const [camera, setCamera] = useState(false);
   const [exiting, setExiting] = useState(false);
-  const [greet, setGreet] = useState<{ id: number; name: string } | null>(null);
+  const [hello, setHello] = useState<Hello | null>(null);
+  const [count, setCount] = useState(0);
   const whoRef = useRef<Person | null>(null);
   const lastAt = useRef(Date.now());
   const chain = useRef<Promise<void>>(Promise.resolve());
   const recent = useRef<{ raw: string; at: number }>({ raw: "", at: 0 });
-  const doneCount = useRef(0);
+  const countRef = useRef(0);
+  const bump = (d: number) => {
+    countRef.current = Math.max(0, countRef.current + d);
+    setCount(countRef.current);
+  };
 
   useEffect(() => void refreshBadgeCache(), []);
 
-  const signOut = useCallback((title: string) => {
+  const signOut = useCallback((note?: string) => {
     const p = whoRef.current;
+    if (!p) return;
     whoRef.current = null;
     lastAt.current = Date.now();
     setWho(null);
     setLines([]);
-    if (p) {
-      const n = doneCount.current;
-      setNotice({ id: ++lineId, tone: "ok", title, detail: `${p.name} · ${n} ${n === 1 ? "box" : "boxes"} checked out` });
-    }
+    setFlash(null);
+    beep("hello");
+    setHello({ id: ++lineId, mode: "out", name: p.name, note: note ?? `${boxes(countRef.current)} checked out` });
   }, []);
 
   const handle = useCallback(
@@ -61,23 +69,24 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
       const say = (tone: Tone, title: string, detail?: string, code?: string) => {
         beep(tone === "ok" ? "ok" : "bad");
         const line = { id: ++lineId, tone, title, detail, code };
-        if (whoRef.current) setLines((l) => [line, ...l].slice(0, 30));
-        else setNotice(line);
+        if (whoRef.current) setLines((l) => [line, ...l].slice(0, 40));
+        setFlash(line);
       };
 
       if (isBadgeScan(raw)) {
         const token = badgeToken(raw);
         if (!token) return say("bad", "That badge didn't read", "Try scanning it again.");
-        if (person?.token === token) return signOut("Signed out");
+        if (person?.token === token) return signOut();
         const name = await whoseBadge(token).catch(() => null);
         if (!name) return say("bad", "Badge not recognized", "It may have been replaced. Ask an admin for a new one.");
         beep("hello");
-        setGreet({ id: ++lineId, name });
+        setFlash(null);
+        setHello({ id: ++lineId, mode: "in", name });
         whoRef.current = { name, token };
-        doneCount.current = 0;
+        countRef.current = 0;
+        setCount(0);
         setWho({ name, token });
         setLines([]);
-        setNotice(null);
         return;
       }
 
@@ -87,7 +96,7 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
       try {
         const pkg = await checkOut(code, person.name);
         notifyChanged();
-        doneCount.current += 1;
+        bump(1);
         say("ok", pkg.jobName || code, "checked out to you", code);
       } catch {
         const now = await getPackage(code).catch(() => undefined);
@@ -115,6 +124,24 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
     [handle],
   );
 
+  /** A box scanned by mistake goes straight back on the floor. */
+  async function undo(line: Line) {
+    if (!line.code || line.undone) return;
+    lastAt.current = Date.now();
+    try {
+      await returnToFloor(line.code);
+      notifyChanged();
+      bump(-1);
+      beep("ok");
+      setLines((l) => l.map((x) => (x.id === line.id ? { ...x, undone: true } : x)));
+      // Scanning it again right away should check it out again, not count as a double read.
+      recent.current = { raw: "", at: 0 };
+    } catch (err) {
+      beep("bad");
+      toast(errorText(err, "Couldn't undo that. It needs signal."), "error");
+    }
+  }
+
   // A scanner that "types": characters then Enter (or Tab).
   useEffect(() => {
     let buf = "";
@@ -139,20 +166,16 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [scan]);
 
-  // Idle sign-out, and the "signed out" note fades back to the badge prompt.
+  // Nobody walks off still signed in: 3 minutes with no scans signs them out.
   useEffect(() => {
     const timer = window.setInterval(() => {
-      const idle = Date.now() - lastAt.current;
-      if (whoRef.current) {
-        const s = Math.max(0, Math.ceil((STATION_IDLE_MS - idle) / 1000));
-        setLeft(s);
-        if (s === 0) signOut("Signed out");
-      } else if (idle > 8000) setNotice(null);
-    }, 500);
+      if (whoRef.current && Date.now() - lastAt.current >= STATION_IDLE_MS) {
+        signOut(`No scans for 3 minutes · ${boxes(countRef.current)} checked out`);
+      }
+    }, 1000);
     return () => window.clearInterval(timer);
   }, [signOut]);
 
-  const latest = lines[0];
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-xl flex-col px-4 pt-[max(env(safe-area-inset-top),16px)] pb-[max(env(safe-area-inset-bottom),16px)]">
       <header className="flex items-center justify-between gap-2">
@@ -164,72 +187,67 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
 
       {who ? (
         <main className="mt-6 flex flex-1 flex-col gap-4">
-          <div>
-            <h1 className="m-0 font-sans text-[34px] leading-tight font-bold tracking-[-0.02em] text-white">Hi {who.name}.</h1>
-            <p className="mt-1 text-[18px] text-cyan">Start scanning your items.</p>
+          <div className="flex items-end justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="m-0 truncate font-sans text-[30px] leading-tight font-bold tracking-[-0.02em] text-white">
+                Hi {who.name}
+                {who.name.endsWith(".") ? "" : "."}
+              </h1>
+              <p className="mt-0.5 text-[17px] text-cyan">Start scanning your items.</p>
+            </div>
+            <span className="flex shrink-0 flex-col items-end leading-none">
+              <span className="font-sans text-[34px] font-bold text-cyan tabular-nums">{count}</span>
+              <span className="text-[11px] text-faint">checked out</span>
+            </span>
           </div>
 
-          {latest ? (
-            <div
-              key={latest.id}
-              role="status"
-              className={cx(
-                "vw-fade flex items-start gap-3 rounded-[16px] border-2 px-4 py-4",
-                latest.tone === "ok" ? "border-cyan bg-cyan/10" : latest.tone === "warn" ? "border-amber bg-amber/10" : "border-danger bg-danger/10",
-              )}
-            >
-              <Mark tone={latest.tone} big />
-              <div className="min-w-0 flex-1">
-                <p className="font-sans text-[22px] leading-tight font-bold text-white">{latest.title}</p>
-                {latest.detail ? <p className={cx("mt-1 text-[15px]", latest.tone === "bad" ? "text-danger" : "text-ink")}>{latest.detail}</p> : null}
-                {latest.code ? <p className="code mt-1 text-[13px] text-dim">{latest.code}</p> : null}
-              </div>
-            </div>
-          ) : (
+          {lines.length === 0 ? (
             <div className="flex items-center gap-3 rounded-[16px] border-2 border-dashed border-line px-4 py-6 text-[16px] text-dim">
               <IdCard aria-hidden className="size-6 text-cyan" /> Point the scanner at a box sticker.
             </div>
-          )}
-
-          {lines.length > 1 ? (
-            <ul className="m-0 flex list-none flex-col p-0" aria-label="Scanned this time">
-              {lines.slice(1).map((l) => (
-                <li key={l.id} className="flex items-center gap-2 border-b border-hair py-2 text-[14px]">
-                  <Mark tone={l.tone} />
-                  <span className="min-w-0 flex-1 truncate">{l.title}</span>
-                  {l.code ? <span className="code text-[12px] text-dim">{l.code}</span> : null}
+          ) : (
+            <ul className="m-0 flex list-none flex-col gap-2 p-0" aria-label="Scanned this time">
+              {lines.map((l) => (
+                <li
+                  key={l.id}
+                  data-line={l.id}
+                  className={cx(
+                    "vw-landed flex items-center gap-3 rounded-[12px] border px-3.5 py-3",
+                    l.undone ? "border-line bg-panel opacity-60" : l.tone === "ok" ? "border-cyan/40 bg-cyan/5" : l.tone === "warn" ? "border-amber/50 bg-amber/5" : "border-danger/50 bg-danger/5",
+                  )}
+                >
+                  {l.undone ? <Undo2 aria-label="undone" className="size-5 shrink-0 text-dim" /> : <Mark tone={l.tone} />}
+                  <div className="min-w-0 flex-1">
+                    <p className={cx("truncate font-sans text-[17px] leading-tight font-semibold text-white", l.undone && "line-through")}>{l.title}</p>
+                    <p className={cx("truncate text-[13px]", l.undone ? "text-dim" : l.tone === "bad" ? "text-danger" : "text-dim")}>
+                      {l.undone ? "undone · back on the floor" : l.detail}
+                      {l.code ? <span className="code text-faint"> · {l.code}</span> : null}
+                    </p>
+                  </div>
+                  {l.tone === "ok" && !l.undone ? (
+                    <button
+                      type="button"
+                      onClick={() => void undo(l)}
+                      aria-label={`Undo ${l.title}`}
+                      className="vw-press flex min-h-11 shrink-0 items-center gap-1.5 rounded-[10px] border border-line bg-panel px-3 text-[13px] text-ink lowercase"
+                    >
+                      <Undo2 aria-hidden className="size-4" /> undo
+                    </button>
+                  ) : null}
                 </li>
               ))}
             </ul>
-          ) : null}
+          )}
 
           <div className="mt-auto flex flex-col gap-2 pt-4">
-            <p className="text-center text-[13px] text-faint">
-              {doneCount.current} checked out · signs out in {left}s, or scan your badge again
-            </p>
-            <Button big onClick={() => signOut("Signed out")}>
-              <LogOut className="size-5" /> Done, sign me out
+            <p className="text-center text-[14px] text-dim">Scan your badge again to sign out.</p>
+            <Button variant="ghost" onClick={() => signOut()}>
+              <LogOut className="size-[18px]" /> sign out
             </Button>
           </div>
         </main>
       ) : (
         <main className="flex flex-1 flex-col items-center justify-center gap-5 py-8 text-center">
-          {notice ? (
-            <div
-              key={notice.id}
-              role="status"
-              className={cx(
-                "vw-fade flex w-full items-start gap-3 rounded-[16px] border-2 px-4 py-4 text-left",
-                notice.tone === "ok" ? "border-cyan bg-cyan/10" : "border-danger bg-danger/10",
-              )}
-            >
-              <Mark tone={notice.tone} big />
-              <div className="min-w-0 flex-1">
-                <p className="font-sans text-[22px] leading-tight font-bold text-white">{notice.title}</p>
-                {notice.detail ? <p className="mt-1 text-[15px] text-ink">{notice.detail}</p> : null}
-              </div>
-            </div>
-          ) : null}
           <span className="flex size-24 items-center justify-center rounded-[24px] border border-cyan/40 bg-cyan/10 text-cyan">
             <IdCard className="size-12" strokeWidth={1.6} />
           </span>
@@ -262,24 +280,91 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
           hint={who ? "point at a box sticker" : "point at your badge"}
           onScan={scan}
           onClose={() => setCamera(false)}
-          footer={who ? <p className="text-center text-[14px] text-ink">{who.name} · {doneCount.current} checked out</p> : null}
+          footer={who ? <p className="text-center text-[14px] text-ink">{who.name} · {count} checked out</p> : null}
         />
       ) : null}
-      {greet ? <Greeting key={greet.id} name={greet.name} onDone={() => setGreet((g) => (g?.id === greet.id ? null : g))} /> : null}
+      {flash ? <ScanFlash key={flash.id} line={flash} onDone={() => setFlash((f) => (f?.id === flash.id ? null : f))} /> : null}
+      {hello ? <HelloCard key={hello.id} hello={hello} onDone={() => setHello((h) => (h?.id === hello.id ? null : h))} /> : null}
       {exiting ? <ExitStation onCancel={() => setExiting(false)} onExit={onExit} /> : null}
     </div>
   );
 }
 
 /**
- * Full-screen hello when a badge is scanned: pops in, the Vans mark draws
- * and fills with a blue glow (the sign-in confirmation), then it lifts away. It never blocks scanning; box scans go through underneath.
+ * Each scan pops up big in the middle of the screen, holds a moment, then
+ * shrinks into its row in the list. With nobody signed in there's no list,
+ * so it just fades. Never blocks the next scan or the undo buttons.
  */
-function Greeting({ name, onDone }: { name: string; onDone: () => void }) {
+function ScanFlash({ line, onDone }: { line: Line; onDone: () => void }) {
+  const card = useRef<HTMLDivElement>(null);
+  const veil = useRef<HTMLDivElement>(null);
+  const doneRef = useRef(onDone);
+  doneRef.current = onDone;
+  useEffect(() => {
+    let anim: Animation | undefined;
+    const t = window.setTimeout(() => {
+      const el = card.current;
+      if (!el) return doneRef.current();
+      const quick = calm();
+      const a = el.getBoundingClientRect();
+      const target = document.querySelector(`[data-line="${line.id}"]`)?.getBoundingClientRect();
+      const ease = "cubic-bezier(0.4, 0, 0.2, 1)";
+      if (target) {
+        const dx = target.left + target.width / 2 - (a.left + a.width / 2);
+        const dy = target.top + target.height / 2 - (a.top + a.height / 2);
+        anim = el.animate(
+          [
+            { transform: "none", opacity: 1 },
+            { transform: `translate(${dx}px, ${dy}px) scale(${target.width / a.width}, ${target.height / a.height})`, opacity: 0.9, offset: 0.85 },
+            { transform: `translate(${dx}px, ${dy}px) scale(${target.width / a.width}, ${target.height / a.height})`, opacity: 0 },
+          ],
+          { duration: quick ? 1 : 420, easing: ease, fill: "forwards" },
+        );
+      } else {
+        anim = el.animate([{ opacity: 1 }, { opacity: 0, transform: "scale(0.96)" }], { duration: quick ? 1 : 260, easing: ease, fill: "forwards" });
+      }
+      veil.current?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: quick ? 1 : 360, fill: "forwards" });
+      anim.onfinish = () => doneRef.current();
+    }, line.tone === "ok" ? 900 : 1400);
+    return () => {
+      window.clearTimeout(t);
+      anim?.cancel();
+    };
+  }, [line.id, line.tone]);
+
+  return (
+    <div ref={veil} role="status" aria-live="assertive" className="vw-greet-veil pointer-events-none fixed inset-0 z-40 flex items-center justify-center bg-black/45 px-5">
+      <div
+        ref={card}
+        className={cx(
+          "vw-greet-in flex min-h-[34dvh] w-full max-w-xl flex-col items-center justify-center gap-3 rounded-[24px] border-2 px-6 py-8 text-center",
+          line.tone === "ok"
+            ? "border-cyan bg-[linear-gradient(160deg,#0f3a42_0%,#0a1d22_60%,#0a0a0c_100%)] shadow-[0_0_60px_rgb(45_174_196/0.4)]"
+            : line.tone === "warn"
+              ? "border-amber bg-[linear-gradient(160deg,#3a2a0c_0%,#1a1408_60%,#0a0a0c_100%)]"
+              : "border-danger bg-[linear-gradient(160deg,#3a0f12_0%,#1d0a0b_60%,#0a0a0c_100%)] shadow-[0_0_60px_rgb(197_44_46/0.35)]",
+        )}
+      >
+        <Mark tone={line.tone} big />
+        <p className="font-sans text-[clamp(28px,8vw,44px)] leading-[1.05] font-bold tracking-[-0.02em] break-words text-white">{line.title}</p>
+        {line.detail ? <p className={cx("text-[17px]", line.tone === "bad" ? "text-danger" : "text-ink")}>{line.detail}</p> : null}
+        {line.code ? <p className="code text-[14px] text-dim">{line.code}</p> : null}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Full-screen card when a badge is scanned. Signing in: the Vans mark draws in
+ * outline, then fills with a blue glow ("Hi, Dana"). Signing out: the mark
+ * starts lit and drains back to an outline ("Bye, Dana"). Then it lifts away.
+ * It never blocks scanning; box scans go through underneath.
+ */
+function HelloCard({ hello, onDone }: { hello: Hello; onDone: () => void }) {
   const [leaving, setLeaving] = useState(false);
   const doneRef = useRef(onDone);
   doneRef.current = onDone;
-  // Timed once per greeting; the station re-renders every half second for its countdown.
+  // Timed once per card; the station keeps re-rendering underneath.
   useEffect(() => {
     const out = window.setTimeout(() => setLeaving(true), 1900);
     const done = window.setTimeout(() => doneRef.current(), 2250);
@@ -288,29 +373,35 @@ function Greeting({ name, onDone }: { name: string; onDone: () => void }) {
       window.clearTimeout(done);
     };
   }, []);
+  const signingIn = hello.mode === "in";
   return (
     <div
       role="status"
       aria-live="assertive"
+      data-hello={hello.mode}
       className={cx("pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-black/55 px-4 backdrop-blur-sm", leaving ? "vw-greet-out-veil" : "vw-greet-veil")}
     >
       <div
         className={cx(
-          "flex min-h-[62dvh] w-full max-w-xl flex-col items-center justify-center gap-5 rounded-[28px] border-2 border-cyan bg-[linear-gradient(160deg,#0f3a42_0%,#0a1d22_55%,#0a0a0c_100%)] px-6 py-10 text-center shadow-[0_0_80px_rgb(45_174_196/0.45)]",
+          "flex min-h-[62dvh] w-full max-w-xl flex-col items-center justify-center gap-5 rounded-[28px] border-2 px-6 py-10 text-center",
+          signingIn
+            ? "border-cyan bg-[linear-gradient(160deg,#0f3a42_0%,#0a1d22_55%,#0a0a0c_100%)] shadow-[0_0_80px_rgb(45_174_196/0.45)]"
+            : "border-cyan/50 bg-[linear-gradient(160deg,#0c2a30_0%,#0a1518_55%,#0a0a0c_100%)] shadow-[0_0_50px_rgb(45_174_196/0.25)]",
           leaving ? "vw-greet-out" : "vw-greet-in",
         )}
       >
-        <VansMarkFill className="h-40 w-auto text-cyan" />
-        <span className="font-sans text-[28px] font-semibold text-cyan">Hi,</span>
-        <span className="font-sans text-[clamp(44px,14vw,92px)] leading-[0.95] font-bold tracking-[-0.03em] break-words text-white">{name}</span>
-        <span className="text-[19px] text-ink">Start scanning your items.</span>
+        <VansMarkFill className={cx("h-40 w-auto text-cyan", !signingIn && "vw-mark-out")} />
+        <span className="font-sans text-[28px] font-semibold text-cyan">{signingIn ? "Hi," : "Bye,"}</span>
+        <span className="font-sans text-[clamp(44px,14vw,92px)] leading-[0.95] font-bold tracking-[-0.03em] break-words text-white">{hello.name}</span>
+        <span className="text-[19px] text-ink">{signingIn ? "Start scanning your items." : "You're signed out."}</span>
+        {!signingIn && hello.note ? <span className="text-[16px] text-dim">{hello.note}</span> : null}
       </div>
     </div>
   );
 }
 
 function Mark({ tone, big }: { tone: Tone; big?: boolean }) {
-  const size = big ? "size-7" : "size-4";
+  const size = big ? "size-12" : "size-5";
   if (tone === "ok") return <Check aria-label="checked out" className={cx(size, "shrink-0 text-cyan")} strokeWidth={2.8} />;
   if (tone === "warn") return <TriangleAlert aria-label="note" className={cx(size, "shrink-0 text-amber")} strokeWidth={2.4} />;
   return <X aria-label="problem" className={cx(size, "shrink-0 text-danger")} strokeWidth={2.8} />;
