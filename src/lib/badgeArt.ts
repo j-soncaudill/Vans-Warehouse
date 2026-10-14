@@ -15,13 +15,13 @@ export type BadgeStyle = "color" | "label";
 const W = 1200;
 const H = 900;
 const M = 64;
-const SANS = "'Geist Sans', -apple-system, 'Segoe UI', Arial, sans-serif";
-const MONO = "'Geist Mono', ui-monospace, Menlo, Consolas, monospace";
-const CYAN = "#2daec4";
-const RED = "#c52c2e";
+export const SANS = "'Geist Sans', -apple-system, 'Segoe UI', Arial, sans-serif";
+export const MONO = "'Geist Mono', ui-monospace, Menlo, Consolas, monospace";
+export const CYAN = "#2daec4";
+export const RED = "#c52c2e";
 
 let logo: Promise<HTMLImageElement> | null = null;
-function loadLogo() {
+export function loadLogo() {
   logo ??= new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
@@ -44,7 +44,7 @@ function tinted(img: HTMLImageElement, color: string) {
   return c;
 }
 
-function roundRect(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+export function roundRect(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   g.beginPath();
   g.moveTo(x + r, y);
   g.arcTo(x + w, y, x + w, y + h, r);
@@ -55,7 +55,7 @@ function roundRect(g: CanvasRenderingContext2D, x: number, y: number, w: number,
 }
 
 /** Largest bold size (down to min) at which text fits the width. */
-function fit(g: CanvasRenderingContext2D, text: string, weight: number, max: number, min: number, width: number, family = SANS) {
+export function fit(g: CanvasRenderingContext2D, text: string, weight: number, max: number, min: number, width: number, family = SANS) {
   let size = max;
   for (; size > min; size -= 2) {
     g.font = `${weight} ${size}px ${family}`;
@@ -65,7 +65,7 @@ function fit(g: CanvasRenderingContext2D, text: string, weight: number, max: num
   return size;
 }
 
-function flames(g: CanvasRenderingContext2D, x: number, y: number, height: number, draw: (p: Path2D) => void) {
+export function flames(g: CanvasRenderingContext2D, x: number, y: number, height: number, draw: (p: Path2D) => void) {
   const k = height / 290;
   g.save();
   g.translate(x + 6 * k, y + 4 * k);
@@ -80,7 +80,7 @@ function splitName(name: string): [string, string] {
   return [parts[0] ?? "", parts.slice(1).join(" ")];
 }
 
-async function qrCanvas(payload: string, size: number) {
+export async function qrCanvas(payload: string, size: number) {
   const c = document.createElement("canvas");
   await QRCode.toCanvas(c, payload, { width: size, margin: 1, color: { dark: "#000000", light: "#ffffff" }, errorCorrectionLevel: "Q" });
   return c;

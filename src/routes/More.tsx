@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Archive, Download, Lock, ShieldCheck, Upload } from "lucide-react";
+import { Archive, Download, Lock, QrCode, ShieldCheck, Upload } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useRole } from "@/lib/role";
 import { AlertsSection } from "@/components/Alerts";
@@ -11,7 +11,8 @@ import { Button, Confirm, cx, errorText, toast } from "@/components/ui";
 import { buildBackup, restoreBackup } from "@/lib/backup";
 import { notifyChanged } from "@/lib/live";
 import { stationPayload, stationToken } from "@/lib/returns";
-import { downloadBlob, renderAppPoster, renderStationPoster } from "@/lib/sticker";
+import { renderAppPoster, renderStationPoster } from "@/lib/posterArt";
+import { downloadBlob } from "@/lib/sticker";
 import { BARCODES_BUCKET, DEMO_UI, PHOTOS_BUCKET, pendingUpgrades, probeSchema, sb } from "@/lib/supabase";
 
 type Check = { label: string; ok: boolean; detail: string };
@@ -82,7 +83,26 @@ export function MorePage() {
   return <AdminMore onSwitch={toChooser} />;
 }
 
+const TAB_KEY = "vw.setupTab";
+type Tab = "setup" | "posters";
+function readTab(): Tab {
+  try {
+    return sessionStorage.getItem(TAB_KEY) === "posters" ? "posters" : "setup";
+  } catch {
+    return "setup";
+  }
+}
+
 function AdminMore({ onSwitch }: { onSwitch: () => void }) {
+  const [tab, setTab] = useState<Tab>(readTab);
+  const pickTab = (t: Tab) => {
+    setTab(t);
+    try {
+      sessionStorage.setItem(TAB_KEY, t);
+    } catch {
+      /* ignore */
+    }
+  };
   const [exporting, setExporting] = useState("");
   const [restoreFile, setRestoreFile] = useState<File | null>(null);
   const [restoring, setRestoring] = useState("");
@@ -122,86 +142,110 @@ function AdminMore({ onSwitch }: { onSwitch: () => void }) {
   return (
     <div className="flex flex-col gap-6">
       <PageTitle>Backup & setup</PageTitle>
+      <div className="-mt-3 flex gap-2" role="tablist" aria-label="Backup & setup">
+        {(["setup", "posters"] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            role="tab"
+            aria-selected={tab === t}
+            onClick={() => pickTab(t)}
+            className={cx(
+              "vw-press flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-[10px] border px-3 text-[14px] lowercase",
+              tab === t ? "border-cyan bg-cyan/10 text-cyan" : "border-line bg-panel text-dim",
+            )}
+          >
+            {t === "setup" ? <Archive aria-hidden className="size-4" /> : <QrCode aria-hidden className="size-4" />}
+            {t}
+          </button>
+        ))}
+      </div>
 
-      <Section title="Export backup">
-        {DEMO_UI ? <p className="text-[15px] text-dim">Downloads are blocked in this preview. Export works on the live site.</p> : null}
-        <Button big variant="primary" disabled={!!exporting || DEMO_UI} onClick={() => void doExport()}>
-          <Archive className="size-5" /> {exporting ? `Packing ${exporting}` : "Export backup"}
-        </Button>
-      </Section>
+      {tab === "posters" ? (
+        <>
+          <Section title="Open the app">
+            <AppPoster />
+          </Section>
+          <Section title="Returns station">
+            <StationPoster />
+          </Section>
+        </>
+      ) : (
+        <>
+          <Section title="Export backup">
+            {DEMO_UI ? <p className="text-[15px] text-dim">Downloads are blocked in this preview. Export works on the live site.</p> : null}
+            <Button big variant="primary" disabled={!!exporting || DEMO_UI} onClick={() => void doExport()}>
+              <Archive className="size-5" /> {exporting ? `Packing ${exporting}` : "Export backup"}
+            </Button>
+          </Section>
 
-      <Section title="Restore">
-        <p className="text-[15px] text-dim">Same codes are overwritten. Nothing is deleted.</p>
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".zip,application/zip"
-          className="sr-only"
-          tabIndex={-1}
-          onChange={(e) => {
-            setRestoreFile(e.target.files?.[0] ?? null);
-            e.target.value = "";
-          }}
-        />
-        <Button disabled={!!restoring} onClick={() => fileRef.current?.click()}>
-          <Upload className="size-[18px]" /> {restoring ? `Restoring ${restoring}` : "Choose backup zip"}
-        </Button>
-      </Section>
+          <Section title="Restore">
+            <p className="text-[15px] text-dim">Same codes are overwritten. Nothing is deleted.</p>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".zip,application/zip"
+              className="sr-only"
+              tabIndex={-1}
+              onChange={(e) => {
+                setRestoreFile(e.target.files?.[0] ?? null);
+                e.target.value = "";
+              }}
+            />
+            <Button disabled={!!restoring} onClick={() => fileRef.current?.click()}>
+              <Upload className="size-[18px]" /> {restoring ? `Restoring ${restoring}` : "Choose backup zip"}
+            </Button>
+          </Section>
 
-      <Section title="System check">
-        <Button
-          disabled={checking}
-          onClick={() => {
-            setChecking(true);
-            void systemCheck()
-              .then(setChecks)
-              .catch((err) => toast(errorText(err, "Check failed."), "error"))
-              .finally(() => setChecking(false));
-          }}
-        >
-          {checking ? "Checking…" : "Check database & storage"}
-        </Button>
-        {checks ? (
-          <ul className="flex flex-col gap-2">
-            {checks.map((c) => (
-              <li key={c.label} className={cx("rounded-[var(--radius-box)] border bg-panel px-4 py-3 text-[14px]", c.ok ? "border-line" : "border-danger/60")}>
-                <p className="font-semibold">
-                  <span className={c.ok ? "text-cyan" : "text-danger"}>{c.ok ? "✓" : "✗"}</span> {c.label}
-                </p>
-                <p className={cx("text-[13px]", c.ok ? "text-dim" : "text-danger")}>{c.detail}</p>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        {checks?.some((c) => !c.ok) ? (
-          checks[0].ok ? <CopySql sql={upgradeSql(neededUpgrades())} label="Copy update SQL" /> : <CopySql />
-        ) : null}
-      </Section>
+          <Section title="System check">
+            <Button
+              disabled={checking}
+              onClick={() => {
+                setChecking(true);
+                void systemCheck()
+                  .then(setChecks)
+                  .catch((err) => toast(errorText(err, "Check failed."), "error"))
+                  .finally(() => setChecking(false));
+              }}
+            >
+              {checking ? "Checking…" : "Check database & storage"}
+            </Button>
+            {checks ? (
+              <ul className="flex flex-col gap-2">
+                {checks.map((c) => (
+                  <li key={c.label} className={cx("rounded-[var(--radius-box)] border bg-panel px-4 py-3 text-[14px]", c.ok ? "border-line" : "border-danger/60")}>
+                    <p className="font-semibold">
+                      <span className={c.ok ? "text-cyan" : "text-danger"}>{c.ok ? "✓" : "✗"}</span> {c.label}
+                    </p>
+                    <p className={cx("text-[13px]", c.ok ? "text-dim" : "text-danger")}>{c.detail}</p>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {checks?.some((c) => !c.ok) ? (
+              checks[0].ok ? <CopySql sql={upgradeSql(neededUpgrades())} label="Copy update SQL" /> : <CopySql />
+            ) : null}
+          </Section>
 
-      <Section title="Open the app">
-        <AppPoster />
-      </Section>
+          <Section title="Check-out station">
+            <BadgesSection />
+          </Section>
 
-      <Section title="Check-out station">
-        <BadgesSection />
-      </Section>
+          <Section title="Alerts">
+            <AlertsSection />
+          </Section>
 
-      <Section title="Returns station">
-        <StationPoster />
-      </Section>
+          <Section title="This phone">
+            <Button onClick={onSwitch}>
+              <Lock className="size-[18px]" /> Switch role
+            </Button>
+            <p className="text-center text-[12px] text-faint">
+              Floorcast version: <span className="code text-dim">{BUILT}</span>
+            </p>
+          </Section>
 
-      <Section title="Alerts">
-        <AlertsSection />
-      </Section>
-
-      <Section title="This phone">
-        <Button onClick={onSwitch}>
-          <Lock className="size-[18px]" /> Switch role
-        </Button>
-        <p className="text-center text-[12px] text-faint">
-          Floorcast version: <span className="code text-dim">{BUILT}</span>
-        </p>
-      </Section>
+        </>
+      )}
 
       {restoreFile ? (
         <Confirm

@@ -777,6 +777,9 @@ try {
 
   await step("Backup & setup: Open the app poster saves a QR of this site", async () => {
     await page.getByRole("link", { name: "Backup and restore" }).click();
+    // Posters have their own tab.
+    if (await page.getByAltText("Poster with a QR code that opens Floorcast").count()) throw new Error("posters showed on the setup tab");
+    await page.getByRole("tab", { name: "posters" }).click();
     const poster = page.getByAltText("Poster with a QR code that opens Floorcast");
     await poster.waitFor();
     await expect(page.getByText(`localhost:${PORT}`), "address shown");
@@ -793,6 +796,15 @@ try {
       if (!r.ok() || !(r.headers()["content-type"] ?? "").includes("png")) throw new Error(`${icon} not served`);
     }
     await shot("22-app-poster");
+    const returnsPoster = page.getByAltText("Returns station poster with QR code");
+    await returnsPoster.waitFor();
+    const b64 = await returnsPoster.evaluate(async (el) => {
+      const blob = await (await fetch(el.src)).blob();
+      return await new Promise((r) => { const fr = new FileReader(); fr.onload = () => r(String(fr.result).split(",")[1]); fr.readAsDataURL(blob); });
+    });
+    writeFileSync(path.join(shots, "returns-poster.png"), Buffer.from(b64, "base64"));
+    await page.getByRole("tab", { name: "setup" }).click();
+    await expect(page.getByRole("button", { name: "Export backup" }), "setup tab back");
   });
 
   await step("Check-out station: badge, scan boxes, warnings, sign out, PIN to exit", async () => {
