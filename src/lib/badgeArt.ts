@@ -123,8 +123,9 @@ export async function renderBadge(name: string, payload: string, style: BadgeSty
       g.stroke();
     }
     g.restore();
-    // A huge flame mark bleeding off the left edge, behind the name.
-    flames(g, -170, 210, 820, (p) => {
+    // A huge flame mark bleeding off the bottom-left corner, clear of the
+    // small flame beside CREW / ADMIN.
+    flames(g, -250, 470, 900, (p) => {
       g.fillStyle = `rgba(${accentRgb},0.08)`;
       g.fill(p);
       g.strokeStyle = `rgba(${accentRgb},0.26)`;
