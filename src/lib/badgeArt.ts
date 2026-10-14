@@ -107,9 +107,10 @@ export async function renderBadge(name: string, payload: string, style: BadgeSty
   // ---------------------------------------------------------------- background
   if (color) {
     const bg = g.createLinearGradient(0, 0, W, H);
-    // Crew: the app's teal into a touch of red. Admin: mostly Vans red.
+    // Crew: teal fading to near-black, a touch of red in the far corner.
+    // Admin: the same fade, starting from Vans red.
     const stops: Array<[number, string]> = admin
-      ? [[0, "#5a1216"], [0.45, "#3a0b0e"], [0.8, "#1f0809"], [1, "#4a0f12"]]
+      ? [[0, "#4a1014"], [0.42, "#1c0a0c"], [0.75, "#0b0a0c"], [1, "#2a0c0f"]]
       : [[0, "#0d2f36"], [0.42, "#0a1316"], [0.75, "#0b0a0c"], [1, "#2a0c0f"]];
     for (const [at, c] of stops) bg.addColorStop(at, c);
     g.fillStyle = bg;
