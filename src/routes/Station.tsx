@@ -32,6 +32,7 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
   const [left, setLeft] = useState(STATION_IDLE_MS / 1000);
   const [camera, setCamera] = useState(false);
   const [exiting, setExiting] = useState(false);
+  const [greet, setGreet] = useState<{ id: number; name: string } | null>(null);
   const whoRef = useRef<Person | null>(null);
   const lastAt = useRef(Date.now());
   const chain = useRef<Promise<void>>(Promise.resolve());
@@ -70,6 +71,7 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
         const name = await whoseBadge(token).catch(() => null);
         if (!name) return say("bad", "Badge not recognized", "It may have been replaced. Ask an admin for a new one.");
         beep("hello");
+        setGreet({ id: ++lineId, name });
         whoRef.current = { name, token };
         doneCount.current = 0;
         setWho({ name, token });
@@ -262,7 +264,49 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
           footer={who ? <p className="text-center text-[14px] text-ink">{who.name} · {doneCount.current} checked out</p> : null}
         />
       ) : null}
+      {greet ? <Greeting key={greet.id} name={greet.name} onDone={() => setGreet((g) => (g?.id === greet.id ? null : g))} /> : null}
       {exiting ? <ExitStation onCancel={() => setExiting(false)} onExit={onExit} /> : null}
+    </div>
+  );
+}
+
+/**
+ * Full-screen hello when a badge is scanned: pops in, holds about a second,
+ * then lifts away. It never blocks scanning; box scans go through underneath.
+ */
+function Greeting({ name, onDone }: { name: string; onDone: () => void }) {
+  const [leaving, setLeaving] = useState(false);
+  const doneRef = useRef(onDone);
+  doneRef.current = onDone;
+  // Timed once per greeting; the station re-renders every half second for its countdown.
+  useEffect(() => {
+    const out = window.setTimeout(() => setLeaving(true), 1350);
+    const done = window.setTimeout(() => doneRef.current(), 1700);
+    return () => {
+      window.clearTimeout(out);
+      window.clearTimeout(done);
+    };
+  }, []);
+  const initial = name.trim().charAt(0).toUpperCase();
+  return (
+    <div
+      role="status"
+      aria-live="assertive"
+      className={cx("pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-black/55 px-4 backdrop-blur-sm", leaving ? "vw-greet-out-veil" : "vw-greet-veil")}
+    >
+      <div
+        className={cx(
+          "flex min-h-[62dvh] w-full max-w-xl flex-col items-center justify-center gap-5 rounded-[28px] border-2 border-cyan bg-[linear-gradient(160deg,#0f3a42_0%,#0a1d22_55%,#0a0a0c_100%)] px-6 py-10 text-center shadow-[0_0_80px_rgb(45_174_196/0.45)]",
+          leaving ? "vw-greet-out" : "vw-greet-in",
+        )}
+      >
+        <span className="flex size-28 items-center justify-center rounded-full border-2 border-cyan bg-cyan/15 font-sans text-[56px] font-bold text-cyan shadow-[0_0_40px_rgb(45_174_196/0.5)]">
+          {initial || <Check className="size-14" strokeWidth={2.6} />}
+        </span>
+        <span className="font-sans text-[28px] font-semibold text-cyan">Hi,</span>
+        <span className="font-sans text-[clamp(44px,14vw,92px)] leading-[0.95] font-bold tracking-[-0.03em] break-words text-white">{name}</span>
+        <span className="text-[19px] text-ink">Start scanning your items.</span>
+      </div>
     </div>
   );
 }

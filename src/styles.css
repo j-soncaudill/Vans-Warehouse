@@ -228,6 +228,25 @@ input[type="search"]::-webkit-search-cancel-button {
   60% { opacity: 1; transform: scale(1.12); }
   100% { transform: scale(1); }
 }
+/* Check-out station: the big "Hi Dana" card pops in, holds, then lifts away. */
+@keyframes vw-greet-in {
+  0% { opacity: 0; transform: translateY(36px) scale(0.86); }
+  60% { opacity: 1; transform: translateY(-4px) scale(1.02); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes vw-greet-out {
+  to { opacity: 0; transform: translateY(-48px) scale(0.94); }
+}
+@keyframes vw-greet-veil {
+  from { opacity: 0; }
+}
+.vw-greet-veil { animation: vw-greet-veil 260ms var(--ease-out) both; }
+.vw-greet-in { animation: vw-greet-in 460ms var(--ease-spring) both; }
+.vw-greet-out { animation: vw-greet-out 300ms var(--ease-out) forwards; }
+@keyframes vw-greet-veil-out {
+  to { opacity: 0; }
+}
+.vw-greet-out-veil { animation: vw-greet-veil-out 300ms var(--ease-out) forwards; }
 @keyframes vw-tap {
   0% { transform: scale(0.86); }
   100% { transform: scale(1); }

@@ -828,6 +828,12 @@ try {
     await scanText(`VW-BADGE:${oldBadge}`);
     await expect(page.getByText("Badge not recognized"), "old badge refused");
     await scanText(`VW-BADGE:${dana.badge}`);
+    // The big greeting card pops in, then gets out of the way on its own.
+    const card = page.locator('[aria-live="assertive"]');
+    await expect(card.getByText("Dana R.", { exact: true }), "greeting card");
+    await page.waitForTimeout(600);
+    await shot("23d-station-greeting");
+    await card.waitFor({ state: "detached", timeout: 4000 });
     await expect(page.getByText("Hi Dana R."), "greeting");
     await expect(page.getByText("Start scanning your items."), "prompt");
     await scanText(box.code);
