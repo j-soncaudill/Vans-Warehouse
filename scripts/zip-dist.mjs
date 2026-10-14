@@ -8,7 +8,7 @@ import { loadEnv } from "vite";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const dist = path.join(root, "dist");
-const REQUIRED = ["index.html", "app.js", "app.css", "_redirects"];
+const REQUIRED = ["index.html", "app.js", "app.css", "_redirects", "_headers"];
 const files = readdirSync(dist);
 
 const fail = (msg) => {

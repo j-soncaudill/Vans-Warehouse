@@ -13,12 +13,32 @@ const distDir = path.join(root, "dist");
 /** Cloudflare Pages SPA fallback. Must stay exactly this one line. */
 const REDIRECTS = "/*    /index.html    200\n";
 
+/**
+ * The app's files keep the same names every build (app.js, app.css), so tell
+ * browsers to check Cloudflare for a newer copy every time instead of using an
+ * old one from their cache. Photos and stickers come from Supabase, not here.
+ */
+const HEADERS = `/
+  Cache-Control: no-cache
+/index.html
+  Cache-Control: no-cache
+/app.js
+  Cache-Control: no-cache
+/app.css
+  Cache-Control: no-cache
+/sw.js
+  Cache-Control: no-cache
+/manifest.webmanifest
+  Cache-Control: no-cache
+`;
+
 function pagesFiles(): Plugin {
   return {
     name: "floorcast-pages",
     apply: "build",
     closeBundle() {
       writeFileSync(path.join(distDir, "_redirects"), REDIRECTS);
+      writeFileSync(path.join(distDir, "_headers"), HEADERS);
     },
   };
 }
@@ -45,6 +65,8 @@ export default defineConfig(({ mode }) => {
       __SHOP_PIN_HASH__: JSON.stringify(pinHash),
       __DEMO__: JSON.stringify(demo),
       __MANUAL__: JSON.stringify(manual),
+      // Shown in Backup & setup, so you can tell which upload a phone is running.
+      __BUILT_AT__: JSON.stringify(new Date().toISOString()),
     },
     resolve: {
       alias: { "@": path.join(root, "src") },

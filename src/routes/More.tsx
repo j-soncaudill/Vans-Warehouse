@@ -16,6 +16,14 @@ import { BARCODES_BUCKET, DEMO_UI, PHOTOS_BUCKET, pendingUpgrades, probeSchema, 
 
 type Check = { label: string; ok: boolean; detail: string };
 
+/** When this copy of the app was built, e.g. "Oct 14, 5:13 PM". Newer upload = later time. */
+const BUILT = (() => {
+  const at = typeof __BUILT_AT__ === "string" ? new Date(__BUILT_AT__) : null;
+  return at && !Number.isNaN(at.getTime())
+    ? at.toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })
+    : "unknown";
+})();
+
 async function bucketOk(id: string): Promise<Check> {
   const { error } = await sb().storage.from(id).list("", { limit: 1 });
   return { label: `Storage bucket “${id}”`, ok: !error, detail: error ? error.message : "Ready" };
@@ -192,6 +200,9 @@ function AdminMore({ onSwitch }: { onSwitch: () => void }) {
         <Button onClick={onSwitch}>
           <Lock className="size-[18px]" /> Switch role
         </Button>
+        <p className="text-center text-[12px] text-faint">
+          Floorcast version: <span className="code text-dim">{BUILT}</span>
+        </p>
       </Section>
 
       {restoreFile ? (
