@@ -100,16 +100,18 @@ export async function renderBadge(name: string, payload: string, style: BadgeSty
   const ink = color ? "#ffffff" : "#000000";
   const admin = role === "admin";
   /** Crew badges glow blue, admin badges glow red. */
-  const accent = admin ? RED : CYAN;
-  const accentRgb = admin ? "197,44,46" : "45,174,196";
+  // On the red admin card the accents are a lighter red so they still stand out.
+  const accent = admin ? (color ? "#ff6b6e" : RED) : CYAN;
+  const accentRgb = admin ? "255,107,110" : "45,174,196";
 
   // ---------------------------------------------------------------- background
   if (color) {
     const bg = g.createLinearGradient(0, 0, W, H);
-    bg.addColorStop(0, "#0d2f36");
-    bg.addColorStop(0.42, "#0a1316");
-    bg.addColorStop(0.75, "#0b0a0c");
-    bg.addColorStop(1, "#2a0c0f");
+    // Crew: the app's teal into a touch of red. Admin: mostly Vans red.
+    const stops: Array<[number, string]> = admin
+      ? [[0, "#5a1216"], [0.45, "#3a0b0e"], [0.8, "#1f0809"], [1, "#4a0f12"]]
+      : [[0, "#0d2f36"], [0.42, "#0a1316"], [0.75, "#0b0a0c"], [1, "#2a0c0f"]];
+    for (const [at, c] of stops) bg.addColorStop(at, c);
     g.fillStyle = bg;
     g.fillRect(0, 0, W, H);
     // Fine diagonal lines, like a security card.
@@ -147,7 +149,7 @@ export async function renderBadge(name: string, payload: string, style: BadgeSty
   g.drawImage(color ? img : tinted(img, "#ffffff"), M, (headH - logoH) / 2 + 4, logoW, logoH);
   g.textAlign = "right";
   g.textBaseline = "alphabetic";
-  g.fillStyle = color ? CYAN : "#ffffff";
+  g.fillStyle = color ? (admin ? "#ff6b6e" : CYAN) : "#ffffff";
   g.font = `600 40px ${MONO}`;
   g.fillText("floorcast", W - M, 92);
   g.fillStyle = color ? "rgba(255,255,255,0.55)" : "#ffffff";
@@ -155,10 +157,17 @@ export async function renderBadge(name: string, payload: string, style: BadgeSty
   g.fillText(admin ? "ADMIN BADGE" : "CHECK-OUT BADGE", W - M, 130);
   if (color) {
     const rule = g.createLinearGradient(M, 0, W - M, 0);
-    rule.addColorStop(0, "rgba(45,174,196,0)");
-    rule.addColorStop(0.18, CYAN);
-    rule.addColorStop(0.6, RED);
-    rule.addColorStop(1, "rgba(197,44,46,0)");
+    if (admin) {
+      rule.addColorStop(0, "rgba(255,107,110,0)");
+      rule.addColorStop(0.2, "#ff6b6e");
+      rule.addColorStop(0.7, RED);
+      rule.addColorStop(1, "rgba(197,44,46,0)");
+    } else {
+      rule.addColorStop(0, "rgba(45,174,196,0)");
+      rule.addColorStop(0.18, CYAN);
+      rule.addColorStop(0.6, RED);
+      rule.addColorStop(1, "rgba(197,44,46,0)");
+    }
     g.fillStyle = rule;
     g.fillRect(M, headH, W - M * 2, 5);
   }
@@ -217,7 +226,7 @@ export async function renderBadge(name: string, payload: string, style: BadgeSty
     g.lineWidth = 3;
     roundRect(g, M, 258, tw + 40, 58, 12);
     // Solid, so the background flame passes cleanly behind the tag.
-    g.fillStyle = "#0c1c20";
+    g.fillStyle = admin ? "#2a080a" : "#0c1c20";
     g.fill();
     g.fillStyle = `rgba(${accentRgb},0.16)`;
     g.fill();
@@ -253,7 +262,7 @@ export async function renderBadge(name: string, payload: string, style: BadgeSty
     g.font = `500 22px ${MONO}`;
     g.fillText(`ID ···${id}`, M, H - 66);
     const strip = g.createLinearGradient(0, 0, W, 0);
-    strip.addColorStop(0, CYAN);
+    strip.addColorStop(0, admin ? "#ff6b6e" : CYAN);
     strip.addColorStop(1, RED);
     g.fillStyle = strip;
     g.fillRect(0, H - 22, W, 22);
