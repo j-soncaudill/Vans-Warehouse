@@ -3,6 +3,7 @@ import sql003 from "../../supabase/migrations/003_legacy.sql?raw";
 import sql004 from "../../supabase/migrations/004_slips_alerts.sql?raw";
 import sql005 from "../../supabase/migrations/005_arrival_unknown.sql?raw";
 import sql006 from "../../supabase/migrations/006_badges.sql?raw";
+import sql007 from "../../supabase/migrations/007_badge_roles.sql?raw";
 import { pendingUpgrades } from "@/lib/supabase";
 
 /** Database updates in the order they must run. Each is safe to run twice. */
@@ -12,6 +13,7 @@ export const UPGRADES = [
   { id: "004", label: "slip photos + alerts (update 004)", adds: "packing slip photos and admin alerts", sql: sql004 },
   { id: "005", label: "date unknown (update 005)", adds: "\"date unknown\" for legacy boxes", sql: sql005 },
   { id: "006", label: "station badges (update 006)", adds: "badges for the check-out station", sql: sql006 },
+  { id: "007", label: "admin badges (update 007)", adds: "admin badges", sql: sql007 },
 ] as const;
 
 /** What the last schema probe found missing; all of them if it found none. */

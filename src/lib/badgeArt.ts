@@ -8,6 +8,7 @@ import { FLAMES } from "@/lib/brand";
  *          For a color printer on cardstock, in a 4×3 badge holder.
  *   label: black and white only, for the Brother thermal label printer.
  * The QR is always dark on white so every scanner reads it.
+ * Admin badges swap the blue accents for Vans red and say ADMIN.
  */
 export type BadgeStyle = "color" | "label";
 
@@ -85,7 +86,7 @@ async function qrCanvas(payload: string, size: number) {
   return c;
 }
 
-export async function renderBadge(name: string, payload: string, style: BadgeStyle = "color"): Promise<Blob> {
+export async function renderBadge(name: string, payload: string, style: BadgeStyle = "color", role: "crew" | "admin" = "crew"): Promise<Blob> {
   await document.fonts?.ready.catch(() => undefined);
   const [img, qr] = await Promise.all([loadLogo(), qrCanvas(payload, 420)]);
   const c = document.createElement("canvas");
@@ -97,6 +98,10 @@ export async function renderBadge(name: string, payload: string, style: BadgeSty
   const [first, rest] = splitName(name);
   const color = style === "color";
   const ink = color ? "#ffffff" : "#000000";
+  const admin = role === "admin";
+  /** Crew badges glow blue, admin badges glow red. */
+  const accent = admin ? RED : CYAN;
+  const accentRgb = admin ? "197,44,46" : "45,174,196";
 
   // ---------------------------------------------------------------- background
   if (color) {
@@ -120,9 +125,9 @@ export async function renderBadge(name: string, payload: string, style: BadgeSty
     g.restore();
     // A huge flame mark bleeding off the left edge, behind the name.
     flames(g, -170, 210, 820, (p) => {
-      g.fillStyle = "rgba(45,174,196,0.07)";
+      g.fillStyle = `rgba(${accentRgb},0.08)`;
       g.fill(p);
-      g.strokeStyle = "rgba(45,174,196,0.22)";
+      g.strokeStyle = `rgba(${accentRgb},0.26)`;
       g.lineWidth = 2.2;
       g.stroke(p);
     });
@@ -147,7 +152,7 @@ export async function renderBadge(name: string, payload: string, style: BadgeSty
   g.fillText("floorcast", W - M, 92);
   g.fillStyle = color ? "rgba(255,255,255,0.55)" : "#ffffff";
   g.font = `500 24px ${MONO}`;
-  g.fillText("CHECK-OUT BADGE", W - M, 130);
+  g.fillText(admin ? "ADMIN BADGE" : "CHECK-OUT BADGE", W - M, 130);
   if (color) {
     const rule = g.createLinearGradient(M, 0, W - M, 0);
     rule.addColorStop(0, "rgba(45,174,196,0)");
@@ -164,7 +169,7 @@ export async function renderBadge(name: string, payload: string, style: BadgeSty
   const ty = 246;
   g.save();
   if (color) {
-    g.shadowColor = "rgba(45,174,196,0.75)";
+    g.shadowColor = `rgba(${accentRgb},0.75)`;
     g.shadowBlur = 48;
   }
   g.fillStyle = "#ffffff";
@@ -172,7 +177,7 @@ export async function renderBadge(name: string, payload: string, style: BadgeSty
   g.fill();
   g.restore();
   if (color) {
-    g.strokeStyle = CYAN;
+    g.strokeStyle = accent;
     g.lineWidth = 6;
     roundRect(g, tx - 3, ty - 3, tile + 6, tile + 6, 33);
     g.stroke();
@@ -189,14 +194,29 @@ export async function renderBadge(name: string, payload: string, style: BadgeSty
   // ---------------------------------------------------------------- name
   const colW = tx - M - 48;
   g.textAlign = "left";
-  // Small flame + "CREW" tag above the name.
-  flames(g, M, 262, 54, (p) => {
-    g.fillStyle = color ? CYAN : "#000000";
-    g.fill(p);
-  });
-  g.fillStyle = color ? CYAN : "#000000";
-  g.font = `600 30px ${MONO}`;
-  g.fillText("CREW", M + 50, 302);
+  // Small flame + "CREW" / "ADMIN" tag above the name. On the black & white
+  // admin badge the tag is a solid black pill so it reads at a glance.
+  const tag = admin ? "ADMIN" : "CREW";
+  g.font = `700 30px ${MONO}`;
+  if (admin && !color) {
+    const tw = g.measureText(tag).width;
+    g.fillStyle = "#000000";
+    roundRect(g, M - 8, 256, tw + 82, 62, 12);
+    g.fill();
+    flames(g, M + 4, 264, 46, (p) => {
+      g.fillStyle = "#ffffff";
+      g.fill(p);
+    });
+    g.fillStyle = "#ffffff";
+    g.fillText(tag, M + 54, 300);
+  } else {
+    flames(g, M, 262, 54, (p) => {
+      g.fillStyle = color ? accent : "#000000";
+      g.fill(p);
+    });
+    g.fillStyle = color ? accent : "#000000";
+    g.fillText(tag, M + 50, 302);
+  }
 
   const firstSize = fit(g, first.toUpperCase(), 800, 168, 64, colW);
   g.fillStyle = ink;

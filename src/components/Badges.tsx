@@ -1,14 +1,14 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { IdCard, Plus, Printer, RefreshCw, Share2, Trash2 } from "lucide-react";
+import { IdCard, Plus, Printer, RefreshCw, Share2, ShieldCheck, Trash2 } from "lucide-react";
 import { Button, Confirm, cx, errorText, toast } from "@/components/ui";
-import { addEmployee, badgePayload, listEmployees, reissueBadge, removeEmployee, type Employee } from "@/lib/badges";
+import { addEmployee, badgePayload, listEmployees, reissueBadge, removeEmployee, setEmployeeRole, type BadgeRole, type Employee } from "@/lib/badges";
 import { useRole } from "@/lib/role";
 import { renderBadge, type BadgeStyle } from "@/lib/badgeArt";
 import { downloadBlob, printLabel } from "@/lib/sticker";
 import { DEMO_UI } from "@/lib/supabase";
 
 async function badgeBlob(e: Employee, style: BadgeStyle) {
-  return renderBadge(e.name, badgePayload(e.badge), style);
+  return renderBadge(e.name, badgePayload(e.badge), style, e.role);
 }
 
 const STYLES: Array<{ style: BadgeStyle; label: string; hint: string }> = [
@@ -38,6 +38,7 @@ export function BadgesSection() {
   const [people, setPeople] = useState<Employee[] | null>(null);
   const [error, setError] = useState("");
   const [name, setName] = useState("");
+  const [role, setRole] = useState<BadgeRole>("crew");
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState<{ e: Employee; url: string; style: BadgeStyle } | null>(null);
   const [reissue, setReissue] = useState<Employee | null>(null);
@@ -65,10 +66,11 @@ export function BadgesSection() {
     if (!name.trim()) return;
     setBusy(true);
     try {
-      const e = await addEmployee(name);
+      const e = await addEmployee(name, role);
       setName("");
+      setRole("crew");
       load();
-      toast(`Badge ready: ${e.name}`);
+      toast(`${e.role === "admin" ? "Admin badge" : "Badge"} ready: ${e.name}`);
       await show(e);
     } catch (err) {
       toast(errorText(err, "Could not add that person."), "error");
@@ -77,29 +79,62 @@ export function BadgesSection() {
     }
   }
 
+  async function switchRole(e: Employee, style: BadgeStyle) {
+    setBusy(true);
+    try {
+      const next = await setEmployeeRole(e.id, e.role === "admin" ? "crew" : "admin");
+      load();
+      toast(next.role === "admin" ? `${next.name} is an admin. Reprint the badge for the admin design.` : `${next.name} is crew now. Reprint the badge.`);
+      await show(next, style);
+    } catch (err) {
+      toast(errorText(err, "Could not change that."), "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-3">
       <p className="text-[15px] text-dim">
-        Each person gets a QR badge for their lanyard. At the station they scan it ("Hi Dana. Start scanning your items."), then scan their boxes. Each box
+        Each person gets a QR badge for their lanyard: crew badges in blue, admin badges in red. At the station they scan it ("Hi Dana. Start scanning your items."), then scan their boxes. Each box
         is checked out under their name.
       </p>
 
-      <form onSubmit={(e) => void add(e)} className="flex gap-2">
-        <label htmlFor="badge-name" className="sr-only">
-          Name for a new badge
-        </label>
-        <input
-          id="badge-name"
-          className="field min-w-0 flex-1"
-          placeholder="Name, e.g. Dana R."
-          maxLength={80}
-          autoComplete="off"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <Button type="submit" variant="primary" disabled={busy || !name.trim()} className="w-auto! shrink-0 px-4">
-          <Plus className="size-[18px]" /> add
-        </Button>
+      <form onSubmit={(e) => void add(e)} className="flex flex-col gap-2">
+        <div className="flex gap-2" role="group" aria-label="New badge for">
+          {(["crew", "admin"] as const).map((r) => (
+            <button
+              key={r}
+              type="button"
+              aria-pressed={role === r}
+              onClick={() => setRole(r)}
+              className={cx(
+                "vw-press flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-[8px] border px-3 text-[13px] lowercase",
+                role === r ? (r === "admin" ? "border-danger bg-danger/10 text-danger" : "border-cyan bg-cyan/10 text-cyan") : "border-line bg-panel text-dim",
+              )}
+            >
+              {r === "admin" ? <ShieldCheck aria-hidden className="size-4" /> : <IdCard aria-hidden className="size-4" />}
+              {r}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <label htmlFor="badge-name" className="sr-only">
+            Name for a new badge
+          </label>
+          <input
+            id="badge-name"
+            className="field min-w-0 flex-1"
+            placeholder="Name, e.g. Dana R."
+            maxLength={80}
+            autoComplete="off"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <Button type="submit" variant="primary" disabled={busy || !name.trim()} className="w-auto! shrink-0 px-4">
+            <Plus className="size-[18px]" /> add
+          </Button>
+        </div>
       </form>
 
       {error ? <p className="text-[14px] text-danger">{error}</p> : null}
@@ -108,8 +143,9 @@ export function BadgesSection() {
         <ul className="m-0 flex list-none flex-col p-0" aria-label="Badges">
           {people.map((e) => (
             <li key={e.id} className="flex items-center gap-2 border-b border-hair py-1.5">
-              <IdCard aria-hidden className="size-4 shrink-0 text-cyan" />
+              {e.role === "admin" ? <ShieldCheck aria-hidden className="size-4 shrink-0 text-danger" /> : <IdCard aria-hidden className="size-4 shrink-0 text-cyan" />}
               <span className="min-w-0 flex-1 truncate text-[15px] text-ink">{e.name}</span>
+              {e.role === "admin" ? <span className="rounded-[4px] border border-danger/50 px-1.5 text-[11px] text-danger lowercase">admin</span> : null}
               <button type="button" onClick={() => void show(e)} className="vw-press min-h-10 rounded-[8px] border border-line bg-panel px-3 text-[13px] text-cyan lowercase">
                 badge
               </button>
@@ -168,6 +204,10 @@ export function BadgesSection() {
                   <Share2 className="size-[18px]" /> save
                 </Button>
               </span>
+              <Button variant="ghost" disabled={busy} onClick={() => void switchRole(preview.e, preview.style)}>
+                {preview.e.role === "admin" ? <IdCard className="size-[18px]" /> : <ShieldCheck className="size-[18px]" />}
+                {preview.e.role === "admin" ? "change to crew" : "make admin"}
+              </Button>
               <Button
                 variant="ghost"
                 onClick={() => {

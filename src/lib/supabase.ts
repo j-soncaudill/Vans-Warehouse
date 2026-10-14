@@ -82,14 +82,15 @@ export async function probeSchema(): Promise<SchemaState> {
       sb().from("packages").select("legacy").limit(1),
       sb().from("packages").select("slip_photo_path").limit(1),
       sb().from("packages").select("arrival_unknown").limit(1),
-      sb().from("employees").select("id").limit(1),
+      sb().from("employees").select("id, role").limit(1),
     ]);
     missing = [];
     if (isColumnMissing(loc.error) || isTableMissing(ret.error)) missing.push("002");
     if (isColumnMissing(legacy.error)) missing.push("003");
     if (isColumnMissing(slip.error)) missing.push("004");
     if (isColumnMissing(unknown.error)) missing.push("005");
-    if (isTableMissing(badges.error)) missing.push("006");
+    if (isTableMissing(badges.error)) missing.push("006", "007");
+    else if (isColumnMissing(badges.error)) missing.push("007");
     if (missing.length) return "upgrade";
     if (loc.error || ret.error || legacy.error || slip.error || unknown.error || badges.error) return "offline";
     return "ready";

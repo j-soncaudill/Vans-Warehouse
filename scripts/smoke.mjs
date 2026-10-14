@@ -52,7 +52,7 @@ function filterRows(url, list = rows) {
 function newRow(table, item) {
   const now = new Date().toISOString();
   if (table === "package_moves") return { id: nextId++, from_location: null, moved_by: null, moved_at: now, ...item };
-  if (table === "employees") return { id: nextId++, created_at: now, ...item };
+  if (table === "employees") return { id: nextId++, role: "crew", created_at: now, ...item };
   if (table === "returns") {
     return {
       id: nextId++, status: "open", returned_by: null, vendor: null, job_name: null, notes: null, photo_path: null, thumb_path: null,
@@ -278,13 +278,14 @@ let mintedCode = "";
 let locCode = "";
 let retCode = "";
 try {
-  await step("Missing badges table: the app asks for update 006 only", async () => {
+  await step("Missing badges table: the app asks for updates 006 and 007 only", async () => {
     await page.goto(`http://localhost:${PORT}/`);
     await expect(page.getByText("One database update"), "update screen");
-    await expect(page.getByText(/adds badges for the check-out station/), "names what it adds");
+    await expect(page.getByText(/adds badges for the check-out station and admin badges/), "names what it adds");
     await page.getByRole("button", { name: "Show SQL" }).click();
     const sql = await page.locator("textarea").inputValue();
     if (!sql.includes("create table if not exists public.employees")) throw new Error("update SQL is not 006");
+    if (!sql.includes("add column if not exists role")) throw new Error("update SQL is missing 007");
     if (sql.includes("arrival_unknown")) throw new Error("update SQL repeats 005");
     if (sql.includes("create table if not exists public.returns")) throw new Error("update SQL repeats 002");
     await shot("00a-update-006");
@@ -822,6 +823,19 @@ try {
     await page.getByRole("button", { name: "Make new badge" }).click();
     await expect(page.getByText(/The old one no longer works/), "reissued");
     if (dana.badge === oldBadge) throw new Error("badge did not change");
+    await page.getByRole("button", { name: "Done", exact: true }).click();
+
+    // An admin badge: red design, ADMIN; can be switched back to crew.
+    await page.getByRole("group", { name: "New badge for" }).getByRole("button", { name: "admin" }).click();
+    await page.fill("#badge-name", "Rick A.");
+    await page.getByRole("button", { name: "add", exact: true }).click();
+    await saveImg("Badge for Rick A., full color", "badge-admin-color.png");
+    if (employees.find((e) => e.name === "Rick A.")?.role !== "admin") throw new Error("admin badge not saved as admin");
+    await page.getByRole("button", { name: "black & white" }).click();
+    await saveImg("Badge for Rick A., black and white", "badge-admin-bw.png");
+    await page.getByRole("button", { name: "change to crew" }).click();
+    await expect(page.getByRole("button", { name: "make admin" }), "switched to crew");
+    if (employees.find((e) => e.name === "Rick A.")?.role !== "crew") throw new Error("role switch did not save");
     await page.getByRole("button", { name: "Done", exact: true }).click();
 
     const box = newRow("packages", { code: "VW-STN2A7", job_name: "Station Box", last_location: "Warehouse" });

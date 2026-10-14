@@ -9,10 +9,12 @@ import { sb } from "@/lib/supabase";
  */
 export const BADGE_PREFIX = "VW-BADGE:";
 
-export type Employee = { id: number; name: string; badge: string; createdAt: string };
-type Row = { id: number; name: string; badge: string; created_at: string };
+export type BadgeRole = "crew" | "admin";
+export type Employee = { id: number; name: string; badge: string; role: BadgeRole; createdAt: string };
+type Row = { id: number; name: string; badge: string; role?: string | null; created_at: string };
 
-const mapRow = (r: Row): Employee => ({ id: r.id, name: r.name, badge: r.badge, createdAt: r.created_at });
+const COLS = "id, name, badge, role, created_at";
+const mapRow = (r: Row): Employee => ({ id: r.id, name: r.name, badge: r.badge, role: r.role === "admin" ? "admin" : "crew", createdAt: r.created_at });
 
 const TOKEN_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
 
@@ -36,19 +38,20 @@ export const isBadgeScan = (raw: string) => raw.trim().toUpperCase().startsWith(
 // ------------------------------------------------------------------ admin list
 
 export async function listEmployees(): Promise<Employee[]> {
-  const { data, error } = await sb().from("employees").select("id, name, badge, created_at").order("name", { ascending: true });
+  const { data, error } = await sb().from("employees").select(COLS).order("name", { ascending: true });
   if (error) throw error;
-  const list = (data as Row[]).map(mapRow);
+  // Admins first, then crew; each by name.
+  const list = (data as Row[]).map(mapRow).sort((a, b) => Number(b.role === "admin") - Number(a.role === "admin") || a.name.localeCompare(b.name));
   rememberBadges(list);
   return list;
 }
 
 const cleanName = (name: string) => name.trim().replace(/\s+/g, " ").slice(0, 80);
 
-export async function addEmployee(name: string): Promise<Employee> {
+export async function addEmployee(name: string, role: BadgeRole = "crew"): Promise<Employee> {
   const n = cleanName(name);
   if (!n) throw new Error("Enter a name.");
-  const { data, error } = await sb().from("employees").insert({ name: n, badge: mintBadge() }).select("id, name, badge, created_at").single();
+  const { data, error } = await sb().from("employees").insert({ name: n, badge: mintBadge(), role }).select(COLS).single();
   if (error) throw error;
   return mapRow(data as Row);
 }
@@ -56,14 +59,21 @@ export async function addEmployee(name: string): Promise<Employee> {
 export async function renameEmployee(id: number, name: string): Promise<Employee> {
   const n = cleanName(name);
   if (!n) throw new Error("Enter a name.");
-  const { data, error } = await sb().from("employees").update({ name: n }).eq("id", id).select("id, name, badge, created_at").single();
+  const { data, error } = await sb().from("employees").update({ name: n }).eq("id", id).select(COLS).single();
+  if (error) throw error;
+  return mapRow(data as Row);
+}
+
+/** Crew ⇄ admin. The badge keeps working; reprint it to get the matching design. */
+export async function setEmployeeRole(id: number, role: BadgeRole): Promise<Employee> {
+  const { data, error } = await sb().from("employees").update({ role }).eq("id", id).select(COLS).single();
   if (error) throw error;
   return mapRow(data as Row);
 }
 
 /** A new badge for a lost or damaged one. The old badge stops working right away. */
 export async function reissueBadge(id: number): Promise<Employee> {
-  const { data, error } = await sb().from("employees").update({ badge: mintBadge() }).eq("id", id).select("id, name, badge, created_at").single();
+  const { data, error } = await sb().from("employees").update({ badge: mintBadge() }).eq("id", id).select(COLS).single();
   if (error) throw error;
   return mapRow(data as Row);
 }
