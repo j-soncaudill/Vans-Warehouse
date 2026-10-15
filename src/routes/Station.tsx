@@ -207,7 +207,8 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
   }, [signOut]);
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-xl flex-col px-4 pt-[max(env(safe-area-inset-top),16px)] pb-[max(env(safe-area-inset-bottom),16px)]">
+    <div className="relative isolate mx-auto flex min-h-dvh w-full max-w-xl flex-col px-4 pt-[max(env(safe-area-inset-top),16px)] pb-[max(env(safe-area-inset-bottom),16px)]">
+      {who ? null : <CodeField />}
       <header className="flex items-center justify-between gap-2">
         <Brand />
         <span className="flex items-center gap-1.5 rounded-[8px] border border-line px-2.5 py-1 text-[12px] text-dim lowercase">
@@ -291,10 +292,10 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
         </main>
       ) : (
         <main className="flex flex-1 flex-col items-center justify-center gap-5 py-8 text-center">
-          <span className="flex size-24 items-center justify-center rounded-[24px] border border-cyan/40 bg-cyan/10 text-cyan">
-            <IdCard className="size-12" strokeWidth={1.6} />
+          <span className="vw-badge-glow flex size-24 items-center justify-center rounded-[24px] border border-cyan/70 bg-[#0b1d22] text-cyan">
+            <IdCard className="size-12 drop-shadow-[0_0_8px_rgb(45_174_196/0.9)]" strokeWidth={1.8} />
           </span>
-          <h1 className="m-0 font-sans text-[32px] leading-tight font-bold tracking-[-0.02em] text-white">Scan your badge</h1>
+          <h1 className="m-0 font-sans text-[32px] leading-tight font-bold tracking-[-0.02em] text-white [text-shadow:0_2px_18px_rgb(0_0_0/0.85)]">Scan your badge</h1>
         </main>
       )}
 
@@ -342,6 +343,64 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
       {exiting ? <ExitStation onCancel={() => setExiting(false)} onExit={onExit} /> : null}
     </div>
   );
+}
+
+/**
+ * Idle screensaver behind "Scan your badge": a grid of small QR-style squares
+ * that flicker on and off, with a slow ripple spreading out from the middle.
+ * Only runs while nobody is signed in; a still frame with reduced motion.
+ */
+function CodeField() {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const c = ref.current;
+    const g = c?.getContext("2d");
+    if (!c || !g) return;
+    const CELL = 14;
+    const CYAN = "45,174,196";
+    const RED = "197,44,46";
+    let d = 1;
+    let cols = 0;
+    let rows = 0;
+    let seed: number[] = [];
+    const setup = () => {
+      d = Math.min(2, window.devicePixelRatio || 1);
+      c.width = Math.round(window.innerWidth * d);
+      c.height = Math.round(window.innerHeight * d);
+      cols = Math.ceil(window.innerWidth / CELL);
+      rows = Math.ceil(window.innerHeight / CELL);
+      seed = Array.from({ length: cols * rows }, () => Math.random());
+    };
+    const draw = (t: number) => {
+      g.clearRect(0, 0, c.width, c.height);
+      const cx = cols / 2;
+      const cy = rows / 2.3;
+      for (let y = 0; y < rows; y++)
+        for (let x = 0; x < cols; x++) {
+          const s = seed[y * cols + x];
+          if ((Math.sin(t * 0.0006 + s * 40) + 1) / 2 <= 0.62) continue;
+          const wave = (Math.sin(Math.hypot(x - cx, y - cy) * 0.55 - t * 0.0022) + 1) / 2;
+          g.fillStyle = `rgba(${s > 0.9 ? RED : CYAN},${0.05 + wave * 0.2})`;
+          g.fillRect((x * CELL + 1) * d, (y * CELL + 1) * d, (CELL - 3) * d, (CELL - 3) * d);
+        }
+    };
+    setup();
+    window.addEventListener("resize", setup);
+    let raf = 0;
+    if (calm()) draw(0);
+    else {
+      const loop = (t: number) => {
+        draw(t);
+        raf = requestAnimationFrame(loop);
+      };
+      raf = requestAnimationFrame(loop);
+    }
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", setup);
+    };
+  }, []);
+  return <canvas ref={ref} aria-hidden className="pointer-events-none fixed inset-0 -z-10 size-full" />;
 }
 
 /**
