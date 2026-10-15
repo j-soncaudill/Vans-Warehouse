@@ -94,12 +94,16 @@ export async function drawBadge(name: string, payload: string, style: BadgeStyle
   }
 
   // ---------------------------------------------------------------- tag + name
+  // Both centered: the CREW / ADMIN tag, then first and last name on one line.
   const tag = admin ? "ADMIN" : "CREW";
   g.textAlign = "left";
   g.font = `700 24px ${MONO}`;
   const tw = g.measureText(tag).width;
+  const tagTop = 192;
   if (color) {
-    roundRect(g, M, 186, tw + 32, 46, 10);
+    const pw = tw + 32;
+    const px = (W - pw) / 2;
+    roundRect(g, px, tagTop, pw, 46, 10);
     g.fillStyle = admin ? "#2a080a" : "#0c1c20";
     g.fill();
     g.fillStyle = `rgba(${accentRgb},0.16)`;
@@ -108,35 +112,37 @@ export async function drawBadge(name: string, payload: string, style: BadgeStyle
     g.lineWidth = 2.5;
     g.stroke();
     g.fillStyle = accent;
-    g.fillText(tag, M + 16, 218);
-  } else if (admin) {
-    roundRect(g, M, 186, tw + 72, 46, 10);
-    g.fillStyle = "#000000";
-    g.fill();
-    flames(g, M + 10, 192, 34, (p) => {
-      g.fillStyle = "#ffffff";
-      g.fill(p);
-    });
-    g.fillStyle = "#ffffff";
-    g.fillText(tag, M + 50, 218);
+    g.fillText(tag, px + 16, tagTop + 32);
   } else {
-    flames(g, M, 190, 40, (p) => {
+    // Black & white: a small flame beside the word; admin gets a solid black pill.
+    const pw = tw + (admin ? 72 : 44);
+    const px = (W - pw) / 2;
+    if (admin) {
+      roundRect(g, px, tagTop, pw, 46, 10);
       g.fillStyle = "#000000";
+      g.fill();
+    }
+    const ink = admin ? "#ffffff" : "#000000";
+    flames(g, px + (admin ? 10 : 0), tagTop + 6, 34, (p) => {
+      g.fillStyle = ink;
       g.fill(p);
     });
-    g.fillStyle = "#000000";
-    g.fillText(tag, M + 38, 220);
+    g.fillStyle = ink;
+    g.fillText(tag, px + (admin ? 50 : 40), tagTop + 32);
   }
 
-  const firstSize = fit(g, first, 800, 118, 54, W - M * 2);
+  // One line, shrunk to fit; the last name a shade lighter on the color badge.
+  const gap = rest ? " " : "";
+  const size = fit(g, `${first}${gap}${rest}`, 800, 92, 34, W - M * 2);
+  const wFirst = g.measureText(`${first}${gap}`).width;
+  const wAll = g.measureText(`${first}${gap}${rest}`).width;
+  const nx = (W - wAll) / 2;
+  const ny = 352 + size * 0.36;
   g.fillStyle = color ? "#ffffff" : "#000000";
-  let y = 250 + firstSize * 0.86;
-  g.fillText(first, M - 3, y);
+  g.fillText(first, nx, ny);
   if (rest) {
-    const restSize = fit(g, rest, 700, 52, 28, W - M * 2);
-    y += restSize * 1.12;
     g.fillStyle = color ? "rgba(255,255,255,0.72)" : "#000000";
-    g.fillText(rest, M, y);
+    g.fillText(rest, nx + wFirst, ny);
   }
 
   // ---------------------------------------------------------------- QR tile
