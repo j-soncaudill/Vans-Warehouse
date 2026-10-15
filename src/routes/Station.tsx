@@ -16,7 +16,19 @@ import { DEMO_UI } from "@/lib/supabase";
 import { ago } from "@/lib/time";
 
 type Tone = "ok" | "bad" | "warn";
-type Line = { id: number; tone: Tone; title: string; detail?: string; code?: string; undone?: boolean; isReturn?: boolean };
+type Line = {
+  id: number;
+  tone: Tone;
+  title: string;
+  detail?: string;
+  code?: string;
+  undone?: boolean;
+  isReturn?: boolean;
+  /** Bumped when the same box is scanned again, so its row lights up again. */
+  pulse?: number;
+  /** The row a scan card shrinks into, when it's an existing row. */
+  target?: number;
+};
 type Person = { name: string; token: string };
 type Hello = { id: number; mode: "in" | "out"; name: string; note?: string };
 
@@ -35,6 +47,8 @@ const calm = () => typeof matchMedia === "function" && matchMedia("(prefers-redu
 export function StationScreen({ onExit }: { onExit: () => void }) {
   const [who, setWho] = useState<Person | null>(null);
   const [lines, setLines] = useState<Line[]>([]);
+  const linesRef = useRef<Line[]>([]);
+  linesRef.current = lines;
   const [flash, setFlash] = useState<Line | null>(null);
   const [camera, setCamera] = useState(false);
   const [exiting, setExiting] = useState(false);
@@ -81,9 +95,12 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
       const person = whoRef.current;
       const say = (tone: Tone, title: string, detail?: string, code?: string) => {
         beep(tone === "ok" ? "ok" : "bad");
-        const line = { id: ++lineId, tone, title, detail, code };
-        if (whoRef.current) setLines((l) => [line, ...l].slice(0, 40));
-        setFlash(line);
+        const line: Line = { id: ++lineId, tone, title, detail, code };
+        // A box already in this list (scanned twice): show the card, but don't add a second row.
+        const dup = code && whoRef.current ? linesRef.current.find((l) => l.code === code && !l.undone && !l.isReturn) : undefined;
+        if (dup) setLines((ls) => ls.map((l) => (l.id === dup.id ? { ...l, pulse: (l.pulse ?? 0) + 1 } : l)));
+        else if (whoRef.current) setLines((l) => [line, ...l].slice(0, 40));
+        setFlash(dup ? { ...line, target: dup.id } : line);
       };
 
       if (isBadgeScan(raw)) {
@@ -229,7 +246,7 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
             <ul className="m-0 flex list-none flex-col gap-2 p-0" aria-label="Scanned this time">
               {lines.map((l) => (
                 <li
-                  key={l.id}
+                  key={`${l.id}-${l.pulse ?? 0}`}
                   data-line={l.id}
                   className={cx(
                     "vw-landed flex items-center gap-3 rounded-[12px] border px-3.5 py-3",
@@ -344,7 +361,7 @@ function ScanFlash({ line, onDone }: { line: Line; onDone: () => void }) {
       if (!el) return doneRef.current();
       const quick = calm();
       const a = el.getBoundingClientRect();
-      const target = document.querySelector(`[data-line="${line.id}"]`)?.getBoundingClientRect();
+      const target = document.querySelector(`[data-line="${line.target ?? line.id}"]`)?.getBoundingClientRect();
       const ease = "cubic-bezier(0.4, 0, 0.2, 1)";
       if (target) {
         const dx = target.left + target.width / 2 - (a.left + a.width / 2);

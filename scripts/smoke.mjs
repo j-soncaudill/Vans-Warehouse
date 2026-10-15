@@ -888,6 +888,14 @@ try {
     await scanText(box.code);
     await expect(page.getByRole("button", { name: "Undo Station Box" }), "scanned again after undo");
     if (box.status !== "checked_out") throw new Error("box did not check out again after undo");
+    // Scanning the same box again warns, but doesn't add another row.
+    const rowsFor = () => page.locator("li[data-line]", { hasText: box.code }).count();
+    const before = await rowsFor();
+    await page.waitForTimeout(1600);
+    await scanText(box.code);
+    await expect(page.getByText("already checked out to you"), "repeat scan warning");
+    await page.waitForTimeout(400);
+    if ((await rowsFor()) !== before) throw new Error("repeat scan added another row");
     await scanText(locCode);
     await expect(page.getByText("Already out to Truck 7"), "already out warning");
     if (rows.find((x) => x.code === locCode)?.checked_out_to !== "Truck 7") throw new Error("station overwrote a box that was out");
