@@ -1,24 +1,29 @@
 import { CYAN, MONO, RED, fit, flames, loadLogo, qrCanvas, roundRect, tinted, type BadgeStyle } from "@/lib/badgeArt";
 
 /**
- * Crew badges for 2½ × 3¾ in badge holders (750×1125, 300 dpi), vertical:
- * color (dark gradient, big background flame, glowing QR tile) or label
- * (black and white).
- * Admin badges are mostly red, with the blue and red accents swapped.
+ * Crew badges, 3 × 4 in vertical, to fit Avery 5392 name badge inserts
+ * (900×1200, 300 dpi): color (dark gradient, big background flame, glowing
+ * QR tile) or label (black and white). Admin badges are mostly red, with
+ * the blue and red accents swapped.
+ * Drawn on a 750×1000 grid, then scaled up 1.2× to 300 dpi.
  */
 const W = 750;
-const H = 1125;
+const H = 1000;
 const M = 48;
+const SCALE = 1.2;
+export const BADGE_PX = { w: W * SCALE, h: H * SCALE };
 
-export async function renderBadgeTall(name: string, payload: string, style: BadgeStyle = "color", role: "crew" | "admin" = "crew"): Promise<Blob> {
+/** One badge as a canvas (for printing several on a sheet). */
+export async function drawBadge(name: string, payload: string, style: BadgeStyle = "color", role: "crew" | "admin" = "crew"): Promise<HTMLCanvasElement> {
   await document.fonts?.ready.catch(() => undefined);
-  const QR = 470;
-  const [img, qr] = await Promise.all([loadLogo(), qrCanvas(payload, QR)]);
+  const QR = 400;
+  const [img, qr] = await Promise.all([loadLogo(), qrCanvas(payload, Math.round(QR * SCALE))]);
   const c = document.createElement("canvas");
-  c.width = W;
-  c.height = H;
+  c.width = BADGE_PX.w;
+  c.height = BADGE_PX.h;
   const g = c.getContext("2d");
   if (!g) throw new Error("Could not draw the badge.");
+  g.scale(SCALE, SCALE);
   const color = style === "color";
   const admin = role === "admin";
   const accent = admin ? (color ? "#ff6b6e" : RED) : CYAN;
@@ -135,9 +140,9 @@ export async function renderBadgeTall(name: string, payload: string, style: Badg
   }
 
   // ---------------------------------------------------------------- QR tile
-  const tile = 520;
+  const tile = 440;
   const tx = (W - tile) / 2;
-  const ty = 470;
+  const ty = 452;
   g.save();
   if (color) {
     g.shadowColor = `rgba(${accentRgb},0.75)`;
@@ -160,25 +165,90 @@ export async function renderBadgeTall(name: string, payload: string, style: Badg
     g.textAlign = "center";
     g.fillStyle = "rgba(255,255,255,0.6)";
     g.font = `500 21px ${MONO}`;
-    g.fillText("scan at the check-out station", W / 2, 1040);
+    g.fillText("scan at the check-out station", W / 2, 928);
     g.fillStyle = "rgba(255,255,255,0.35)";
     g.font = `500 17px ${MONO}`;
-    g.fillText(`ID ···${id}`, W / 2, 1072);
+    g.fillText(`ID ···${id}`, W / 2, 958);
     const strip = g.createLinearGradient(0, 0, W, 0);
     strip.addColorStop(0, from);
     strip.addColorStop(1, to);
     g.fillStyle = strip;
-    g.fillRect(0, H - 18, W, 18);
+    g.fillRect(0, H - 16, W, 16);
   } else {
     g.fillStyle = "#000000";
-    g.fillRect(0, H - 90, W, 90);
+    g.fillRect(0, H - 82, W, 82);
     g.fillStyle = "#ffffff";
     g.textAlign = "center";
     g.font = `600 21px ${MONO}`;
-    g.fillText("SCAN AT THE CHECK-OUT STATION", W / 2, H - 50);
+    g.fillText("SCAN AT THE CHECK-OUT STATION", W / 2, H - 46);
     g.font = `500 17px ${MONO}`;
-    g.fillText(`ID ${id}`, W / 2, H - 22);
+    g.fillText(`ID ${id}`, W / 2, H - 20);
   }
+  return c;
+}
 
-  return new Promise((resolve, reject) => c.toBlob((b) => (b ? resolve(b) : reject(new Error("Could not save the badge."))), "image/png"));
+const toPng = (c: HTMLCanvasElement) =>
+  new Promise<Blob>((resolve, reject) => c.toBlob((b) => (b ? resolve(b) : reject(new Error("Could not save the badge."))), "image/png"));
+
+export async function renderBadgeTall(name: string, payload: string, style: BadgeStyle = "color", role: "crew" | "admin" = "crew"): Promise<Blob> {
+  return toPng(await drawBadge(name, payload, style, role));
+}
+
+// ------------------------------------------------------------------ Avery 5392 sheet
+/**
+ * Avery 5392: letter sheet, six 4 × 3 in inserts, 2 across and 3 down,
+ * ¼ in side margins and 1 in top margin. A vertical 3 × 4 badge is turned
+ * a quarter turn to fit each spot; it comes out upright once torn out.
+ * Spots are numbered 1–6, left to right, top to bottom.
+ */
+const DPI = 300;
+const SHEET = { w: 8.5 * DPI, h: 11 * DPI };
+export const AVERY_SPOTS = 6;
+const spot = (i: number) => ({ x: 0.25 * DPI + (i % 2) * 4 * DPI, y: 1 * DPI + Math.floor(i / 2) * 3 * DPI, w: 4 * DPI, h: 3 * DPI });
+
+function sheet() {
+  const c = document.createElement("canvas");
+  c.width = SHEET.w;
+  c.height = SHEET.h;
+  const g = c.getContext("2d")!;
+  g.fillStyle = "#ffffff";
+  g.fillRect(0, 0, c.width, c.height);
+  return { c, g };
+}
+
+/** A full letter page with each badge in its spot (spot numbers 1–6). */
+export async function renderAverySheet(items: Array<{ badge: HTMLCanvasElement; spot: number }>): Promise<Blob> {
+  const { c, g } = sheet();
+  for (const { badge, spot: n } of items) {
+    const s = spot(n - 1);
+    g.save();
+    // Quarter turn: the badge's top edge lands on the spot's left edge.
+    g.translate(s.x, s.y + s.h);
+    g.rotate(-Math.PI / 2);
+    g.drawImage(badge, 0, 0, s.h, s.w);
+    g.restore();
+  }
+  return toPng(c);
+}
+
+/** Plain-paper test: the six spots outlined and numbered, to hold against a real sheet. */
+export async function renderAveryTest(): Promise<Blob> {
+  await document.fonts?.ready.catch(() => undefined);
+  const { c, g } = sheet();
+  g.strokeStyle = "#000000";
+  g.lineWidth = 4;
+  g.setLineDash([24, 14]);
+  g.fillStyle = "#000000";
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  for (let i = 0; i < AVERY_SPOTS; i++) {
+    const s = spot(i);
+    g.strokeRect(s.x, s.y, s.w, s.h);
+    g.font = `700 180px ${MONO}`;
+    g.fillText(String(i + 1), s.x + s.w / 2, s.y + s.h / 2);
+  }
+  g.font = `600 42px ${MONO}`;
+  g.fillText("Avery 5392 alignment test · print on plain paper at 100%", SHEET.w / 2, 0.5 * DPI);
+  g.fillText("Hold it against an Avery sheet: the dashed boxes should match the perforations.", SHEET.w / 2, 10.5 * DPI);
+  return toPng(c);
 }

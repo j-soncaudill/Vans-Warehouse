@@ -850,6 +850,16 @@ try {
     if (employees.find((e) => e.name === "Rick A.")?.role !== "crew") throw new Error("role switch did not save");
     await page.getByRole("button", { name: "Done", exact: true }).click();
 
+    // Print several badges on one Avery 5392 sheet: pick people, then the first free spot.
+    await page.getByRole("button", { name: "print a sheet of badges" }).click();
+    await page.getByRole("checkbox", { name: /Dana R\./ }).click();
+    await expect(page.getByRole("button", { name: "Start at spot 1" }).getByText("Dana R."), "Dana in spot 1");
+    await page.getByRole("button", { name: "Start at spot 3" }).click();
+    await expect(page.getByRole("button", { name: "Start at spot 3" }).getByText("Dana R."), "Dana moves to spot 3");
+    await expect(page.getByRole("button", { name: /print 1 badge/ }), "print button counts badges");
+    await shot("23i-badge-sheet");
+    await page.getByRole("dialog").getByRole("button", { name: "Close" }).click();
+
     const box = newRow("packages", { code: "VW-STN2A7", job_name: "Station Box", last_location: "Warehouse" });
     rows.push(box);
     await page.getByRole("button", { name: "Start station mode" }).click();
