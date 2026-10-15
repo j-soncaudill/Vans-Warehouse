@@ -3,17 +3,21 @@ import { IdCard, Plus, Printer, RefreshCw, Share2, ShieldCheck, Trash2 } from "l
 import { Button, Confirm, cx, errorText, toast } from "@/components/ui";
 import { addEmployee, badgePayload, listEmployees, reissueBadge, removeEmployee, setEmployeeRole, type BadgeRole, type Employee } from "@/lib/badges";
 import { useRole } from "@/lib/role";
-import { renderBadge, type BadgeStyle } from "@/lib/badgeArt";
+import { type BadgeStyle } from "@/lib/badgeArt";
+import { renderBadgeTall } from "@/lib/badgeTall";
 import { downloadBlob, printLabel } from "@/lib/sticker";
 import { DEMO_UI } from "@/lib/supabase";
 
 async function badgeBlob(e: Employee, style: BadgeStyle) {
-  return renderBadge(e.name, badgePayload(e.badge), style, e.role);
+  return renderBadgeTall(e.name, badgePayload(e.badge), style, e.role);
 }
 
+/** Fits a 2½ × 3¾ in badge holder. */
+const BADGE_SIZE = { w: "2.5in", h: "3.75in" };
+
 const STYLES: Array<{ style: BadgeStyle; label: string; hint: string }> = [
-  { style: "color", label: "full color", hint: "Color printer, 4×3 in." },
-  { style: "label", label: "black & white", hint: "Brother label printer, 4×3 labels." },
+  { style: "color", label: "full color", hint: "Color printer, 2½×3¾ in." },
+  { style: "label", label: "black & white", hint: "Black and white printer or labels, 2½×3¾ in." },
 ];
 
 /** Share sheet on phones (Save Image / Print), download elsewhere. */
@@ -186,11 +190,11 @@ export function BadgesSection() {
                   </button>
                 ))}
               </span>
-              <img src={preview.url} alt={`Badge for ${preview.e.name}, ${preview.style === "color" ? "full color" : "black and white"}`} className="w-full rounded-[8px] border border-line bg-white" />
+              <img src={preview.url} alt={`Badge for ${preview.e.name}, ${preview.style === "color" ? "full color" : "black and white"}`} className="mx-auto max-h-[36dvh] w-auto max-w-full rounded-[8px] border border-line bg-white" />
               <span className="text-[13px] text-dim">{STYLES.find((o) => o.style === preview.style)?.hint}</span>
               {DEMO_UI ? <span className="text-[13px] text-faint">Printing and saving are blocked in this preview.</span> : null}
               <span className="flex gap-2">
-                <Button disabled={DEMO_UI} onClick={() => void badgeBlob(preview.e, preview.style).then((b) => printLabel(b, `${preview.e.name} badge`))}>
+                <Button disabled={DEMO_UI} onClick={() => void badgeBlob(preview.e, preview.style).then((b) => printLabel(b, `${preview.e.name} badge`, BADGE_SIZE))}>
                   <Printer className="size-[18px]" /> print
                 </Button>
                 <Button disabled={DEMO_UI} onClick={() => void saveBadge(preview.e, preview.style)}>

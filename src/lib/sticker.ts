@@ -108,9 +108,15 @@ export async function printSticker(info: StickerInfo): Promise<void> {
   await printLabel(await renderSticker(info), info.code);
 }
 
-/** Prints one 4×3 in label image and nothing else on the page. */
-export async function printLabel(blob: Blob, alt: string): Promise<void> {
+/** Prints one label image and nothing else on the page: 4×3 in unless a size is given. */
+export async function printLabel(blob: Blob, alt: string, size?: { w: string; h: string }): Promise<void> {
   const url = URL.createObjectURL(blob);
+  // Another size than the 4×3 default in styles.css (e.g. 2½×3¾ in badges).
+  const sizing = size ? document.createElement("style") : null;
+  if (sizing && size) {
+    sizing.textContent = `@media print { @page { size: ${size.w} ${size.h}; margin: 0; } #print-sticker img { width: ${size.w}; height: ${size.h}; } }`;
+    document.head.appendChild(sizing);
+  }
   const host = document.createElement("div");
   host.id = "print-sticker";
   const img = new Image();
@@ -121,6 +127,7 @@ export async function printLabel(blob: Blob, alt: string): Promise<void> {
   await img.decode().catch(() => undefined);
   const cleanup = () => {
     host.remove();
+    sizing?.remove();
     URL.revokeObjectURL(url);
     window.removeEventListener("afterprint", cleanup);
   };

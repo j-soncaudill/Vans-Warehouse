@@ -1,9 +1,9 @@
-import { CYAN, MONO, RED, fit, flames, loadLogo, qrCanvas, roundRect, type BadgeStyle } from "@/lib/badgeArt";
+import { CYAN, MONO, RED, fit, flames, loadLogo, qrCanvas, roundRect, tinted, type BadgeStyle } from "@/lib/badgeArt";
 
 /**
- * Vertical crew badges for 2½ × 3¾ in badge holders (750×1125, 300 dpi).
- * Same look as the 4×3 badges: color (dark gradient, big background flame,
- * glowing QR tile) or label (black and white for the thermal printer).
+ * Crew badges for 2½ × 3¾ in badge holders (750×1125, 300 dpi), vertical:
+ * color (dark gradient, big background flame, glowing QR tile) or label
+ * (black and white).
  * Admin badges are mostly red, with the blue and red accents swapped.
  */
 const W = 750;
@@ -69,19 +69,7 @@ export async function renderBadgeTall(name: string, payload: string, style: Badg
   }
   const logoH = 74;
   const logoW = (img.naturalWidth / img.naturalHeight) * logoH;
-  let logoImg: CanvasImageSource = img;
-  if (!color) {
-    const t = document.createElement("canvas");
-    t.width = img.naturalWidth;
-    t.height = img.naturalHeight;
-    const tg = t.getContext("2d")!;
-    tg.drawImage(img, 0, 0);
-    tg.globalCompositeOperation = "source-in";
-    tg.fillStyle = "#ffffff";
-    tg.fillRect(0, 0, t.width, t.height);
-    logoImg = t;
-  }
-  g.drawImage(logoImg, M, 40, logoW, logoH);
+  g.drawImage(color ? img : tinted(img, "#ffffff"), M, 40, logoW, logoH);
   g.textAlign = "right";
   g.textBaseline = "alphabetic";
   g.fillStyle = color ? CYAN : "#ffffff";
