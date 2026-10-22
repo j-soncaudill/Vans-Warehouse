@@ -1,10 +1,11 @@
 import { Check } from "lucide-react";
 import { LocationPicker } from "@/components/LocationPicker";
-import { VendorPicker } from "@/components/VendorPicker";
+import { JobInput } from "@/components/JobInput";
+import { PmPicker, VendorPicker } from "@/components/VendorPicker";
 import { Field, YesNoBlank, cx } from "@/components/ui";
 import { COLOR_HEX, COLOR_TAGS, type FormValues } from "@/lib/form";
 
-type TextKey = "poNumber" | "deliveredBy" | "receivedBy" | "pm";
+type TextKey = "poNumber" | "deliveredBy" | "receivedBy";
 
 const thisMonth = () => new Date().toISOString().slice(0, 7);
 
@@ -72,29 +73,43 @@ export function PackageForm({
 
   const job = (
       <Field label="Job" htmlFor="f-job" hint="required">
-        <input
-          id="f-job"
-          required
-          className="field font-sans text-[17px] font-semibold text-white"
-          maxLength={120}
-          autoComplete="off"
-          placeholder="Job name"
-          value={values.jobName}
-          onChange={(e) => onChange({ jobName: e.target.value })}
-        />
+        <JobInput id="f-job" value={values.jobName} onChange={(jobName) => onChange({ jobName })} />
       </Field>
   );
+  const sameAsVendor = Boolean(values.vendor.trim()) && values.deliveredBy.trim().toLowerCase() === values.vendor.trim().toLowerCase();
   const details = (
     <>
       {text("poNumber", "f-po", "PO number", { placeholder: "PO #", max: 60, mono: true })}
       <Field label="Vendor" htmlFor="f-vendor" hint="optional">
-        <VendorPicker id="f-vendor" value={values.vendor} onChange={(vendor) => onChange({ vendor })} />
+        {/* "Same as vendor" stays in step when the vendor changes. */}
+        <VendorPicker id="f-vendor" value={values.vendor} onChange={(vendor) => onChange({ vendor, ...(sameAsVendor ? { deliveredBy: vendor } : {}) })} />
       </Field>
-      <div className="grid grid-cols-2 gap-2.5">
-        {text("deliveredBy", "f-delivered", "Delivered by", { placeholder: "Carrier or driver" })}
+      <div className="grid grid-cols-2 items-start gap-2.5">
+        <div className="flex flex-col gap-2">
+          {text("deliveredBy", "f-delivered", "Delivered by", { placeholder: "Carrier or driver" })}
+          <button
+            id="f-delivered-same"
+            type="button"
+            role="switch"
+            aria-checked={sameAsVendor}
+            disabled={!values.vendor.trim()}
+            onClick={() => onChange({ deliveredBy: sameAsVendor ? "" : values.vendor.trim() })}
+            className={cx(
+              "vw-press flex min-h-10 items-center gap-2 rounded-[var(--radius-box)] border px-3 text-left text-[13px] disabled:opacity-40",
+              sameAsVendor ? "border-cyan bg-cyan/10 text-cyan" : "border-line bg-panel text-dim",
+            )}
+          >
+            <span aria-hidden className={cx("flex size-4 shrink-0 items-center justify-center rounded-[4px] border", sameAsVendor ? "border-cyan bg-cyan" : "border-faint")}>
+              {sameAsVendor ? <Check className="size-3 text-cyan-ink" strokeWidth={3.5} /> : null}
+            </span>
+            Same as vendor
+          </button>
+        </div>
         {text("receivedBy", "f-received", "Received by", { placeholder: "Who signed" })}
       </div>
-      {text("pm", "f-pm", "PM", { placeholder: "Project manager" })}
+      <Field label="PM" htmlFor="f-pm" hint="optional">
+        <PmPicker id="f-pm" value={values.pm} onChange={(pm) => onChange({ pm })} />
+      </Field>
 
       <Field label="Quantities / attributes" htmlFor="f-qty" hint="optional">
         <textarea

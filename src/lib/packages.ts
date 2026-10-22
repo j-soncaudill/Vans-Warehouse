@@ -134,6 +134,28 @@ export async function listPackages(status: PkgStatus | "all"): Promise<Pkg[]> {
   return offline.withPending(list, status);
 }
 
+/** Every job name in the app, most recent first, once each (case-insensitive). For the Job field's suggestions. */
+export async function listJobNames(): Promise<string[]> {
+  await offline.loaded;
+  const unique = (names: string[]) => {
+    const seen = new Set<string>();
+    return names.filter((n) => {
+      const k = n.trim().toLowerCase();
+      if (!k || seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+  };
+  const cached = () => {
+    const list = offline.cachedList("all") ?? [...(offline.cachedList("on_floor") ?? []), ...(offline.cachedList("checked_out") ?? [])];
+    return unique([...list].sort((a, b) => b.receivedAt.localeCompare(a.receivedAt)).map((p) => p.jobName));
+  };
+  if (offline.isOffline()) return cached();
+  const { data, error } = await sb().from("packages").select("job_name").order("received_at", { ascending: false }).limit(5000);
+  if (error) return cached();
+  return unique(((data ?? []) as Array<{ job_name: string }>).map((r) => r.job_name));
+}
+
 /** Straight from the server, no offline copy. Sync uses this to see what other phones did. */
 async function fetchPackage(code: string): Promise<Pkg | null> {
   const { data, error } = await sb().from("packages").select(COLUMNS).eq("code", code).maybeSingle();

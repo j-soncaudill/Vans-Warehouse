@@ -326,9 +326,17 @@ try {
     await page.fill("#f-job", "Maple St Remodel");
     await page.fill("#f-po", "PO-4471");
     await page.selectOption("#f-vendor", "Ferguson");
+    // "Same as vendor" copies the vendor into Delivered by, and back off again.
+    await page.click("#f-delivered-same");
+    if ((await page.inputValue("#f-delivered")) !== "Ferguson") throw new Error("same as vendor did not fill Delivered by");
+    await page.click("#f-delivered-same");
+    if ((await page.inputValue("#f-delivered")) !== "") throw new Error("same as vendor did not clear");
     await page.fill("#f-delivered", "UPS");
+    if ((await page.getAttribute("#f-delivered-same", "aria-checked")) !== "false") throw new Error("same as vendor still on after typing a carrier");
     await page.fill("#f-received", "Dana");
-    await page.fill("#f-pm", "Rick");
+    const pms = await page.locator("#f-pm option").allInnerTexts();
+    if (pms.join("|") !== "Choose PM|Jake|Dean|JV|David|Darrin|Other…") throw new Error(`PM list is ${pms.join("|")}`);
+    await page.selectOption("#f-pm", "Dean");
     await page.fill("#f-qty", "2 cartons, 14 pcs");
     await page.locator("#f-slip").getByRole("radio", { name: "Yes", exact: true }).click();
     await page.locator("#f-damage").getByRole("radio", { name: "No", exact: true }).click();
@@ -356,7 +364,7 @@ try {
     if (!/^VW-[A-Z0-9]{6}$/.test(mintedCode)) throw new Error(`bad code ${mintedCode}`);
     const r = rows[0];
     if (!r.photo_path || !r.thumb_path || !r.barcode_path) throw new Error(`files missing ${JSON.stringify(r)}`);
-    if (r.packing_slip_received !== true || r.damaged !== false || r.color_tag !== "Blue" || r.vendor !== "Ferguson") throw new Error("fields wrong");
+    if (r.packing_slip_received !== true || r.damaged !== false || r.color_tag !== "Blue" || r.vendor !== "Ferguson" || r.delivered_by !== "UPS" || r.pm !== "Dean") throw new Error("fields wrong");
     if (!files.has(`package-photos/${r.photo_path}`) || !files.has(`barcodes/${r.barcode_path}`)) throw new Error("storage missing");
     if (!/^slips\//.test(r.slip_photo_path ?? "") || !files.has(`package-photos/${r.slip_photo_path}`)) throw new Error(`slip photo missing: ${r.slip_photo_path}`);
     if (r.photo_path.startsWith("slips/")) throw new Error("box photo stored with slips");
@@ -408,10 +416,13 @@ try {
     if ((await page.inputValue("#f-vendor")) !== "Ferguson") throw new Error("edit did not preselect Ferguson");
     await page.selectOption("#f-vendor", "__other__");
     await page.fill("#f-vendor-other", "Graybar");
+    await page.selectOption("#f-pm", "__other__");
+    await page.fill("#f-pm-other", "Rick");
     await shot("08b-vendor-other");
     await page.getByRole("button", { name: "Save changes" }).click();
     await expect(page.getByRole("heading", { name: "Maple St Remodel – Phase 2" }), "edited");
     if (rows[0].vendor !== "Graybar") throw new Error(`vendor saved as ${rows[0].vendor}`);
+    if (rows[0].pm !== "Rick") throw new Error(`other PM saved as ${rows[0].pm}`);
     await page.getByRole("button", { name: "Edit details" }).click();
     if ((await page.inputValue("#f-vendor")) !== "__other__" || (await page.inputValue("#f-vendor-other")) !== "Graybar") throw new Error("Other vendor not restored in edit");
     await page.getByRole("button", { name: "Cancel" }).click();
@@ -442,6 +453,13 @@ try {
     await page.getByRole("button", { name: "Look up" }).click();
     await expect(page.getByRole("radio", { name: "Code on the box" }), "receive existing");
     if ((await page.inputValue("#existing-code")) !== "AB-778899") throw new Error("code not carried over");
+    // Typing a job suggests the jobs already in the app; tapping one fills it in.
+    await page.fill("#f-job", "phase");
+    const hint = page.getByRole("option", { name: "Maple St Remodel – Phase 2" });
+    await hint.waitFor({ timeout: 3000 });
+    await shot("09b-job-suggest");
+    await hint.dispatchEvent("pointerdown");
+    if ((await page.inputValue("#f-job")) !== "Maple St Remodel – Phase 2") throw new Error("suggestion did not fill the job");
     await page.fill("#f-job", "Oak Ave");
     await page.getByRole("button", { name: "Receive to floor" }).click();
     await expect(page.getByText("On the floor"), "received existing");
