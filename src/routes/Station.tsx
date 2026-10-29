@@ -11,7 +11,7 @@ import { notifyChanged } from "@/lib/live";
 import { checkOut, getPackage, listPackages, returnToFloor, type Pkg } from "@/lib/packages";
 import { unlock } from "@/lib/pin";
 import { startReturn, type Ret } from "@/lib/returns";
-import { STATION_IDLE_MS, beep, setStationMode } from "@/lib/station";
+import { STATION_IDLE_MIN, STATION_IDLE_MS, beep, setStationMode } from "@/lib/station";
 import { DEMO_UI } from "@/lib/supabase";
 import { ago } from "@/lib/time";
 
@@ -40,7 +40,7 @@ const calm = () => typeof matchMedia === "function" && matchMedia("(prefers-redu
  * The check-out station. Scan your badge (a big "Hi Dana" card), then scan
  * boxes: each one is checked out to you right away, pops up big, then shrinks
  * into the list, where a mistaken scan can be undone. Scanning your badge
- * again signs you out (a matching "Bye" card); so do 3 minutes with no scans.
+ * again signs you out (a matching "Bye" card); so do 6 minutes with no scans.
  * Works with a scanner that types (Zebra DataWedge, Bluetooth / USB scanners)
  * and with the camera on a phone.
  */
@@ -84,7 +84,7 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
     setWho(null);
     setLines([]);
     setFlash(null);
-    beep("hello");
+    beep("out");
     setHello({ id: ++lineId, mode: "out", name: p.name, note: note ?? `${boxes(countRef.current)} checked out` });
   }, []);
 
@@ -94,7 +94,7 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
       if (returningRef.current) return beep("bad");
       const person = whoRef.current;
       const say = (tone: Tone, title: string, detail?: string, code?: string) => {
-        beep(tone === "ok" ? "ok" : "bad");
+        beep(tone);
         const line: Line = { id: ++lineId, tone, title, detail, code };
         // A box already in this list (scanned twice): show the card, but don't add a second row.
         const dup = code && whoRef.current ? linesRef.current.find((l) => l.code === code && !l.undone && !l.isReturn) : undefined;
@@ -109,7 +109,7 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
         if (person?.token === token) return signOut();
         const name = await whoseBadge(token).catch(() => null);
         if (!name) return say("bad", "Badge not recognized", "Ask an admin for a new one.");
-        beep("hello");
+        beep("in");
         setFlash(null);
         setHello({ id: ++lineId, mode: "in", name });
         whoRef.current = { name, token };
@@ -162,7 +162,7 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
       await returnToFloor(line.code);
       notifyChanged();
       bump(-1);
-      beep("ok");
+      beep("undo");
       setLines((l) => l.map((x) => (x.id === line.id ? { ...x, undone: true } : x)));
       // Scanning it again right away should check it out again, not count as a double read.
       recent.current = { raw: "", at: 0 };
@@ -244,11 +244,36 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [scan, flushCatcher]);
 
-  // Nobody walks off still signed in: 3 minutes with no scans signs them out.
+  // The station never sleeps while it's open (the screen stays on), and it
+  // stays upright when the scanner is tipped forward to scan.
+  useEffect(() => {
+    let lock: WakeLockSentinel | null = null;
+    let live = true;
+    const keepAwake = async () => {
+      if (document.visibilityState !== "visible" || !("wakeLock" in navigator)) return;
+      try {
+        lock = await navigator.wakeLock.request("screen");
+        if (!live) void lock.release();
+      } catch {
+        /* not allowed here (battery saver, an old browser) */
+      }
+    };
+    void keepAwake();
+    document.addEventListener("visibilitychange", keepAwake);
+    const orient = screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> };
+    orient?.lock?.("portrait-primary").catch(() => undefined);
+    return () => {
+      live = false;
+      document.removeEventListener("visibilitychange", keepAwake);
+      void lock?.release().catch(() => undefined);
+    };
+  }, []);
+
+  // Nobody walks off still signed in: a stretch with no scans signs them out.
   useEffect(() => {
     const timer = window.setInterval(() => {
       if (whoRef.current && !returningRef.current && Date.now() - lastAt.current >= STATION_IDLE_MS) {
-        signOut(`No scans for 3 minutes · ${boxes(countRef.current)} checked out`);
+        signOut(`No scans for ${STATION_IDLE_MIN} minutes · ${boxes(countRef.current)} checked out`);
       }
     }, 1000);
     return () => window.clearInterval(timer);
@@ -290,7 +315,7 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
         <main className="mt-6 flex flex-1 flex-col gap-4">
           <div className="flex items-end justify-between gap-3">
             <div className="min-w-0">
-              <h1 className="m-0 truncate font-sans text-[30px] leading-tight font-bold tracking-[-0.02em] text-white">
+              <h1 className="m-0 font-sans text-[clamp(22px,7.5vw,30px)] leading-tight font-bold tracking-[-0.02em] break-words text-balance text-white">
                 Hi {who.name}
                 {who.name.endsWith(".") ? "" : "."}
               </h1>
@@ -566,17 +591,17 @@ function HelloCard({ hello, onDone }: { hello: Hello; onDone: () => void }) {
     >
       <div
         className={cx(
-          "flex min-h-[62dvh] w-full max-w-xl flex-col items-center justify-center gap-5 rounded-[28px] border-2 px-6 py-10 text-center",
+          "flex max-h-[calc(100dvh-24px)] min-h-[min(62dvh,420px)] w-full max-w-xl flex-col items-center justify-center gap-[min(20px,2.4dvh)] overflow-hidden rounded-[28px] border-2 px-5 py-[min(40px,4dvh)] text-center",
           signingIn
             ? "border-cyan bg-[linear-gradient(160deg,#0f3a42_0%,#0a1d22_55%,#0a0a0c_100%)] shadow-[0_0_80px_rgb(45_174_196/0.45)]"
             : "border-cyan/50 bg-[linear-gradient(160deg,#0c2a30_0%,#0a1518_55%,#0a0a0c_100%)] shadow-[0_0_50px_rgb(45_174_196/0.25)]",
           leaving ? "vw-greet-out" : "vw-greet-in",
         )}
       >
-        <VansMarkFill className={cx("h-40 w-auto text-cyan", !signingIn && "vw-mark-out")} />
-        <span className="font-sans text-[28px] font-semibold text-cyan">{signingIn ? "Hi," : "Bye,"}</span>
-        <span className="font-sans text-[clamp(44px,14vw,92px)] leading-[0.95] font-bold tracking-[-0.03em] break-words text-white">{hello.name}</span>
-        <span className="text-[19px] text-ink">{signingIn ? "Start scanning your items." : "You're signed out."}</span>
+        <VansMarkFill className={cx("h-[min(10rem,22dvh)] w-auto shrink-0 text-cyan", !signingIn && "vw-mark-out")} />
+        <span className="font-sans text-[min(28px,4.5dvh)] font-semibold text-cyan">{signingIn ? "Hi," : "Bye,"}</span>
+        <span className="font-sans text-[clamp(28px,min(13vw,9dvh),92px)] leading-[0.95] font-bold tracking-[-0.03em] break-words text-balance text-white">{hello.name}</span>
+        <span className="text-[min(19px,3dvh)] text-ink">{signingIn ? "Start scanning your items." : "You're signed out."}</span>
         {!signingIn && hello.note ? <span className="text-[16px] text-dim">{hello.note}</span> : null}
       </div>
     </div>
