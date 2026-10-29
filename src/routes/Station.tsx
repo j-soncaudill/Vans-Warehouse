@@ -172,13 +172,61 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
     }
   }
 
-  // A scanner that "types": characters then Enter (or Tab).
+  // Android Chrome often hands a scanner's "typing" only to a focused text box,
+  // so a hidden one (no on-screen keyboard) stays focused while nothing else is.
+  const catcherRef = useRef<HTMLInputElement>(null);
+  const busyRef = useRef(false);
+  busyRef.current = camera || exiting || returning;
+  const flushTimer = useRef(0);
+  const flushCatcher = useCallback(() => {
+    window.clearTimeout(flushTimer.current);
+    const el = catcherRef.current;
+    if (!el) return;
+    const text = el.value;
+    el.value = "";
+    for (const part of text.split(/[\r\n\t]+/)) if (part.trim()) scan(part);
+  }, [scan]);
+  useEffect(() => {
+    const grab = () => {
+      const el = catcherRef.current;
+      if (!el || busyRef.current) return;
+      const a = document.activeElement;
+      // Leave real inputs alone (the exit PIN, a return's fields); take focus back from anything else.
+      if (a && a !== el && (a instanceof HTMLInputElement || a instanceof HTMLTextAreaElement || a instanceof HTMLSelectElement)) return;
+      if (a !== el) el.focus({ preventScroll: true });
+    };
+    grab();
+    const timer = window.setInterval(grab, 500);
+    const soon = () => window.setTimeout(grab, 60);
+    document.addEventListener("focusout", soon);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("focusout", soon);
+    };
+  }, []);
+
+  // A scanner that "types": characters then Enter (or Tab). Keys that reach the
+  // page outside the hidden box are put into it, so one code never splits in two.
   useEffect(() => {
     let buf = "";
     let last = 0;
     function onKey(e: KeyboardEvent) {
       const t = e.target as HTMLElement | null;
       if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || e.ctrlKey || e.metaKey || e.altKey) return;
+      const el = catcherRef.current;
+      if (el && !busyRef.current) {
+        if (e.key === "Enter" || e.key === "Tab") {
+          if (el.value.trim()) e.preventDefault();
+          flushCatcher();
+        } else if (e.key.length === 1) {
+          e.preventDefault();
+          el.value = (el.value + e.key).slice(-200);
+          el.focus({ preventScroll: true });
+          window.clearTimeout(flushTimer.current);
+          flushTimer.current = window.setTimeout(flushCatcher, 400);
+        }
+        return;
+      }
       const now = Date.now();
       if (now - last > 800) buf = "";
       last = now;
@@ -194,7 +242,7 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [scan]);
+  }, [scan, flushCatcher]);
 
   // Nobody walks off still signed in: 3 minutes with no scans signs them out.
   useEffect(() => {
@@ -208,6 +256,28 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
 
   return (
     <div className="relative isolate mx-auto flex min-h-dvh w-full max-w-xl flex-col px-4 pt-[max(env(safe-area-inset-top),16px)] pb-[max(env(safe-area-inset-bottom),16px)]">
+      <input
+        ref={catcherRef}
+        id="scanner-input"
+        aria-label="Scanner input"
+        inputMode="none"
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck={false}
+        className="pointer-events-none fixed top-0 left-0 size-px opacity-0"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === "Tab") {
+            e.preventDefault();
+            flushCatcher();
+          }
+        }}
+        // Scanners set to send no Enter: the code is done once the characters stop.
+        onInput={() => {
+          window.clearTimeout(flushTimer.current);
+          flushTimer.current = window.setTimeout(flushCatcher, 400);
+        }}
+      />
       {who ? null : <CodeField />}
       <header className="flex items-center justify-between gap-2">
         <Brand />

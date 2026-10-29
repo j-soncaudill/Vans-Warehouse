@@ -414,9 +414,12 @@ try {
     await page.getByRole("button", { name: "Edit details" }).click();
     await page.fill("#f-job", "Maple St Remodel – Phase 2");
     if ((await page.inputValue("#f-vendor")) !== "Ferguson") throw new Error("edit did not preselect Ferguson");
+    // Choosing Other focuses its text box a moment later; let that land before typing.
     await page.selectOption("#f-vendor", "__other__");
+    await page.waitForFunction(() => document.activeElement?.id === "f-vendor-other");
     await page.fill("#f-vendor-other", "Graybar");
     await page.selectOption("#f-pm", "__other__");
+    await page.waitForFunction(() => document.activeElement?.id === "f-pm-other");
     await page.fill("#f-pm-other", "Rick");
     await shot("08b-vendor-other");
     await page.getByRole("button", { name: "Save changes" }).click();
@@ -883,6 +886,8 @@ try {
     await page.getByRole("button", { name: "Start station mode" }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Start station" }).click();
     await expect(page.getByText("Scan your badge"), "station idle");
+    // The hidden scanner box holds focus, so a Zebra scanner's typing lands somewhere.
+    await page.waitForFunction(() => document.activeElement?.id === "scanner-input", null, { timeout: 2000 });
     // Box before badge.
     const scanText = async (text) => {
       await page.keyboard.type(text);
