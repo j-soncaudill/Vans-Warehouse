@@ -269,6 +269,33 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
     };
   }, []);
 
+  // Android's Back button at the first page closes the app, which on a pinned
+  // scanner leaves only the splash logo. Keep a spare history step for Back to
+  // use up, and put it back each time. Chrome skips steps added without a tap
+  // or key press, so it's re-added on the next touch or scan as well.
+  useEffect(() => {
+    let needTouch = true;
+    const arm = () => history.pushState({ ...history.state, station: true }, "");
+    const onBack = () => {
+      arm();
+      needTouch = true;
+    };
+    const onTouch = () => {
+      if (!needTouch) return;
+      needTouch = false;
+      arm();
+    };
+    arm();
+    window.addEventListener("popstate", onBack);
+    window.addEventListener("pointerdown", onTouch, true);
+    window.addEventListener("keydown", onTouch, true);
+    return () => {
+      window.removeEventListener("popstate", onBack);
+      window.removeEventListener("pointerdown", onTouch, true);
+      window.removeEventListener("keydown", onTouch, true);
+    };
+  }, []);
+
   // Nobody walks off still signed in: a stretch with no scans signs them out.
   useEffect(() => {
     const timer = window.setInterval(() => {

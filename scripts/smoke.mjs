@@ -888,6 +888,14 @@ try {
     await expect(page.getByText("Scan your badge"), "station idle");
     // The hidden scanner box holds focus, so a Zebra scanner's typing lands somewhere.
     await page.waitForFunction(() => document.activeElement?.id === "scanner-input", null, { timeout: 2000 });
+    // Android Back never leaves the station (a pinned scanner would be stuck on the splash logo).
+    const stationUrl = page.url();
+    for (let i = 0; i < 3; i++) {
+      await page.goBack({ waitUntil: "commit" }).catch(() => undefined);
+      await page.waitForTimeout(150);
+    }
+    if (page.url() !== stationUrl) throw new Error(`Back left the station: ${page.url()}`);
+    await expect(page.getByText("Scan your badge"), "station survives Back");
     // Box before badge.
     const scanText = async (text) => {
       await page.keyboard.type(text);
