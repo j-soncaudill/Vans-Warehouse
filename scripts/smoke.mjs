@@ -889,8 +889,16 @@ try {
     // The hidden scanner box holds focus, so a Zebra scanner's typing lands somewhere.
     await page.waitForFunction(() => document.activeElement?.id === "scanner-input", null, { timeout: 2000 });
     // Android Back never leaves the station (a pinned scanner would be stuck on the splash logo).
+    // Each touch or scan banks one spare step; a run of Back presses only spends them.
     const stationUrl = page.url();
-    for (let i = 0; i < 3; i++) {
+    const len0 = await page.evaluate(() => history.length);
+    for (let i = 0; i < 5; i++) {
+      await page.mouse.click(5, 5);
+      await page.waitForTimeout(650);
+    }
+    const banked = (await page.evaluate(() => history.length)) - len0;
+    if (banked < 5) throw new Error(`station banked only ${banked} Back steps for 5 touches`);
+    for (let i = 0; i < 5; i++) {
       await page.goBack({ waitUntil: "commit" }).catch(() => undefined);
       await page.waitForTimeout(150);
     }

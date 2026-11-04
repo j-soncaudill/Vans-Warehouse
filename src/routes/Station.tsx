@@ -270,19 +270,24 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
   }, []);
 
   // Android's Back button at the first page closes the app, which on a pinned
-  // scanner leaves only the splash logo. Keep a spare history step for Back to
-  // use up, and put it back each time. Chrome skips steps added without a tap
-  // or key press, so it's re-added on the next touch or scan as well.
+  // scanner leaves only the splash logo. So the station keeps spare history
+  // steps for Back to use up. Chrome's Back skips any step the page added
+  // without a tap or key press landing on it, so one spare per Back isn't
+  // enough: every touch or scan adds another one (up to Chrome's limit of 50),
+  // and a run of Back presses only uses up what's been built.
   useEffect(() => {
-    let needTouch = true;
+    // Pushing right after a Back (with no tap on that step) would make Chrome
+    // skip the step Back just landed on, so Back only spends; touches build.
+    let lastPush = 0;
     const arm = () => history.pushState({ ...history.state, station: true }, "");
     const onBack = () => {
-      arm();
-      needTouch = true;
+      lastPush = 0;
     };
     const onTouch = () => {
-      if (!needTouch) return;
-      needTouch = false;
+      const now = Date.now();
+      // One per scan is plenty: a scan's keystrokes all arrive within a moment.
+      if (now - lastPush < 600) return;
+      lastPush = now;
       arm();
     };
     arm();
