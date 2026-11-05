@@ -952,6 +952,9 @@ try {
     await expect(page.getByText("Not in Floorcast"), "unknown box");
     await shot("23b-station-flash-error");
     await page.waitForTimeout(2200);
+    // Problems show their card, then go: only boxes checked out stay in the list.
+    const listed = await page.locator("li[data-line]").allTextContents();
+    if (!listed.length || listed.some((t) => !t.includes(box.code))) throw new Error(`station list should hold only the checked-out box: ${JSON.stringify(listed)}`);
     await shot("23c-station-list");
     // A return can be started right from the station; the badge supplies the name.
     await page.getByRole("button", { name: "start a return" }).click();

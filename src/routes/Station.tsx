@@ -99,7 +99,8 @@ export function StationScreen({ onExit }: { onExit: () => void }) {
         // A box already in this list (scanned twice): show the card, but don't add a second row.
         const dup = code && whoRef.current ? linesRef.current.find((l) => l.code === code && !l.undone && !l.isReturn) : undefined;
         if (dup) setLines((ls) => ls.map((l) => (l.id === dup.id ? { ...l, pulse: (l.pulse ?? 0) + 1 } : l)));
-        else if (whoRef.current) setLines((l) => [line, ...l].slice(0, 40));
+        // Only boxes checked out stay in the list; problems just show their card, which fades.
+        else if (whoRef.current && tone === "ok") setLines((l) => [line, ...l].slice(0, 40));
         setFlash(dup ? { ...line, target: dup.id } : line);
       };
 
