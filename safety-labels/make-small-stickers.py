@@ -48,14 +48,14 @@ def draw_qr(c, x, y, size):
                 c.rect(x + col * m, y + (N - 1 - r) * m, m, m, stroke=0, fill=1)
 
 
-def cut_grid(c, cols, rows_):
+def cut_grid(c, cols, rows_, edge):
     c.setLineWidth(0.6)
     c.setDash(3, 2.5)
-    cw, ch = W / cols, H / rows_
+    cw, ch = (W - 2 * edge) / cols, (H - 2 * edge) / rows_
     for i in range(1, cols):
-        c.line(i * cw, 0, i * cw, H)
+        c.line(edge + i * cw, 0, edge + i * cw, H)
     for j in range(1, rows_):
-        c.line(0, j * ch, W, j * ch)
+        c.line(0, edge + j * ch, W, edge + j * ch)
     c.setDash()
 
 
@@ -75,11 +75,13 @@ def logo_at_dots(width_dots):
     return ImageReader(small.convert("RGB")), h
 
 
-def sheet(name, cols, rows_, qr_in, logo_in, pt):
+def sheet(name, cols, rows_, qr_in, logo_in, pt, edge_in):
     """Each sticker: the QR, then a row with the Van's logo and SAFETY / MANUAL beside it."""
     c = canvas.Canvas(f"{out_dir}/{name}.pdf", pagesize=(W, H))
     c.setTitle("Safety manual QR stickers")
-    cw, ch = W / cols, H / rows_
+    # Nothing within edge_in of the label's edges: the printer can shift and clip it.
+    edge = edge_in * inch
+    cw, ch = (W - 2 * edge) / cols, (H - 2 * edge) / rows_
     q = max(1, round(qr_in * inch / N / DOT)) * DOT * N  # the QR's real size once snapped to dots
     logo, logo_h = logo_at_dots(round(logo_in * inch / DOT))
     lw, lh = round(logo_in * inch / DOT) * DOT, logo_h * DOT
@@ -90,8 +92,8 @@ def sheet(name, cols, rows_, qr_in, logo_in, pt):
     block = q + gap + lh
     for i in range(cols):
         for j in range(rows_):
-            cx = i * cw + cw / 2
-            bottom = j * ch + (ch - block) / 2
+            cx = edge + i * cw + cw / 2
+            bottom = edge + j * ch + (ch - block) / 2
             c.setFillColorRGB(0, 0, 0)
             left = cx - row_w / 2
             c.drawImage(logo, snap(left), snap(bottom), lw, lh)
@@ -101,13 +103,13 @@ def sheet(name, cols, rows_, qr_in, logo_in, pt):
             c.drawString(tx, mid + pt * 0.12, "SAFETY")
             c.drawString(tx, mid - pt * 0.85, "MANUAL")
             draw_qr(c, cx - q / 2, bottom + lh + gap, q)
-    cut_grid(c, cols, rows_)
+    cut_grid(c, cols, rows_, edge)
     c.showPage()
     c.save()
     print("wrote", name)
 
 
-# 6 per label: each sticker 1.33 x 1.5 in, QR 1.0 in.
-sheet("safety-qr-stickers-6-up", 3, 2, 1.0, 0.62, 8.5)
-# 12 per label: each sticker 1 x 1 in, QR 0.71 in.
-sheet("safety-qr-stickers-12-up", 4, 3, 0.72, 0.37, 5.6)
+# 6 per label: each sticker about 1.25 x 1.38 in, QR 0.86 in.
+sheet("safety-qr-stickers-6-up", 3, 2, 0.86, 0.6, 8.5, 0.12)
+# 12 per label: each sticker about 0.95 x 0.93 in, QR 0.71 in.
+sheet("safety-qr-stickers-12-up", 4, 3, 0.72, 0.3, 4.8, 0.1)
