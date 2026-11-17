@@ -41,8 +41,17 @@ if (pin && pin.length >= 4 && all.includes(pin)) fail("The plain shop PIN ended 
 if (/skid\s*mark/i.test(all) || /["'`]SM-/.test(all)) fail("Old brand text found in the bundle.");
 if (!/\/app\.js/.test(html)) fail("index.html does not load /app.js.");
 
+// Folders too (the safety manual lives in safety/). Images and PDFs are already compressed.
+const packed = /\.(png|webp|jpe?g|pdf)$/i;
 const zip = new JSZip();
-for (const f of files) zip.file(f, readFileSync(path.join(dist, f)));
+const add = (dir) => {
+  for (const e of readdirSync(path.join(dist, dir), { withFileTypes: true })) {
+    const rel = dir ? `${dir}/${e.name}` : e.name;
+    if (e.isDirectory()) add(rel);
+    else zip.file(rel, readFileSync(path.join(dist, rel)), { compression: packed.test(e.name) ? "STORE" : "DEFLATE" });
+  }
+};
+add("");
 const out = path.join(root, "dist.zip");
 writeFileSync(out, await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE", platform: "UNIX" }));
 console.log(`✓ dist.zip: ${files.join(", ")}`);
