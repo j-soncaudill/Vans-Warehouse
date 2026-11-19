@@ -125,13 +125,23 @@ export async function drawBadge(
   // ---------------------------------------------------------------- header
   const logoH = 60;
   const logoW = (img.naturalWidth / img.naturalHeight) * logoH;
-  g.drawImage(color ? img : tinted(img, "#000000"), left, 50, logoW, logoH);
+  const logo = color ? img : tinted(img, "#000000");
   g.textBaseline = "middle";
   g.textAlign = "left";
   g.font = `600 22px ${MONO}`;
   g.fillStyle = accent;
   const fc = "FLOORCAST";
-  spaced(g, fc, right - spacedWidth(g, fc, 2.6), 50 + logoH / 2, 2.6);
+  if (size === "3x5") {
+    // Printed 3 x 5 badges have a clip slot punched centered near the top
+    // (about 0.2 to 0.35 in down), so the logo and FLOORCAST stack under it,
+    // centered on the slot rather than on the column beside the rail.
+    const headY = 120;
+    g.drawImage(logo, (W - logoW) / 2, headY, logoW, logoH);
+    spaced(g, fc, (W - spacedWidth(g, fc, 2.6)) / 2, headY + logoH + 32, 2.6);
+  } else {
+    g.drawImage(logo, left, 50, logoW, logoH);
+    spaced(g, fc, right - spacedWidth(g, fc, 2.6), 50 + logoH / 2, 2.6);
+  }
 
   // ---------------------------------------------------------------- name
   g.textBaseline = "alphabetic";
