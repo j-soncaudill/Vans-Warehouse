@@ -1,22 +1,38 @@
-import { CYAN, MONO, RED, fit, flames, loadLogo, qrCanvas, roundRect, tinted, type BadgeStyle } from "@/lib/badgeArt";
+import { CYAN, MONO, RED, SANS, fit, flames, loadLogo, qrCanvas, roundRect, tinted, type BadgeStyle } from "@/lib/badgeArt";
 
 /**
  * Crew badges, 3 × 4 in vertical, to fit Avery 5392 name badge inserts
- * (900×1200, 300 dpi): color (dark gradient, big background flame, glowing
- * QR tile) or label (black and white). Admin badges are mostly red, with
- * the blue and red accents swapped.
+ * (900×1200, 300 dpi): color or label (black and white). The "side rail"
+ * design: a strip down the left with CREW / ADMIN on it, a solid flame
+ * faintly behind the name, the name stacked big, clearance and ID bottom
+ * left, and a small QR in corner brackets bottom right. Admin badges are
+ * mostly red, with the blue and red accents swapped.
  * Drawn on a 750×1000 grid, then scaled up 1.2× to 300 dpi.
  */
 const W = 750;
 const H = 1000;
-const M = 48;
 const SCALE = 1.2;
 export const BADGE_PX = { w: W * SCALE, h: H * SCALE };
+
+/** Text with letter spacing (canvas letterSpacing isn't everywhere yet). */
+function spaced(g: CanvasRenderingContext2D, text: string, x: number, y: number, spacing: number) {
+  let at = x;
+  for (const ch of text) {
+    g.fillText(ch, at, y);
+    at += g.measureText(ch).width + spacing;
+  }
+  return at - spacing - x;
+}
+function spacedWidth(g: CanvasRenderingContext2D, text: string, spacing: number) {
+  let w = 0;
+  for (const ch of text) w += g.measureText(ch).width + spacing;
+  return w - spacing;
+}
 
 /** One badge as a canvas (for printing several on a sheet). */
 export async function drawBadge(name: string, payload: string, style: BadgeStyle = "color", role: "crew" | "admin" = "crew"): Promise<HTMLCanvasElement> {
   await document.fonts?.ready.catch(() => undefined);
-  const QR = 400;
+  const QR = 190;
   const [img, qr] = await Promise.all([loadLogo(), qrCanvas(payload, Math.round(QR * SCALE))]);
   const c = document.createElement("canvas");
   c.width = BADGE_PX.w;
@@ -26,170 +42,154 @@ export async function drawBadge(name: string, payload: string, style: BadgeStyle
   g.scale(SCALE, SCALE);
   const color = style === "color";
   const admin = role === "admin";
-  const accent = admin ? (color ? "#ff6b6e" : RED) : CYAN;
+  const accent = color ? (admin ? "#ff6b6e" : CYAN) : "#000000";
   const accentRgb = admin ? "255,107,110" : "45,174,196";
-  const [from, to] = admin ? [RED, CYAN] : [CYAN, RED];
+  const ink = color ? "#ffffff" : "#000000";
+  const soft = (a: number) => (color ? `rgba(255,255,255,${a})` : "#000000");
   const parts = name.trim().split(/\s+/);
-  const first = (parts[0] ?? "").toUpperCase();
-  const rest = parts.slice(1).join(" ").toUpperCase();
+  const first = parts[0] ?? "";
+  const rest = parts.slice(1).join(" ");
   const id = payload.slice(-4);
+  const RAIL = 115;
+  const PAD = 50;
+  const left = RAIL + PAD;
+  const right = W - PAD;
 
-  // ---------------------------------------------------------------- background
+  // ---------------------------------------------------------------- background + flame
   if (color) {
-    const bg = g.createLinearGradient(0, 0, W, H);
+    // A CSS-style 150° gradient: from the top left toward the bottom right.
+    const dx = 0.5;
+    const dy = 0.866;
+    const half = (W * dx + H * dy) / 2;
+    const bg = g.createLinearGradient(W / 2 - dx * half, H / 2 - dy * half, W / 2 + dx * half, H / 2 + dy * half);
     const stops: Array<[number, string]> = admin
-      ? [[0, "#4a1014"], [0.42, "#1c0a0c"], [0.72, "#0b0a0c"], [1, "#0d2f36"]]
-      : [[0, "#0d2f36"], [0.42, "#0a1316"], [0.75, "#0b0a0c"], [1, "#2a0c0f"]];
+      ? [[0, "#4a1014"], [0.5, "#1c0a0c"], [1, "#0b0a0c"]]
+      : [[0, "#0d2f36"], [0.5, "#0a1316"], [1, "#0b0a0c"]];
     for (const [at, col] of stops) bg.addColorStop(at, col);
     g.fillStyle = bg;
     g.fillRect(0, 0, W, H);
-    g.save();
-    g.strokeStyle = "rgba(255,255,255,0.035)";
-    g.lineWidth = 2;
-    for (let x = -H; x < W; x += 20) {
-      g.beginPath();
-      g.moveTo(x, H);
-      g.lineTo(x + H, 0);
-      g.stroke();
-    }
-    g.restore();
-    // A big flame bleeding off the left edge, behind the name.
-    flames(g, -150, 150, 760, (p) => {
-      g.fillStyle = `rgba(${accentRgb},0.08)`;
+    // A solid flame, faint, off the right edge behind the name.
+    flames(g, 460, 130, 800, (p) => {
+      g.fillStyle = `rgba(${accentRgb},0.13)`;
       g.fill(p);
-      g.strokeStyle = `rgba(${accentRgb},0.26)`;
-      g.lineWidth = 2.4;
-      g.stroke(p);
     });
   } else {
     g.fillStyle = "#ffffff";
     g.fillRect(0, 0, W, H);
   }
 
-  // ---------------------------------------------------------------- header
-  const headH = 150;
-  if (!color) {
-    g.fillStyle = "#000000";
-    g.fillRect(0, 0, W, headH);
-  }
-  const logoH = 74;
-  const logoW = (img.naturalWidth / img.naturalHeight) * logoH;
-  g.drawImage(color ? img : tinted(img, "#ffffff"), M, 40, logoW, logoH);
-  g.textAlign = "right";
-  g.textBaseline = "alphabetic";
-  g.fillStyle = color ? CYAN : "#ffffff";
-  g.font = `600 34px ${MONO}`;
-  g.fillText("floorcast", W - M, 78);
-  g.fillStyle = color ? "rgba(255,255,255,0.55)" : "#ffffff";
-  g.font = `500 19px ${MONO}`;
-  g.fillText(admin ? "ADMIN BADGE" : "CHECK-OUT BADGE", W - M, 108);
+  // ---------------------------------------------------------------- the rail
   if (color) {
-    const rule = g.createLinearGradient(M, 0, W - M, 0);
-    rule.addColorStop(0, "rgba(0,0,0,0)");
-    rule.addColorStop(0.18, from);
-    rule.addColorStop(0.6, to);
-    rule.addColorStop(1, "rgba(0,0,0,0)");
-    g.fillStyle = rule;
-    g.fillRect(M, headH, W - M * 2, 4);
-  }
-
-  // ---------------------------------------------------------------- tag + name
-  // Both centered: the CREW / ADMIN tag, then first and last name on one line.
-  const tag = admin ? "ADMIN" : "CREW";
-  g.textAlign = "left";
-  g.font = `700 24px ${MONO}`;
-  const tw = g.measureText(tag).width;
-  const tagTop = 192;
-  if (color) {
-    const pw = tw + 32;
-    const px = (W - pw) / 2;
-    roundRect(g, px, tagTop, pw, 46, 10);
-    g.fillStyle = admin ? "#2a080a" : "#0c1c20";
-    g.fill();
-    g.fillStyle = `rgba(${accentRgb},0.16)`;
-    g.fill();
-    g.strokeStyle = accent;
-    g.lineWidth = 2.5;
-    g.stroke();
-    g.fillStyle = accent;
-    g.fillText(tag, px + 16, tagTop + 32);
-  } else {
-    // Black & white: a small flame beside the word; admin gets a solid black pill.
-    const pw = tw + (admin ? 72 : 44);
-    const px = (W - pw) / 2;
+    const rail = g.createLinearGradient(0, 0, 0, H);
     if (admin) {
-      roundRect(g, px, tagTop, pw, 46, 10);
-      g.fillStyle = "#000000";
-      g.fill();
+      rail.addColorStop(0, "#ff6b6e");
+      rail.addColorStop(0.55, RED);
+      rail.addColorStop(1, "#1f7f93");
+    } else {
+      rail.addColorStop(0, CYAN);
+      rail.addColorStop(0.55, "#1f7f93");
+      rail.addColorStop(1, RED);
     }
-    const ink = admin ? "#ffffff" : "#000000";
-    flames(g, px + (admin ? 10 : 0), tagTop + 6, 34, (p) => {
-      g.fillStyle = ink;
-      g.fill(p);
-    });
-    g.fillStyle = ink;
-    g.fillText(tag, px + (admin ? 50 : 40), tagTop + 32);
-  }
-
-  // One line, shrunk to fit; the last name a shade lighter on the color badge.
-  const gap = rest ? " " : "";
-  const size = fit(g, `${first}${gap}${rest}`, 800, 92, 34, W - M * 2);
-  const wFirst = g.measureText(`${first}${gap}`).width;
-  const wAll = g.measureText(`${first}${gap}${rest}`).width;
-  const nx = (W - wAll) / 2;
-  const ny = 352 + size * 0.36;
-  g.fillStyle = color ? "#ffffff" : "#000000";
-  g.fillText(first, nx, ny);
-  if (rest) {
-    g.fillStyle = color ? "rgba(255,255,255,0.72)" : "#000000";
-    g.fillText(rest, nx + wFirst, ny);
-  }
-
-  // ---------------------------------------------------------------- QR tile
-  const tile = 440;
-  const tx = (W - tile) / 2;
-  const ty = 452;
-  g.save();
-  if (color) {
-    g.shadowColor = `rgba(${accentRgb},0.75)`;
-    g.shadowBlur = 44;
-  }
-  g.fillStyle = "#ffffff";
-  roundRect(g, tx, ty, tile, tile, 30);
-  g.fill();
-  g.restore();
-  g.strokeStyle = color ? accent : "#000000";
-  g.lineWidth = color ? 6 : 7;
-  roundRect(g, tx - (color ? 3 : 0), ty - (color ? 3 : 0), tile + (color ? 6 : 0), tile + (color ? 6 : 0), color ? 33 : 30);
-  g.stroke();
-  g.imageSmoothingEnabled = false;
-  g.drawImage(qr, tx + (tile - QR) / 2, ty + (tile - QR) / 2, QR, QR);
-  g.imageSmoothingEnabled = true;
-
-  // ---------------------------------------------------------------- footer
-  if (color) {
-    g.textAlign = "center";
-    g.fillStyle = "rgba(255,255,255,0.6)";
-    g.font = `500 21px ${MONO}`;
-    g.fillText("scan at the check-out station", W / 2, 928);
-    g.fillStyle = "rgba(255,255,255,0.35)";
-    g.font = `500 17px ${MONO}`;
-    g.fillText(`ID ···${id}`, W / 2, 958);
-    const strip = g.createLinearGradient(0, 0, W, 0);
-    strip.addColorStop(0, from);
-    strip.addColorStop(1, to);
-    g.fillStyle = strip;
-    g.fillRect(0, H - 16, W, 16);
+    g.fillStyle = rail;
   } else {
     g.fillStyle = "#000000";
-    g.fillRect(0, H - 82, W, 82);
-    g.fillStyle = "#ffffff";
-    g.textAlign = "center";
-    g.font = `600 21px ${MONO}`;
-    g.fillText("SCAN AT THE CHECK-OUT STATION", W / 2, H - 46);
-    g.font = `500 17px ${MONO}`;
-    g.fillText(`ID ${id}`, W / 2, H - 20);
   }
+  g.fillRect(0, 0, RAIL, H);
+  // CREW / ADMIN reading up the rail.
+  const tag = admin ? "ADMIN" : "CREW";
+  g.save();
+  g.translate(RAIL / 2, H / 2);
+  g.rotate(-Math.PI / 2);
+  g.font = `800 55px ${SANS}`;
+  g.fillStyle = "#ffffff";
+  g.textAlign = "left";
+  g.textBaseline = "middle";
+  const tagSpace = 55 * 0.32;
+  spaced(g, tag, -spacedWidth(g, tag, tagSpace) / 2, 2, tagSpace);
+  g.restore();
+
+  // ---------------------------------------------------------------- header
+  const logoH = 60;
+  const logoW = (img.naturalWidth / img.naturalHeight) * logoH;
+  g.drawImage(color ? img : tinted(img, "#000000"), left, 50, logoW, logoH);
+  g.textBaseline = "middle";
+  g.textAlign = "left";
+  g.font = `600 22px ${MONO}`;
+  g.fillStyle = accent;
+  const fc = "FLOORCAST";
+  spaced(g, fc, right - spacedWidth(g, fc, 2.6), 50 + logoH / 2, 2.6);
+
+  // ---------------------------------------------------------------- name
+  g.textBaseline = "alphabetic";
+  g.font = `500 20px ${MONO}`;
+  g.fillStyle = soft(0.5);
+  spaced(g, "OPERATOR", left, 228, 3.6);
+  // First name, then the rest, each shrunk to fit the width.
+  const nameW = right - left;
+  const s1 = fit(g, first, 800, 95, 40, nameW);
+  const s2 = rest ? fit(g, rest, 800, 95, 40, nameW) : s1;
+  const size = Math.min(s1, s2);
+  g.font = `800 ${size}px ${SANS}`;
+  const y1 = 250 + size * 0.86;
+  g.fillStyle = ink;
+  g.fillText(first, left, y1);
+  let below = y1;
+  if (rest) {
+    below = y1 + size + 10;
+    g.fillStyle = soft(0.7);
+    g.fillText(rest, left, below);
+  }
+  g.fillStyle = accent;
+  g.fillRect(left, below + size * 0.14 + 35, 100, 7.5);
+
+  // ---------------------------------------------------------------- QR in corner brackets
+  const box = QR + 35;
+  const bx = right - 15 - box;
+  const by = H - 45 - box;
+  g.fillStyle = "#ffffff";
+  roundRect(g, bx + 17.5, by + 17.5, QR, QR, 10);
+  g.fill();
+  if (!color) {
+    g.strokeStyle = "#000000";
+    g.lineWidth = 2;
+    g.stroke();
+  }
+  g.imageSmoothingEnabled = false;
+  g.drawImage(qr, bx + 17.5, by + 17.5, QR, QR);
+  g.imageSmoothingEnabled = true;
+  g.strokeStyle = accent;
+  g.lineWidth = 5;
+  g.lineCap = "square";
+  const arm = 27.5;
+  const e = 2.5; // half the line width, so the brackets sit inside the box
+  for (const [cx, cy, sx, sy] of [
+    [bx + e, by + e, 1, 1],
+    [bx + box - e, by + e, -1, 1],
+    [bx + e, by + box - e, 1, -1],
+    [bx + box - e, by + box - e, -1, -1],
+  ] as const) {
+    g.beginPath();
+    g.moveTo(cx, cy + sy * arm);
+    g.lineTo(cx, cy);
+    g.lineTo(cx + sx * arm, cy);
+    g.stroke();
+  }
+
+  // ---------------------------------------------------------------- clearance + ID
+  const label = (text: string, y: number) => {
+    g.font = `500 17.5px ${MONO}`;
+    g.fillStyle = soft(0.45);
+    spaced(g, text, left, y, 3.2);
+  };
+  const bottom = H - 45 - 4;
+  label("ID", bottom - 32);
+  g.font = `600 27.5px ${MONO}`;
+  g.fillStyle = ink;
+  g.fillText(`···${id}`, left, bottom);
+  label("CLEARANCE", bottom - 32 - 60);
+  g.font = `700 27.5px ${MONO}`;
+  g.fillStyle = accent;
+  g.fillText(admin ? "FULL ACCESS" : "CHECK-OUT", left, bottom - 60);
   return c;
 }
 
