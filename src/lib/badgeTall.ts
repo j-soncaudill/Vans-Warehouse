@@ -8,11 +8,16 @@ import { CYAN, MONO, RED, SANS, fit, flames, loadLogo, qrCanvas, roundRect, tint
  * left, and a small QR in corner brackets bottom right. Admin badges are
  * mostly red, with the blue and red accents swapped.
  * Drawn on a 750×1000 grid, then scaled up 1.2× to 300 dpi.
+ *
+ * "3x5" is the same badge at 3 × 5 in for printed plastic badges (Vistaprint),
+ * with 0.132 in of bleed on every side: 979×1579 px.
  */
 const W = 750;
-const H = 1000;
 const SCALE = 1.2;
-export const BADGE_PX = { w: W * SCALE, h: H * SCALE };
+export const BADGE_PX = { w: W * SCALE, h: 1000 * SCALE };
+export type BadgeSize = "3x4" | "3x5";
+/** Height and bleed on the 750-wide grid (250 per inch). */
+const SIZES: Record<BadgeSize, { h: number; bleed: number }> = { "3x4": { h: 1000, bleed: 0 }, "3x5": { h: 1250, bleed: 33 } };
 
 /** Text with letter spacing (canvas letterSpacing isn't everywhere yet). */
 function spaced(g: CanvasRenderingContext2D, text: string, x: number, y: number, spacing: number) {
@@ -30,16 +35,25 @@ function spacedWidth(g: CanvasRenderingContext2D, text: string, spacing: number)
 }
 
 /** One badge as a canvas (for printing several on a sheet). */
-export async function drawBadge(name: string, payload: string, style: BadgeStyle = "color", role: "crew" | "admin" = "crew"): Promise<HTMLCanvasElement> {
+export async function drawBadge(
+  name: string,
+  payload: string,
+  style: BadgeStyle = "color",
+  role: "crew" | "admin" = "crew",
+  size: BadgeSize = "3x4",
+): Promise<HTMLCanvasElement> {
   await document.fonts?.ready.catch(() => undefined);
   const QR = 190;
+  const { h: H, bleed: B } = SIZES[size];
   const [img, qr] = await Promise.all([loadLogo(), qrCanvas(payload, Math.round(QR * SCALE))]);
   const c = document.createElement("canvas");
-  c.width = BADGE_PX.w;
-  c.height = BADGE_PX.h;
+  c.width = Math.round((W + 2 * B) * SCALE);
+  c.height = Math.round((H + 2 * B) * SCALE);
   const g = c.getContext("2d");
   if (!g) throw new Error("Could not draw the badge.");
   g.scale(SCALE, SCALE);
+  // Everything below is laid out on the trimmed badge; the background and rail run on into the bleed.
+  g.translate(B, B);
   const color = style === "color";
   const admin = role === "admin";
   const accent = color ? (admin ? "#ff6b6e" : CYAN) : "#000000";
@@ -67,7 +81,7 @@ export async function drawBadge(name: string, payload: string, style: BadgeStyle
       : [[0, "#0d2f36"], [0.5, "#0a1316"], [1, "#0b0a0c"]];
     for (const [at, col] of stops) bg.addColorStop(at, col);
     g.fillStyle = bg;
-    g.fillRect(0, 0, W, H);
+    g.fillRect(-B, -B, W + 2 * B, H + 2 * B);
     // A solid flame, faint, off the right edge behind the name.
     flames(g, 460, 130, 800, (p) => {
       g.fillStyle = `rgba(${accentRgb},0.13)`;
@@ -75,7 +89,7 @@ export async function drawBadge(name: string, payload: string, style: BadgeStyle
     });
   } else {
     g.fillStyle = "#ffffff";
-    g.fillRect(0, 0, W, H);
+    g.fillRect(-B, -B, W + 2 * B, H + 2 * B);
   }
 
   // ---------------------------------------------------------------- the rail
@@ -94,7 +108,7 @@ export async function drawBadge(name: string, payload: string, style: BadgeStyle
   } else {
     g.fillStyle = "#000000";
   }
-  g.fillRect(0, 0, RAIL, H);
+  g.fillRect(-B, -B, RAIL + B, H + 2 * B);
   // CREW / ADMIN reading up the rail.
   const tag = admin ? "ADMIN" : "CREW";
   g.save();
@@ -123,24 +137,26 @@ export async function drawBadge(name: string, payload: string, style: BadgeStyle
   g.textBaseline = "alphabetic";
   g.font = `500 20px ${MONO}`;
   g.fillStyle = soft(0.5);
-  spaced(g, "OPERATOR", left, 228, 3.6);
+  // On a taller badge the name sits a little lower, so the space reads as balanced.
+  const drop = (H - 1000) * 0.4;
+  spaced(g, "OPERATOR", left, 228 + drop, 3.6);
   // First name, then the rest, each shrunk to fit the width.
   const nameW = right - left;
   const s1 = fit(g, first, 800, 95, 40, nameW);
   const s2 = rest ? fit(g, rest, 800, 95, 40, nameW) : s1;
-  const size = Math.min(s1, s2);
-  g.font = `800 ${size}px ${SANS}`;
-  const y1 = 250 + size * 0.86;
+  const px = Math.min(s1, s2);
+  g.font = `800 ${px}px ${SANS}`;
+  const y1 = 250 + drop + px * 0.86;
   g.fillStyle = ink;
   g.fillText(first, left, y1);
   let below = y1;
   if (rest) {
-    below = y1 + size + 10;
+    below = y1 + px + 10;
     g.fillStyle = soft(0.7);
     g.fillText(rest, left, below);
   }
   g.fillStyle = accent;
-  g.fillRect(left, below + size * 0.14 + 35, 100, 7.5);
+  g.fillRect(left, below + px * 0.14 + 35, 100, 7.5);
 
   // ---------------------------------------------------------------- QR in corner brackets
   const box = QR + 35;
@@ -196,8 +212,14 @@ export async function drawBadge(name: string, payload: string, style: BadgeStyle
 const toPng = (c: HTMLCanvasElement) =>
   new Promise<Blob>((resolve, reject) => c.toBlob((b) => (b ? resolve(b) : reject(new Error("Could not save the badge."))), "image/png"));
 
-export async function renderBadgeTall(name: string, payload: string, style: BadgeStyle = "color", role: "crew" | "admin" = "crew"): Promise<Blob> {
-  return toPng(await drawBadge(name, payload, style, role));
+export async function renderBadgeTall(
+  name: string,
+  payload: string,
+  style: BadgeStyle = "color",
+  role: "crew" | "admin" = "crew",
+  size: BadgeSize = "3x4",
+): Promise<Blob> {
+  return toPng(await drawBadge(name, payload, style, role, size));
 }
 
 // ------------------------------------------------------------------ Avery 5392 sheet
