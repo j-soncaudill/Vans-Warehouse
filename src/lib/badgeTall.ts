@@ -132,9 +132,11 @@ export async function drawBadge(
   g.fillStyle = accent;
   const fc = "FLOORCAST";
   if (size === "3x5") {
-    // Printed 3 x 5 badges have a clip slot punched centered near the top
-    // (about x 296 to 452, y 51 to 84 on this grid). The logo and FLOORCAST
-    // flank it on the same line, each the same distance from the slot.
+    // Vistaprint punches a clip slot in printed 3 x 5 badges: 0.62 x 0.13 in,
+    // centered, 0.20 to 0.335 in from the top of the trim (measured from their
+    // product render; about x 297 to 453, y 50 to 84 on this grid). The corners
+    // are also cut round, about 1/8 in. The logo and FLOORCAST flank the slot
+    // on its line, each about 1/8 in from it.
     const slotL = 296;
     const slotR = 452;
     const midY = 67.5;
