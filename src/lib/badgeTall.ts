@@ -133,11 +133,16 @@ export async function drawBadge(
   const fc = "FLOORCAST";
   if (size === "3x5") {
     // Printed 3 x 5 badges have a clip slot punched centered near the top
-    // (about 0.2 to 0.35 in down), so the logo and FLOORCAST stack under it,
-    // centered on the slot rather than on the column beside the rail.
-    const headY = 120;
-    g.drawImage(logo, (W - logoW) / 2, headY, logoW, logoH);
-    spaced(g, fc, (W - spacedWidth(g, fc, 2.6)) / 2, headY + logoH + 32, 2.6);
+    // (about x 296 to 452, y 51 to 84 on this grid). The logo and FLOORCAST
+    // flank it on the same line, each the same distance from the slot.
+    const slotL = 296;
+    const slotR = 452;
+    const midY = 67.5;
+    const gap = 30;
+    const h = 50;
+    const w = (img.naturalWidth / img.naturalHeight) * h;
+    g.drawImage(logo, slotL - gap - w, midY - h / 2, w, h);
+    spaced(g, fc, slotR + gap, midY, 2.6);
   } else {
     g.drawImage(logo, left, 50, logoW, logoH);
     spaced(g, fc, right - spacedWidth(g, fc, 2.6), 50 + logoH / 2, 2.6);
