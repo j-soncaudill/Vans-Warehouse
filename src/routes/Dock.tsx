@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { ClipboardList, PackageCheck, X } from "lucide-react";
 import { PhotoViewer } from "@/components/PhotoCamera";
 import { PhotoField } from "@/components/PhotoField";
-import { PmPicker } from "@/components/VendorPicker";
+import { NamePicker } from "@/components/VendorPicker";
 import { DrawCheck } from "@/components/motion";
 import { Button, Confirm, Field, btn, errorText, toast, useOnline } from "@/components/ui";
 import { DOCK_NOTE_MAX, closeDockReceipt, listWaitingDock, logDockReceipt, type DockReceipt } from "@/lib/dock";
@@ -13,12 +13,12 @@ import { useIsAdmin } from "@/lib/role";
 import { ago } from "@/lib/time";
 
 /**
- * Log a dock receipt: a delivery that came in with no admin around. PM, box
+ * Log a dock receipt: a delivery that came in with no admin around. Name, box
  * photo, packing slip photo and an optional note. An admin receives it later.
  */
 export function DockLogForm() {
   const online = useOnline();
-  const [pm, setPm] = useState("");
+  const [name, setName] = useState("");
   const [box, setBox] = useState<CapturedPhoto | null>(null);
   const [slip, setSlip] = useState<CapturedPhoto | null>(null);
   const [note, setNote] = useState("");
@@ -26,10 +26,10 @@ export function DockLogForm() {
   const [done, setDone] = useState(false);
 
   async function submit() {
-    if (!pm.trim() || !box || !slip) return;
+    if (!name.trim() || !box || !slip) return;
     setBusy(true);
     try {
-      await logDockReceipt({ pm, note, box, slip });
+      await logDockReceipt({ loggedBy: name, note, box, slip });
       notifyChanged();
       setDone(true);
       window.scrollTo(0, 0);
@@ -67,8 +67,8 @@ export function DockLogForm() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Field label="PM" htmlFor="dock-pm">
-        <PmPicker id="dock-pm" value={pm} onChange={setPm} />
+      <Field label="Your name" htmlFor="dock-name">
+        <NamePicker id="dock-name" value={name} onChange={setName} />
       </Field>
       <PhotoField kind="box" label="package photo" photo={box} onChange={setBox} />
       <PhotoField kind="slip" photo={slip} onChange={setSlip} />
@@ -82,7 +82,7 @@ export function DockLogForm() {
         />
       </Field>
       {!online ? <p className="text-[13px] text-danger">No signal.</p> : null}
-      <Button big variant="primary" disabled={!pm.trim() || !box || !slip || busy || !online} onClick={() => void submit()}>
+      <Button big variant="primary" disabled={!name.trim() || !box || !slip || busy || !online} onClick={() => void submit()}>
         {busy ? "Saving…" : "Save dock receipt"}
       </Button>
     </div>
@@ -166,10 +166,7 @@ function DockCard({ r }: { r: DockReceipt }) {
           );
         })}
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <span className="text-[15px] font-semibold text-ink">
-            <span className="mr-1.5 font-mono text-[11px] font-normal text-faint lowercase">pm</span>
-            {r.pm}
-          </span>
+          <span className="text-[15px] font-semibold text-ink">{r.loggedBy}</span>
           <span className="text-[13px] text-dim">{ago(r.createdAt)}</span>
           {r.note ? <p className="m-0 line-clamp-3 text-[13px] leading-snug text-ink">“{r.note}”</p> : null}
         </div>

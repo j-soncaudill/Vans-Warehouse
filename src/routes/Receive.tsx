@@ -64,7 +64,7 @@ export function ReceivePage({ code: incoming, dock }: { code?: string; dock?: nu
         setValues((v) =>
           v.notes.includes("Dock receipt")
             ? v
-            : { ...v, pm: v.pm || r.pm, packingSlip: "yes", notes: [v.notes.trim(), extra].filter(Boolean).join("\n") },
+            : { ...v, receivedBy: v.receivedBy || r.loggedBy, packingSlip: "yes", notes: [v.notes.trim(), extra].filter(Boolean).join("\n") },
         );
         const { box, slip } = await dockPhotos(r);
         if (!alive) return;
@@ -206,7 +206,7 @@ export function ReceivePage({ code: incoming, dock }: { code?: string; dock?: nu
         <>
           {fromDock ? (
             <p className="-mt-1 mb-4 flex items-center gap-2 text-[14px] text-dim">
-              <ClipboardList className="size-4 shrink-0 text-cyan" /> From dock receipt · {fromDock.pm}
+              <ClipboardList className="size-4 shrink-0 text-cyan" /> From dock receipt · {fromDock.loggedBy}
             </p>
           ) : null}
           <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-6">

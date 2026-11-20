@@ -7,13 +7,13 @@
 
 begin;
 
--- A delivery logged while no admin was around to receive it: the PM it's
--- for, a photo of the box, a photo of the packing slip and an optional note.
+-- A delivery logged while no admin was around to receive it: who logged
+-- it, a photo of the box, a photo of the packing slip and an optional note.
 -- An admin later receives it properly (it becomes a box on the floor) or
 -- closes it. Photos live in package-photos/dock/<key>/.
 create table if not exists public.dock_receipts (
   id              bigint generated always as identity primary key,
-  pm              text not null check (char_length(btrim(pm)) between 1 and 80),
+  logged_by       text not null check (char_length(btrim(logged_by)) between 1 and 80),
   note            text check (note is null or char_length(note) <= 500),
   photo_path      text not null,
   thumb_path      text not null,

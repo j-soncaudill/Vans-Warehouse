@@ -84,3 +84,8 @@ export function VendorPicker(props: PickerProps) {
 export function PmPicker(props: PickerProps) {
   return <ChoicePicker {...props} options={PMS} placeholder="Choose PM" otherLabel="PM name" max={120} />;
 }
+
+/** The same names, for who is logging a dock receipt. */
+export function NamePicker(props: PickerProps) {
+  return <ChoicePicker {...props} options={PMS} placeholder="Choose name" otherLabel="Name" max={80} />;
+}
