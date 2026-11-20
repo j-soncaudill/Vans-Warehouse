@@ -12,7 +12,8 @@ const rows: Row[] = [];
 const moves: Row[] = [];
 const returns: Row[] = [];
 const employees: Row[] = [];
-const TABLES: Record<string, Row[]> = { packages: rows, package_moves: moves, returns, employees };
+const dockReceipts: Row[] = [];
+const TABLES: Record<string, Row[]> = { packages: rows, package_moves: moves, returns, employees, dock_receipts: dockReceipts };
 /** Tables whose rows are unique by code. */
 const BY_CODE = new Set(["packages", "returns"]);
 const files = new Map<string, Blob>();
@@ -83,6 +84,8 @@ function makeOther(table: string, item: Record<string, unknown>): Row {
   const now = new Date().toISOString();
   if (table === "package_moves") return { id: nextId++, from_location: null, moved_by: null, moved_at: now, ...item } as unknown as Row;
   if (table === "employees") return { id: nextId++, role: "crew", created_at: now, ...item } as unknown as Row;
+  if (table === "dock_receipts")
+    return { id: nextId++, note: null, status: "waiting", package_code: null, closed_at: null, created_at: now, ...item } as unknown as Row;
   return {
     id: nextId++, status: "open", returned_by: null, vendor: null, job_name: null, notes: null, photo_path: null, thumb_path: null,
     created_at: now, updated_at: now, closed_at: null, closed_by: null, close_note: null,

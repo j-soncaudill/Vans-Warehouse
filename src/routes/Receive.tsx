@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Camera, FileText, ScanLine, Trash2 } from "lucide-react";
+import { Camera, ClipboardList, FileText, ScanLine, Trash2 } from "lucide-react";
 import { PackageForm } from "@/components/PackageForm";
 import { PhotoCamera } from "@/components/PhotoCamera";
 import { Scanner } from "@/components/Scanner";
@@ -9,6 +9,7 @@ import { PageTitle } from "@/components/Shell";
 import { StickerButtons, StickerPreview } from "@/components/Sticker";
 import { Button, btn, cx, errorText, toast } from "@/components/ui";
 import { CODE_PREFIX, normalizeCode } from "@/lib/codes";
+import { dockNoteForBox, dockPhotos, getDockReceipt, markDockReceived, type DockReceipt } from "@/lib/dock";
 import { emptyForm, type FormValues } from "@/lib/form";
 import { notifyChanged } from "@/lib/live";
 import { receivePackage, type Pkg } from "@/lib/packages";
@@ -34,7 +35,8 @@ function saveForm(v: FormValues | null) {
   }
 }
 
-export function ReceivePage({ code: incoming }: { code?: string }) {
+/** `dock`: receiving a dock receipt. Its photos and note fill in the form, and saving marks it received. */
+export function ReceivePage({ code: incoming, dock }: { code?: string; dock?: number }) {
   const navigate = useNavigate();
   const [values, setValues] = useState<FormValues>(loadForm);
   const [mode, setMode] = useState<"new" | "existing">(incoming ? "existing" : "new");
@@ -45,6 +47,41 @@ export function ReceivePage({ code: incoming }: { code?: string }) {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<{ pkg: Pkg; warnings: string[] } | null>(null);
   const jobRef = useRef<HTMLDivElement>(null);
+  const [fromDock, setFromDock] = useState<DockReceipt | null>(null);
+
+  useEffect(() => {
+    if (!dock) return;
+    let alive = true;
+    void (async () => {
+      try {
+        const r = await getDockReceipt(dock);
+        if (!alive) return;
+        if (!r || r.status !== "waiting") {
+          toast(r ? "That dock receipt was already handled." : "That dock receipt is gone.", "error");
+          return;
+        }
+        setFromDock(r);
+        const extra = dockNoteForBox(r);
+        setValues((v) => (v.notes.includes("Dock receipt:") ? v : { ...v, packingSlip: "yes", notes: [v.notes.trim(), extra].filter(Boolean).join("\n") }));
+        const { box, slip } = await dockPhotos(r);
+        if (!alive) return;
+        if (box) {
+          setPhoto(box);
+          void savePhotoDraft(box);
+        }
+        if (slip) {
+          setSlip(slip);
+          void savePhotoDraft(slip, "slip");
+        }
+        if (!box || !slip) toast("Couldn't load the dock photos. Take them again if you need them.", "error");
+      } catch (err) {
+        if (alive) toast(errorText(err, "Could not load the dock receipt."), "error");
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [dock]);
 
   useEffect(() => {
     if (incoming) {
@@ -75,6 +112,12 @@ export function ReceivePage({ code: incoming }: { code?: string }) {
     setBusy(true);
     try {
       const result = await receivePackage(values, mode === "existing" ? existing : null, photo, slip);
+      if (fromDock) {
+        await markDockReceived(fromDock.id, result.pkg.code).catch(() =>
+          toast("Saved, but the dock receipt is still listed. Close it from the floor list.", "error"),
+        );
+        setFromDock(null);
+      }
       notifyChanged();
       saveForm(null);
       await savePhotoDraft(null);
@@ -133,6 +176,14 @@ export function ReceivePage({ code: incoming }: { code?: string }) {
   return (
     <>
       <PageTitle>New delivery</PageTitle>
+      {fromDock ? (
+        <p className="-mt-2 mb-4 flex items-start gap-2 rounded-[12px] border border-cyan/35 bg-cyan/[0.06] px-3 py-2.5 text-[14px] text-dim">
+          <ClipboardList className="mt-0.5 size-4 shrink-0 text-cyan" />
+          <span>
+            Receiving the dock receipt {fromDock.loggedBy} logged. Their photos and note are filled in below.
+          </span>
+        </p>
+      ) : null}
       <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-6">
         <section aria-label="Barcode" className="flex flex-col gap-2.5">
           <span className="section-label">barcode</span>

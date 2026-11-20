@@ -12,6 +12,7 @@ import { Gate } from "@/components/Gate";
 import { Shell } from "@/components/Shell";
 import { Toaster } from "@/components/ui";
 import { DetailPage } from "@/routes/Detail";
+import { DockPage } from "@/routes/Dock";
 import { FloorPage, OutPage } from "@/routes/Lists";
 import { MorePage } from "@/routes/More";
 import { ReceivePage } from "@/routes/Receive";
@@ -92,14 +93,18 @@ const scanRoute = createRoute({ getParentRoute: () => rootRoute, path: "/scan", 
 const batchRoute = createRoute({ getParentRoute: () => rootRoute, path: "/scan/batch", component: BatchScanPage });
 const reportsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/reports", component: ReportsPage });
 const moreRoute = createRoute({ getParentRoute: () => rootRoute, path: "/more", component: MorePage });
+const dockRoute = createRoute({ getParentRoute: () => rootRoute, path: "/dock", component: DockPage });
 
 const receiveRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/receive",
-  validateSearch: (s: Record<string, unknown>): { code?: string } => (typeof s.code === "string" && s.code ? { code: s.code } : {}),
+  validateSearch: (s: Record<string, unknown>): { code?: string; dock?: number } => ({
+    ...(typeof s.code === "string" && s.code ? { code: s.code } : {}),
+    ...(Number.isInteger(Number(s.dock)) && Number(s.dock) > 0 ? { dock: Number(s.dock) } : {}),
+  }),
   component: function Receive() {
-    const { code } = receiveRoute.useSearch();
-    return <ReceivePage key={code ?? ""} code={code} />;
+    const { code, dock } = receiveRoute.useSearch();
+    return <ReceivePage key={`${code ?? ""}:${dock ?? ""}`} code={code} dock={dock} />;
   },
 });
 
@@ -124,7 +129,7 @@ const returnDetailRoute = createRoute({
 });
 
 const router = createRouter({
-  routeTree: rootRoute.addChildren([floorRoute, outRoute, scanRoute, batchRoute, reportsRoute, receiveRoute, detailRoute, moreRoute, returnsRoute, returnNewRoute, returnDetailRoute]),
+  routeTree: rootRoute.addChildren([floorRoute, outRoute, scanRoute, batchRoute, reportsRoute, receiveRoute, detailRoute, moreRoute, dockRoute, returnsRoute, returnNewRoute, returnDetailRoute]),
   scrollRestoration: true,
   // The demo runs inside a claude.ai frame where only the hash is ours.
   ...(IS_DEMO ? { history: createHashHistory() } : {}),

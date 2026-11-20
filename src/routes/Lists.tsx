@@ -4,6 +4,7 @@ import { ChevronDown, History, ListChecks, MapPin, PackagePlus, X } from "lucide
 import { BatchCheckoutSheet } from "@/components/BatchCheckout";
 import { PackageCard } from "@/components/Package";
 import { PageTitle } from "@/components/Shell";
+import { DockWaiting } from "@/routes/Dock";
 import { Button, btn, cx } from "@/components/ui";
 import { COLOR_HEX, COLOR_TAGS } from "@/lib/form";
 import { useLiveQuery } from "@/lib/live";
@@ -93,6 +94,7 @@ function PackageList({ status }: { status: PkgStatus }) {
   return (
     <>
       <PageTitle count={data ? all.length : undefined}>{floor ? "On floor" : "Checked out"}</PageTitle>
+      {floor ? <DockWaiting /> : null}
       {floor && all.length > 0 ? (
         <div className="-mt-2 mb-3 flex items-center justify-end gap-2">
           {picked ? (
