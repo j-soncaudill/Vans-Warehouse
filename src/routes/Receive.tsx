@@ -1,19 +1,18 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Camera, ClipboardList, FileText, ScanLine, Trash2 } from "lucide-react";
+import { ClipboardList } from "lucide-react";
 import { PackageForm } from "@/components/PackageForm";
-import { PhotoCamera } from "@/components/PhotoCamera";
-import { Scanner } from "@/components/Scanner";
+import { PhotoField } from "@/components/PhotoField";
 import { Decode, DrawCheck } from "@/components/motion";
-import { PageTitle } from "@/components/Shell";
 import { StickerButtons, StickerPreview } from "@/components/Sticker";
 import { Button, btn, cx, errorText, toast } from "@/components/ui";
-import { CODE_PREFIX, normalizeCode } from "@/lib/codes";
+import { normalizeCode } from "@/lib/codes";
+import { DockLogForm } from "@/routes/Dock";
 import { dockNoteForBox, dockPhotos, getDockReceipt, markDockReceived, type DockReceipt } from "@/lib/dock";
 import { emptyForm, type FormValues } from "@/lib/form";
 import { notifyChanged } from "@/lib/live";
 import { receivePackage, type Pkg } from "@/lib/packages";
-import { loadPhotoDraft, savePhotoDraft, type CapturedPhoto, type PhotoKind } from "@/lib/photo";
+import { loadPhotoDraft, savePhotoDraft, type CapturedPhoto } from "@/lib/photo";
 
 const FORM_KEY = "vw.receive.form";
 
@@ -43,8 +42,8 @@ export function ReceivePage({ code: incoming, dock }: { code?: string; dock?: nu
   const [existing, setExisting] = useState(incoming ? normalizeCode(incoming) : "");
   const [photo, setPhoto] = useState<CapturedPhoto | null>(() => loadPhotoDraft());
   const [slip, setSlip] = useState<CapturedPhoto | null>(() => loadPhotoDraft("slip"));
-  const [scanner, setScanner] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [tab, setTab] = useState<"new" | "dock">("new");
   const [done, setDone] = useState<{ pkg: Pkg; warnings: string[] } | null>(null);
   const jobRef = useRef<HTMLDivElement>(null);
   const [fromDock, setFromDock] = useState<DockReceipt | null>(null);
@@ -62,7 +61,11 @@ export function ReceivePage({ code: incoming, dock }: { code?: string; dock?: nu
         }
         setFromDock(r);
         const extra = dockNoteForBox(r);
-        setValues((v) => (v.notes.includes("Dock receipt:") ? v : { ...v, packingSlip: "yes", notes: [v.notes.trim(), extra].filter(Boolean).join("\n") }));
+        setValues((v) =>
+          v.notes.includes("Dock receipt")
+            ? v
+            : { ...v, pm: v.pm || r.pm, packingSlip: "yes", notes: [v.notes.trim(), extra].filter(Boolean).join("\n") },
+        );
         const { box, slip } = await dockPhotos(r);
         if (!alive) return;
         if (box) {
@@ -106,7 +109,7 @@ export function ReceivePage({ code: incoming, dock }: { code?: string; dock?: nu
       return;
     }
     if (mode === "existing" && !existing.trim()) {
-      toast("Scan or type the code on the box, or switch to a new code.", "error");
+      toast("No code on this box. Use a new code.", "error");
       return;
     }
     setBusy(true);
@@ -175,148 +178,67 @@ export function ReceivePage({ code: incoming, dock }: { code?: string; dock?: nu
 
   return (
     <>
-      <PageTitle>New delivery</PageTitle>
-      {fromDock ? (
-        <p className="-mt-2 mb-4 flex items-start gap-2 rounded-[12px] border border-cyan/35 bg-cyan/[0.06] px-3 py-2.5 text-[14px] text-dim">
-          <ClipboardList className="mt-0.5 size-4 shrink-0 text-cyan" />
-          <span>
-            Receiving the dock receipt {fromDock.loggedBy} logged. Their photos and note are filled in below.
-          </span>
-        </p>
-      ) : null}
-      <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-6">
-        <section aria-label="Barcode" className="flex flex-col gap-2.5">
-          <span className="section-label">barcode</span>
-          <div role="radiogroup" className="grid grid-cols-2 gap-2">
-            {(
-              [
-                ["new", `New ${CODE_PREFIX} code`],
-                ["existing", "Code on the box"],
-              ] as const
-            ).map(([m, text]) => (
-              <button
-                key={m}
-                type="button"
-                role="radio"
-                aria-checked={mode === m}
-                onClick={() => setMode(m)}
-                className={cx(
-                  "vw-press min-h-12 rounded-[var(--radius-box)] border px-2 text-[13px] leading-tight",
-                  mode === m ? "border-cyan bg-cyan/10 text-cyan" : "border-line bg-panel text-dim active:bg-raised",
-                )}
-              >
-                {text}
-              </button>
-            ))}
-          </div>
-          {mode === "new" ? null : (
-            <div className="flex gap-2">
-              <label htmlFor="existing-code" className="sr-only">
-                Code on the box
-              </label>
-              <input
-                id="existing-code"
-                className="field code min-w-0 flex-1 text-[17px] text-cyan uppercase"
-                autoComplete="off"
-                autoCapitalize="characters"
-                autoCorrect="off"
-                spellCheck={false}
-                placeholder="Scan or type"
-                value={existing}
-                onChange={(e) => setExisting(e.target.value)}
-                onKeyDown={(e) => {
-                  // A wedge scanner ends with Enter: go to Job instead of submitting.
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    setExisting(normalizeCode(e.currentTarget.value));
-                    focusJob();
-                  }
-                }}
-              />
-              <button
-                type="button"
-                aria-label="Scan the code with the camera"
-                onClick={() => setScanner(true)}
-                className="grad-cyan flex size-12 shrink-0 items-center justify-center rounded-[var(--radius-box)] text-cyan-ink"
-              >
-                <ScanLine className="size-5" strokeWidth={2.5} />
-              </button>
-            </div>
-          )}
-        </section>
-
-        <div ref={jobRef}>
-          <PackageForm values={values} onChange={patch} withLocation />
-        </div>
-
-        <PhotoField kind="box" photo={photo} onChange={setPhoto} />
-        <PhotoField kind="slip" photo={slip} onChange={setSlip} />
-
-        <Button big variant="primary" type="submit" disabled={busy || !values.location.trim()}>
-          {busy ? "Saving…" : "Receive to floor"}
-        </Button>
-      </form>
-
-      {scanner ? (
-        <Scanner
-          title="Scan code on box"
-          onClose={() => setScanner(false)}
-          onScan={(c) => {
-            setScanner(false);
-            setExisting(c);
-            setTimeout(focusJob, 50);
-          }}
-        />
-      ) : null}
-    </>
-  );
-}
-
-/** Box photo or packing slip photo: take, retake, remove. Kept as a draft until saved. */
-function PhotoField({ kind, photo, onChange }: { kind: PhotoKind; photo: CapturedPhoto | null; onChange: (p: CapturedPhoto | null) => void }) {
-  const [camera, setCamera] = useState(false);
-  const [preview, setPreview] = useState<string | null>(null);
-  const slip = kind === "slip";
-  useEffect(() => {
-    if (!photo) return setPreview(null);
-    const url = URL.createObjectURL(photo.thumb);
-    setPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [photo]);
-  const set = (p: CapturedPhoto | null) => {
-    onChange(p);
-    void savePhotoDraft(p, kind);
-  };
-  return (
-    <section aria-label={slip ? "Packing slip photo" : "Box photo"} className="flex flex-col gap-2.5">
-      <span className="section-label">{slip ? "packing slip photo" : "box photo"}</span>
-      {preview ? (
-        <div className="flex items-center gap-3">
-          <img src={preview} alt={slip ? "Packing slip photo" : "Box photo"} className="size-24 rounded-[8px] border border-line object-cover" />
-          <div className="flex flex-1 flex-col gap-2">
-            <Button onClick={() => setCamera(true)}>
-              <Camera className="size-[18px]" /> {slip ? "Retake slip" : "Retake"}
-            </Button>
-            <Button variant="ghost" onClick={() => set(null)}>
-              <Trash2 className="size-[18px]" /> {slip ? "Remove slip" : "Remove"}
-            </Button>
-          </div>
-        </div>
+      <div role="tablist" aria-label="What are you logging?" className="mb-5 grid grid-cols-2 gap-1 rounded-[14px] border border-line bg-panel p-1">
+        {(
+          [
+            ["new", "New delivery"],
+            ["dock", "Dock receipt"],
+          ] as const
+        ).map(([t, text]) => (
+          <button
+            key={t}
+            type="button"
+            role="tab"
+            aria-selected={tab === t}
+            onClick={() => setTab(t)}
+            className={cx(
+              "vw-press min-h-12 rounded-[10px] text-[16px] font-semibold",
+              tab === t ? "grad-cyan text-cyan-ink" : "text-dim active:bg-raised",
+            )}
+          >
+            {text}
+          </button>
+        ))}
+      </div>
+      {tab === "dock" ? (
+        <DockLogForm />
       ) : (
-        <Button onClick={() => setCamera(true)}>
-          {slip ? <FileText className="size-[18px]" /> : <Camera className="size-[18px]" />} {slip ? "Photo of packing slip" : "Open camera"}
-        </Button>
+        <>
+          {fromDock ? (
+            <p className="-mt-1 mb-4 flex items-center gap-2 text-[14px] text-dim">
+              <ClipboardList className="size-4 shrink-0 text-cyan" /> From dock receipt · {fromDock.pm}
+            </p>
+          ) : null}
+          <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-6">
+            {mode === "existing" && existing ? (
+              <div className="-mb-2 flex items-center justify-between gap-3 rounded-[var(--radius-box)] border border-line bg-panel px-3.5 py-2.5">
+                <span className="code text-[16px] text-cyan">{existing}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode("new");
+                    setExisting("");
+                  }}
+                  className="vw-press font-mono text-[13px] text-dim lowercase"
+                >
+                  use new code
+                </button>
+              </div>
+            ) : null}
+
+            <div ref={jobRef}>
+              <PackageForm values={values} onChange={patch} withLocation />
+            </div>
+
+            <PhotoField draft kind="box" photo={photo} onChange={setPhoto} />
+            <PhotoField draft kind="slip" photo={slip} onChange={setSlip} />
+
+            <Button big variant="primary" type="submit" disabled={busy || !values.location.trim()}>
+              {busy ? "Saving…" : "Receive to floor"}
+            </Button>
+          </form>
+        </>
       )}
-      {camera ? (
-        <PhotoCamera
-          kind={kind}
-          onClose={() => setCamera(false)}
-          onUse={(p) => {
-            set(p);
-            setCamera(false);
-          }}
-        />
-      ) : null}
-    </section>
+    </>
   );
 }

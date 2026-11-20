@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { HardHat, Lock, ShieldCheck, Truck } from "lucide-react";
+import { HardHat, Lock, ShieldCheck } from "lucide-react";
 import { Brand } from "@/components/Shell";
 import { BackButton, Button, cx } from "@/components/ui";
 import { chooseField, currentRole, lock, unlock, type Role } from "@/lib/pin";
@@ -11,7 +11,6 @@ import schemaSql from "../../supabase/schema.sql?raw";
 import { neededUpgrades, upgradeSql } from "@/lib/upgrades";
 import { isStationMode, setStationMode } from "@/lib/station";
 import { StationScreen } from "@/routes/Station";
-import { DockLogForm } from "@/routes/Dock";
 
 function Screen({ children }: { children: ReactNode }) {
   return (
@@ -69,8 +68,6 @@ export function Gate({ children }: { children: ReactNode }) {
   const [schema, setSchema] = useState<SchemaState | "checking">("checking");
   const [role, setRole] = useState<Role | null | undefined>(undefined);
   const [askPin, setAskPin] = useState(false);
-  // Office phones log dock receipts with no role at all: the badge says who.
-  const [dock, setDock] = useState(false);
   const [station, setStation] = useState(isStationMode);
   const [freshAdmin, setFreshAdmin] = useState(false);
   const doneFreshAdmin = useCallback(() => setFreshAdmin(false), []);
@@ -202,31 +199,9 @@ export function Gate({ children }: { children: ReactNode }) {
     );
   }
 
-  if (dock) {
-    return (
-      <Screen>
-        <div className="-mt-4 mb-4">
-          <BackButton onClick={() => setDock(false)} />
-        </div>
-        <DockLogForm onExit={() => setDock(false)} />
-      </Screen>
-    );
-  }
-
   if (!askPin) {
     return (
       <Screen>
-        <button
-          type="button"
-          onClick={() => setDock(true)}
-          className="vw-press grad-cyan mb-8 flex min-h-24 items-center gap-4 rounded-[16px] px-5 text-left text-cyan-ink shadow-[0_10px_28px_rgb(45_174_196/0.28)]"
-        >
-          <Truck className="size-9 shrink-0" strokeWidth={2} />
-          <span className="flex flex-col gap-0.5">
-            <span className="font-sans text-[22px] font-bold">Log a delivery</span>
-            <span className="text-[13px] font-medium opacity-80">No admin around? Scan your badge and snap two photos.</span>
-          </span>
-        </button>
         <h1 className="m-0 text-[30px] font-semibold tracking-[-0.03em]">
           <span className="grad-title">Who's using this phone?</span>
         </h1>

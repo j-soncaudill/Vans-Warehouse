@@ -12,22 +12,21 @@ const thisMonth = () => new Date().toISOString().slice(0, 7);
 /** "Legacy box": here before Floorcast. Its arrival month is a guess, and optional. */
 function LegacySwitch({ values, onChange }: { values: FormValues; onChange: (patch: Partial<FormValues>) => void }) {
   return (
-    <div className={cx("flex flex-col gap-3 rounded-[var(--radius-box)] border px-3.5 py-3", values.legacy ? "border-amber/60 bg-amber/10" : "border-line bg-panel")}>
+    <div className="-mb-1 flex flex-col gap-3">
       <button
         id="f-legacy"
         type="button"
         role="switch"
         aria-checked={values.legacy}
+        aria-label="Legacy box, here before Floorcast"
         onClick={() => onChange({ legacy: !values.legacy, ...(values.legacy ? { legacyMonth: "" } : {}) })}
-        className="vw-press flex items-center gap-3 text-left"
+        className={cx(
+          "vw-press inline-flex h-8 items-center gap-2 self-start rounded-full border px-3 font-mono text-[12px] lowercase",
+          values.legacy ? "border-amber bg-amber/15 text-amber" : "border-line bg-panel text-dim",
+        )}
       >
-        <span className="flex min-w-0 flex-1 flex-col">
-          <span className="text-[15px] text-ink">Legacy box</span>
-          <span className="text-[12px] text-dim">Here before Floorcast</span>
-        </span>
-        <span aria-hidden className={cx("relative h-7 w-12 shrink-0 rounded-full border transition-colors", values.legacy ? "border-amber bg-amber" : "border-line bg-raised")}>
-          <span className={cx("absolute top-[3px] size-5 rounded-full bg-white shadow transition-[left]", values.legacy ? "left-[23px]" : "left-[3px]")} />
-        </span>
+        <span aria-hidden className={cx("size-2 rounded-full", values.legacy ? "bg-amber" : "bg-faint")} />
+        legacy box
       </button>
       {values.legacy ? (
         <Field label="About when did it arrive?" htmlFor="f-legacy-month" hint="optional">
@@ -39,7 +38,6 @@ function LegacySwitch({ values, onChange }: { values: FormValues; onChange: (pat
             value={values.legacyMonth}
             onChange={(e) => onChange({ legacyMonth: e.target.value })}
           />
-          <span className="mt-1 block text-[12px] text-faint">Blank = date unknown</span>
         </Field>
       ) : null}
     </div>
